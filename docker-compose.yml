@@ -7,8 +7,6 @@ x-common-django:
   env_file:
     - .env
   volumes:
-    # - ./templates:/usr/src/sigic_geonode/sigic_geonode/templates
-    # - ./templatetags:/usr/src/sigic_geonode/sigic_geonode/templatetags
     - statics:/mnt/volumes/statics
     - geoserver-data-dir:/geoserver_data/data
     - backup-restore:/backup_restore

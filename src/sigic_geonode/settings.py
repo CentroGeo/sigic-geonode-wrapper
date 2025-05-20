@@ -189,10 +189,6 @@ SOCIALACCOUNT_PROVIDERS={
     }
 }
 
-# INSTALLED_APPS += (
-#     'allauth.socialaccount.providers.keycloak',
-# )
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.BasicAuthentication",

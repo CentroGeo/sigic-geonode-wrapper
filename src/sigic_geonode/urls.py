@@ -22,15 +22,6 @@ from geonode.urls import urlpatterns
 from django.urls import re_path
 from sigic_geonode.upload.views import SigicImporterViewSet
 
-"""
-# You can register your own urlpatterns here
-urlpatterns = [
-    url(r'^/?$',
-        homepage,
-        name='home'),
- ] + urlpatterns
-"""
-
 urlpatterns = [
     re_path(
         r"uploads/upload",
