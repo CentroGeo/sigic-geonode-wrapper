@@ -1,4 +1,4 @@
--e git+https://github.com/sigic25/sigic-geonode-mapstore-client.git@sigic.4.4.x#egg=django_geonode_mapstore_client
--e git+https://github.com/GeoNode/geonode-importer.git@1.1.x#egg=geonode-importer
+-e git+https://github.com/sigic25/geonode-mapstore-client.git@sigic.4.4.x#egg=django_geonode_mapstore_client
+-e git+https://github.com/sigic25/geonode-importer.git@1.1.x#egg=geonode-importer
 -e git+https://github.com/GeoNode/geonode.git@4.4.x#egg=GeoNode
 python-jose
