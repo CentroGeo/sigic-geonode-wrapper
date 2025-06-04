@@ -1,7 +1,5 @@
-
 # Common Django template for GeoNode and Celery services below
-x-common-django:
-  &default-common-django
+x-common-django: &default-common-django
   image: ${COMPOSE_PROJECT_NAME}/geonode:${GEONODE_BASE_IMAGE_VERSION}
   restart: unless-stopped
   env_file:
@@ -17,10 +15,9 @@ x-common-django:
       condition: service_healthy
 
 services:
-
   # Our custom django application. It includes Geonode.
   django:
-    << : *default-common-django
+    <<: *default-common-django
     build:
       context: ./
       dockerfile: Dockerfile
@@ -38,7 +35,7 @@ services:
 
   # Celery worker that executes celery tasks created by Django.
   celery:
-    << : *default-common-django
+    <<: *default-common-django
     container_name: celery4${COMPOSE_PROJECT_NAME}
     depends_on:
       django:
@@ -50,6 +47,7 @@ services:
 
   # Nginx is serving django static and media files and proxies to django and geonode
   geonode:
+    platform: linux/amd64
     image: ${COMPOSE_PROJECT_NAME}/nginx:${NGINX_BASE_IMAGE_VERSION}
     build:
       context: ./docker/nginx
@@ -85,6 +83,7 @@ services:
 
   # Gets and installs letsencrypt certificates
   letsencrypt:
+    platform: linux/amd64
     image: ${COMPOSE_PROJECT_NAME}/letsencrypt:${LETSENCRYPT_BASE_IMAGE_VERSION}
     build:
       context: ./docker/letsencrypt
@@ -100,6 +99,7 @@ services:
 
   # Geoserver backend
   geoserver:
+    platform: linux/amd64
     image: ${COMPOSE_PROJECT_NAME}/geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
     build:
       context: ./docker/geoserver
@@ -132,6 +132,7 @@ services:
 
   data-dir-conf:
     image: ${COMPOSE_PROJECT_NAME}/geoserver_data:${GEOSERVER_DATA_BASE_IMAGE_VERSION}
+    platform: linux/amd64
     build:
       context: ./docker/geoserver_data
       dockerfile: Dockerfile
@@ -147,6 +148,7 @@ services:
 
   # PostGIS database.
   db:
+    platform: linux/amd64
     image: ${COMPOSE_PROJECT_NAME}/postgis:${POSTGRES_BASE_IMAGE_VERSION}
     build:
       context: ./docker/postgresql
