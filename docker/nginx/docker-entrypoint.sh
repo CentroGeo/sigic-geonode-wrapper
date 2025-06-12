@@ -32,20 +32,34 @@ else
         ln -sf "/geonode-certificates/autoissued" /certificate_symlink
 fi
 
-if [ -z "${HTTPS_HOST}" ]; then
+# Use existing HTTP_SCHEME if already set, otherwise derive it
+if [ -z "${HTTP_SCHEME}" ]; then
+    if [ -z "${HTTPS_HOST}" ]; then
         HTTP_SCHEME="http"
-        if [ $HTTP_PORT = "80" ]; then
-                PUBLIC_HOST=${HTTP_HOST}
+        if [ "$HTTP_PORT" = "80" ]; then
+            PUBLIC_HOST="${HTTP_HOST}"
         else
-                PUBLIC_HOST="$HTTP_HOST:$HTTP_PORT"
+            PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT}"
         fi
-else
+    else
         HTTP_SCHEME="https"
-        if [ $HTTPS_PORT = "443" ]; then
-                PUBLIC_HOST=${HTTPS_HOST}
+        if [ "$HTTPS_PORT" = "443" ]; then
+            PUBLIC_HOST="${HTTPS_HOST}"
         else
-                PUBLIC_HOST="$HTTPS_HOST:$HTTPS_PORT"
+            PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT}"
         fi
+    fi
+else
+    # HTTP_SCHEME was defined externally
+    if [ "$HTTP_SCHEME" = "https" ]; then
+        if [ -z "${HTTPS_HOST}" ]; then
+            PUBLIC_HOST="${HTTP_HOST}:${HTTPS_PORT:-443}"
+        else
+            PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
+        fi
+    else
+        PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT:-80}"
+    fi
 fi
 
 export HTTP_SCHEME=${HTTP_SCHEME:-http}
