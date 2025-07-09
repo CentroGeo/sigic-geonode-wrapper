@@ -31,6 +31,11 @@ def run_setup_hooks(*args, **kwargs):
     if celeryapp not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS += (celeryapp,)
 
+def setup_sigic_hooks(*args, **kwargs):
+    import django.contrib.auth.decorators as auth_decorators
+    from sigic_geonode.auth.keycloak import jwt_or_session_login_required
+    auth_decorators.login_required = jwt_or_session_login_required
+
 
 class AppConfig(BaseAppConfig):
     name = "sigic_geonode"
@@ -39,3 +44,4 @@ class AppConfig(BaseAppConfig):
     def ready(self):
         super(AppConfig, self).ready()
         run_setup_hooks()
+        setup_sigic_hooks()

@@ -16,8 +16,8 @@ WORKDIR /usr/src/sigic_geonode
 
 COPY src/wait-for-databases.sh /usr/bin/wait-for-databases
 RUN chmod +x /usr/bin/wait-for-databases
-RUN chmod +x /usr/src/sigic_geonode/tasks.py \
-    && chmod +x /usr/src/sigic_geonode/entrypoint.sh
+RUN chmod +x /usr/src/sigic_geonode/tasks.py
+RUN chmod +x /usr/src/sigic_geonode/entrypoint.sh
 
 COPY src/celery.sh /usr/bin/celery-commands
 RUN chmod +x /usr/bin/celery-commands
@@ -25,12 +25,19 @@ RUN chmod +x /usr/bin/celery-commands
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
+ARG GITLAB_USER
+ARG GITLAB_USERPAT
+ENV GITLAB_USER=${GITLAB_USER}
+ENV GITLAB_USERPAT=${GITLAB_USERPAT}
+
+RUN envsubst < requirements.txt.template > requirements.txt
+
 RUN yes w | pip install --src /usr/src -r requirements.txt &&\
     yes w | pip install -e .
 
 # Cleanup apt update lists
-RUN apt-get autoremove --purge &&\
-    apt-get clean &&\
+RUN apt-get autoremove --purge && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Export ports

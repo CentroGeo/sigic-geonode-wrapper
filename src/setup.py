@@ -44,6 +44,6 @@ setup(
     keywords="sigic_geonode geonode django",
     url="https://github.com/sigic_geonode/sigic_geonode",
     packages=find_packages(),
-    dependency_links=["git+https://github.com/GeoNode/geonode.git#egg=geonode"],
+    dependency_links=["git+https://github.com/GeoNode/geonode.git@4.4.x#egg=GeoNode"],
     include_package_data=True,
 )

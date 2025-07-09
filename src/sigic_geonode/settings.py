@@ -57,7 +57,7 @@ WSGI_APPLICATION = "{}.wsgi.application".format(PROJECT_NAME)
 LANGUAGE_CODE = os.getenv("LANGUAGE_CODE", "en")
 
 if PROJECT_NAME not in INSTALLED_APPS:
-    INSTALLED_APPS += (PROJECT_NAME,)
+    INSTALLED_APPS = (PROJECT_NAME,) + INSTALLED_APPS
 
 # Location of url mappings
 ROOT_URLCONF = os.getenv("ROOT_URLCONF", "{}.urls".format(PROJECT_NAME))
@@ -163,6 +163,15 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # Add your specific LDAP configuration after this comment:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
+INSTALLED_APPS += (
+    "sigic_geonode.sigic",
+)
+
+MIDDLEWARE = [
+    'sigic_geonode.auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
+    for mw in MIDDLEWARE
+]
+
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
 SOCIALACCOUNT_OIDC_PROVIDER=os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
 SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.adapters.account_adapters.SigicOpenIDConnectAdapter")
@@ -181,10 +190,10 @@ SOCIALACCOUNT_PROVIDERS={
         "USER_FIELDS": {
             "username": "preferred_username"
         },
-        "ACCESS_TOKEN_URL": os.getenv("SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL", "https://iam.sigic.dev.cesarbenjamin.net/realms/sigic/protocol/openid-connect/token"),
-        "AUTHORIZE_URL": os.getenv("SOCIALACCOUNT_OIDC_AUTHORIZE_URL", "https://iam.sigic.dev.cesarbenjamin.net/realms/sigic/protocol/openid-connect/auth"),
-        "ID_TOKEN_ISSUER": os.getenv("SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER", "https://iam.sigic.dev.cesarbenjamin.net/realms/sigic"),
-        "PROFILE_URL": os.getenv("SOCIALACCOUNT_OIDC_PROFILE_URL", "https://iam.sigic.dev.cesarbenjamin.net/realms/sigic/protocol/openid-connect/userinfo"),
+        "ACCESS_TOKEN_URL": os.getenv("SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token"),
+        "AUTHORIZE_URL": os.getenv("SOCIALACCOUNT_OIDC_AUTHORIZE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth"),
+        "ID_TOKEN_ISSUER": os.getenv("SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER", "https://iam.dev.geoint.mx/realms/sigic"),
+        "PROFILE_URL": os.getenv("SOCIALACCOUNT_OIDC_PROFILE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo"),
         "OAUTH_PKCE_ENABLED": ast.literal_eval(os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True"))
     }
 }
