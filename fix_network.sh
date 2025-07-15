@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# This script is used to fix network issues by restarting the network service.
+# Este script se usa para corregir problemas con la red de nimbus por el MTU.
 
 sh set-netplan-mtu-safe.sh
 sh set-docker-mtu-safe.sh
