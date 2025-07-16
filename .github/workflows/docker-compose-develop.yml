@@ -42,6 +42,7 @@ jobs:
           docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }}
           docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}
 
+
   deploy:
     name: Deploy GeoNode Wrapper to dev server
     needs: build
@@ -51,6 +52,12 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Crear archivo .env desde secret
+        run: echo "${{ secrets.GEONODE_ENV_FILE_CONTENT }}" > .env
+
+      - name: Verificar .env (debug temporal)
+        run: cat .env
 
       - name: Set variables
         id: vars
@@ -70,15 +77,7 @@ jobs:
       - name: Docker Compose up
         run: |
           docker compose -f docker-compose-ghcr.yml down -v || true
-          docker compose -f docker-compose-ghcr.yml up -d --force-recreate
-        env:
-          KC_DB_USERNAME: ${{ secrets.KC_DB_USERNAME }}
-          KC_DB_PASSWORD: ${{ secrets.KC_DB_PASSWORD }}
-          KC_DB_URL_HOST: ${{ secrets.KC_DB_URL_HOST }}
-          KC_DB_URL_DATABASE: ${{ secrets.KC_DB_URL_DATABASE }}
-          KC_DB: ${{ vars.KC_DB }}
-          KC_HOSTNAME: ${{ vars.KC_HOSTNAME }}
-          KC_HOSTNAME_STRICT: ${{ vars.KC_HOSTNAME_STRICT }}
-          JAVA_OPTS: ${{ vars.JAVA_OPTS }}
-          VIRTUAL_HOST: ${{ vars.KC_HOSTNAME }}
-          VIRTUAL_PORT: "8080"
+          docker compose --env-file .env -f docker-compose-ghcr.yml up -d --force-recreate --remove-orphans
+
+      - name: Borrar .env
+        run: rm .env

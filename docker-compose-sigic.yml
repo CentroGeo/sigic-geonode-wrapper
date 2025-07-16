@@ -14,7 +14,6 @@ x-common-django:
     - tmp:/tmp
 
 services:
-
   # Our custom django application. It includes Geonode.
   django:
     << : *default-common-django
