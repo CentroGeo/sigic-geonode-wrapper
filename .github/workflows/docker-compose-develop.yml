@@ -26,7 +26,7 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-keycloak" >> $GITHUB_OUTPUT
+          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
@@ -35,7 +35,7 @@ jobs:
           docker build \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }} \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }} \
-            -f ./Dockerfile .
+            -f Dockerfile .
 
       - name: Push image
         run: |
@@ -56,7 +56,7 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-keycloak" >> $GITHUB_OUTPUT
+          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
