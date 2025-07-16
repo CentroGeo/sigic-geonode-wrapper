@@ -61,7 +61,6 @@ services:
       - "${HTTPS_PORT}:443"
     volumes:
       - nginx-confd:/etc/nginx
-      - nginx-certificates:/geonode-certificates
       - statics:/mnt/volumes/statics
     restart: unless-stopped
 
