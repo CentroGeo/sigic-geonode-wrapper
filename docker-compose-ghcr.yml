@@ -30,6 +30,8 @@ services:
       - IS_CELERY=False
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "uwsgi --ini /usr/src/sigic_geonode/uwsgi.ini"
+    networks:
+      - sigic-network
 
   # Celery worker that executes celery tasks created by Django.
   celery:
@@ -42,6 +44,8 @@ services:
       - IS_CELERY=True
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "celery-cmd"
+    networks:
+      - sigic-network
 
   # Nginx is serving django static and media files and proxies to django and geonode
   geonode:
@@ -63,6 +67,8 @@ services:
       - nginx-confd:/etc/nginx
       - statics:/mnt/volumes/statics
     restart: unless-stopped
+    networks:
+      - sigic-network
 
   # memcached service
   memcached:
@@ -76,6 +82,8 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+    networks:
+      - sigic-network
 
   # Geoserver backend
   geoserver:
@@ -108,6 +116,8 @@ services:
         condition: service_healthy
       django:
         condition: service_healthy
+    networks:
+      - sigic-network
 
   data-dir-conf:
     image: ${COMPOSE_PROJECT_NAME}/geoserver_data:${GEOSERVER_DATA_BASE_IMAGE_VERSION}
@@ -123,6 +133,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: "ls -A '/geoserver_data/data' | wc -l"
+    networks:
+      - sigic-network
 
   # Vanilla RabbitMQ service. This is needed by celery
   rabbitmq:
@@ -131,6 +143,8 @@ services:
     volumes:
       - rabbitmq:/var/lib/rabbitmq
     restart: unless-stopped
+    networks:
+      - sigic-network
 
 volumes:
   statics:
@@ -147,3 +161,7 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-tmp
   rabbitmq:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
+
+networks:
+  sigic-network:
+    external: true
