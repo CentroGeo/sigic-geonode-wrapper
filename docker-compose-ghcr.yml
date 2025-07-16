@@ -22,10 +22,10 @@ services:
     container_name: django4${COMPOSE_PROJECT_NAME}
     healthcheck:
       test: "curl -m 10 --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null http://django:8000/"
-      start_period: 60s
+      start_period: 120s
       interval: 60s
-      timeout: 10s
-      retries: 2
+      timeout: 30s
+      retries: 10
     environment:
       - IS_CELERY=False
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
@@ -91,7 +91,7 @@ services:
       start_period: 60s
       interval: 60s
       timeout: 10s
-      retries: 2
+      retries: 6
     env_file:
       - .env
     ports:
