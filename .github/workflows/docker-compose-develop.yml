@@ -35,7 +35,7 @@ jobs:
           docker build \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }} \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }} \
-            -f ./keycloak/Dockerfile ./keycloak
+            -f ./Dockerfile .
 
       - name: Push image
         run: |
