@@ -25,13 +25,6 @@ RUN chmod +x /usr/bin/celery-commands
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
-ARG GITLAB_USER
-ARG GITLAB_USERPAT
-ENV GITLAB_USER=${GITLAB_USER}
-ENV GITLAB_USERPAT=${GITLAB_USERPAT}
-
-RUN envsubst < requirements.txt.template > requirements.txt
-
 RUN yes w | pip install --src /usr/src -r requirements.txt &&\
     yes w | pip install -e .
 
