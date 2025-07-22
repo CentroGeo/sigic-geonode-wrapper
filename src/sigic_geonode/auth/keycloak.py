@@ -100,4 +100,3 @@ def jwt_or_session_login_required(function=None, redirect_field_name=REDIRECT_FI
         return check_auth(function)
 
     return check_auth
-
