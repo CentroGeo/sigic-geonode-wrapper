@@ -421,9 +421,9 @@ sudo systemctl restart docker
 Y/o recrea la red personalizada:
 
 ```bash
-docker network rm misc-network
+docker network rm sigic-network
 docker network create \
   --driver=bridge \
   --opt com.docker.network.driver.mtu=1360 \
-  misc-network
+  sigic-network
 ```

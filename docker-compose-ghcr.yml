@@ -1,7 +1,7 @@
 
 # Common Django template for GeoNode and Celery services below
 x-common-django: &default-common-django
-  image: ghcr.io/centrogeo/misc-geonode-wrapper:main
+  image: ghcr.io/centrogeo/sigic-geonode-wrapper:main
   restart: unless-stopped
   env_file:
     - .env
