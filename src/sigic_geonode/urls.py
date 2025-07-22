@@ -29,7 +29,7 @@ urlpatterns = [
         name="importer_upload",
     ),
     re_path(
-        r"api/v2/", include('sigic_geonode.sigic.urls')
+        r"api/v2/", include('sigic_geonode.misc.urls')
     ),
  ] + geonode_urlpatterns
 

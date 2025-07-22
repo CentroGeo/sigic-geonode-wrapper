@@ -209,7 +209,7 @@ En el archivo `.env`, configura las variables para que tengan las siguientes car
 
 ```
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED=True
-SOCIALACCOUNT_ADAPTER=sigic_geonode.adapters.account_adapters.SigicOpenIDConnectAdapter
+SOCIALACCOUNT_ADAPTER=sigic_geonode.auth.account_adapters.SigicOpenIDConnectAdapter
 SOCIALACCOUNT_PROVIDER_NAME=SIGICSSO
 
 SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL=https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token
@@ -421,9 +421,9 @@ sudo systemctl restart docker
 Y/o recrea la red personalizada:
 
 ```bash
-docker network rm sigic-network
+docker network rm misc-network
 docker network create \
   --driver=bridge \
   --opt com.docker.network.driver.mtu=1360 \
-  sigic-network
+  misc-network
 ```

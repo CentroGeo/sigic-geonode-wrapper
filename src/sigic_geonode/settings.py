@@ -164,7 +164,7 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
 INSTALLED_APPS += (
-    "sigic_geonode.sigic",
+    # "sigic_geonode.misc",  # esto de los links ya no va a ir dentro de geonode, debe ser un proyecto aparte
 )
 
 MIDDLEWARE = [
@@ -174,7 +174,7 @@ MIDDLEWARE = [
 
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
 SOCIALACCOUNT_OIDC_PROVIDER=os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
-SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.adapters.account_adapters.SigicOpenIDConnectAdapter")
+SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.auth.account_adapters.SigicOpenIDConnectAdapter")
 SOCIALACCOUNT_PROVIDER_NAME=os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICSSO")
 
 SOCIALACCOUNT_PROVIDERS={

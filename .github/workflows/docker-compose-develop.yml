@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build SIGIC GeoNode Wrapper image (develop)
-    runs-on: [self-hosted, build-develop, sigic-geonode-wrapper]
+    runs-on: [self-hosted, build-develop, misc-geonode-wrapper]
     environment: develop
 
     permissions:
@@ -46,7 +46,7 @@ jobs:
   deploy:
     name: Deploy GeoNode Wrapper to dev server
     needs: build
-    runs-on: [self-hosted, deploy-develop, sigic-geonode-wrapper]
+    runs-on: [self-hosted, deploy-develop, misc-geonode-wrapper]
     environment: develop
 
     steps:
