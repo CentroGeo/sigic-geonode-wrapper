@@ -21,9 +21,6 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-      args:
-        GITLAB_USER: ${GITLAB_USER}
-        GITLAB_USERPAT: ${GITLAB_USERPAT}
     container_name: django4${COMPOSE_PROJECT_NAME}
     healthcheck:
       test: "curl -m 10 --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null http://django:8000/"
