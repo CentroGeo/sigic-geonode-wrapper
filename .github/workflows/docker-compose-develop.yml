@@ -42,7 +42,6 @@ jobs:
           docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }}
           docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}
 
-
   deploy:
     name: Deploy GeoNode Wrapper to dev server
     needs: build
