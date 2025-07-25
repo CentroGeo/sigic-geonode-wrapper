@@ -4,5 +4,6 @@
 
 openpyxl
 python-jose
-
+xlsxwriter
+xlrd
 pandas
