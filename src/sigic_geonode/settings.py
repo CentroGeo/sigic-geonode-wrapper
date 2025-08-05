@@ -212,3 +212,9 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "geonode.base.api.exceptions.geonode_exception_handler",
 }
+
+SERVICES_TYPE_MODULES = [
+    "sigic_geonode.services.csv_service.CSVService",
+    "sigic_geonode.services.json_service.JSONService",
+]
+
