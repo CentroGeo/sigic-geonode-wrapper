@@ -218,7 +218,7 @@ HARVESTER_TYPES = {
 }
 
 SERVICES_TYPE_MODULES = [
-    "sigic_geonode.services.csv_service.CSVService",
+    "sigic_geonode.services.csv_service.CSVServiceInfo",
     "sigic_geonode.services.json_service.JSONService",
 ]
 
