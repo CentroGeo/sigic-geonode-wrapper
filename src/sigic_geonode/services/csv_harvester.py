@@ -39,7 +39,8 @@ class CSVHarvester(BaseHarvesterWorker):
         #return HarvestedResourceInfo
         download = self.http_session.get(harvestable_resource.unique_identifier)
 
-        if download.status_code == requests.codes.ok:
+        # if download.status_code != requests.codes.ok:
+            # return ""
 
         decoded_content = download.content.decode('utf-8')
         return csv.reader(decoded_content.splitlines(), delimiter=',')
