@@ -3,7 +3,7 @@ class CSVService():
         "CSV": {
             "OWS": False,
             "handler": "sigic_geonode.services.csv_handler.CSVServiceHandler",
-            "label": "CSV Test",
+            "label": "CSV Service",
             "management_view": "sigic_geonode.services.csv_view.CSVView"
         }
     }
