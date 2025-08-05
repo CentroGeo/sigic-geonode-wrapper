@@ -2,6 +2,7 @@ import logging
 
 from uuid import uuid4
 
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 
@@ -25,10 +26,9 @@ class CSVServiceHandler(base.ServiceHandlerBase):
         base.ServiceHandlerBase.__init__(self, url, geonode_service_id)
 
         self.indexing_method = enumerations.INDEXED
-        # self.name = slugify(self.url)[:255]
-        self.name = "TODO prueba nombre"
+        self.name = slugify(url)[:255]
         # self.title = str(_title).encode("utf-8", "ignore").decode("utf-8")
-        self.title = "TODO prueba titulo"
+        self.title = slugify(url)[:255]
 
     @property
     def parsed_service(self):
