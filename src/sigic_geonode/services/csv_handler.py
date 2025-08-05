@@ -3,11 +3,11 @@ import logging
 from uuid import uuid4
 
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction
 
 from geonode import GeoNodeException
 from geonode.harvesting.models import Harvester
-
-from .csv_service import CSVService
+from sigic_geonode.services.csv_harvester import CSVParser
 
 from geonode.services import models, enumerations
 from geonode.services.serviceprocessors import base
@@ -32,7 +32,7 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
     @property
     def parsed_service(self):
-        return CSVService(self.url)
+        return CSVParser(self.url)
 
     def probe(self):
         # TODO Logica para verificar que es un archivo válido
@@ -82,7 +82,7 @@ class CSVServiceHandler(base.ServiceHandlerBase):
                 scheduling_enabled=False,
                 remote_url=instance.service_url,
                 delete_orphan_resources_automatically=True,
-                harvester_type=enumerations.HARVESTER_TYPES[self.service_type],
+                harvester_type=self.get_harvester_type(),
                 harvester_type_specific_configuration=self.get_harvester_configuration_options(),
             )
 
@@ -97,8 +97,11 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
     def get_keywords(self):
         # TODO Tener lógica de palabras claves
-        return "TODO, prueba, palabras, clave"
+        return ["TODO", "prueba", "palabras", "clave"]
         # return self.parsed_service._json_struct.get("capabilities", "").split(",")
+
+    def get_harvester_type(self):
+        return "sigic_geonode.services.csv_harvester.CSVHarvester"
 
     def get_harvester_configuration_options(self):
         #TODO llenar según el harvester
