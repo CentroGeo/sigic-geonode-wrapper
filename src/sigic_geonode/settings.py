@@ -213,6 +213,10 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "geonode.base.api.exceptions.geonode_exception_handler",
 }
 
+HARVESTER_TYPES = {
+    "CSV": "sigic_geonode.services.csv_harvester.CSVHarvester",
+}
+
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.services.csv_service.CSVService",
     "sigic_geonode.services.json_service.JSONService",
