@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 from django.utils.text import slugify
 from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
-from geonode.base.models import ResourceBase
 from geonode.layers.models import Dataset
+from geonode.geoserver.manager import GeoServerResourceManager
+
+gs_resource_manager = GeoServerResourceManager()
 
 @dataclass()
 class CSVRemoteData:
@@ -30,6 +32,7 @@ class CSVHarvester(BaseHarvesterWorker):
         super().__init__(remote_url, harvester_id)
         self.name = slugify(remote_url)
         self.title = self.name
+        self.url = self.remote_url
         self.http_session = requests.Session()
 
     def allows_copying_resources(self):
@@ -51,14 +54,13 @@ class CSVHarvester(BaseHarvesterWorker):
         # regresar lista de recursos
         return [
             CSVRemoteData(
-                unique_identifier = self.name,
+                unique_identifier = self.url,
                 title = self.title,
-                resource_type = "dataset",
+                resource_type = "CSV",
             )
         ]
 
     def check_availability(self, timeout_seconds = 5):
-        # TODO Llenar
         return True
 
     def get_resource(self, harvestable_resource: "HarvestableResource"):
@@ -85,12 +87,78 @@ class CSVHarvester(BaseHarvesterWorker):
             copied_resources=None,
         )
 
+    def update_geonode_resource(self, harvested_resource_info: CSVDataInfo, harvestable_resource: "HarvestableResource"):
+        defaults = self.get_geonode_resource_defaults(harvested_resource_info, harvestable_resource)
+        geonode_resource = harvestable_resource.geonode_resource
+        if geonode_resource is None:
+            geonode_resource_type = self.get_geonode_resource_type(harvestable_resource.remote_resource_type)
+            geonode_resource = self._create_new_geonode_resource(geonode_resource_type, defaults)
+        elif not geonode_resource.uuid == str(harvested_resource_info.resource_descriptor.uuid):
+            raise RuntimeError(
+                f"""Recurso {geonode_resource!r} ya existe localmente pero su
+                UUID ({geonode_resource.uuid}) no concuerda con el recurso
+                remoto que ya existe, UUID {harvested_resource_info.resource_descriptor.uuid!r}"""
+            )
+        else:
+            geonode_resource = self._update_existing_geonode_resource(geonode_resource, defaults)
+        harvestable_resource.geonode_resource = geonode_resource
+        harvestable_resource.save()
+
+    def get_geonode_resource_defaults(self, harvested_resource_info: CSVDataInfo, harvestable_resource: "HarvestableResource"):
+        defaults = {
+            "owner": harvestable_resource.harvester.default_owner,
+            "uuid": str(harvested_resource_info.resource_descriptor.uuid),
+            "abstract": harvested_resource_info.resource_descriptor.identification.abstract,
+            "bbox_polygon": harvested_resource_info.resource_descriptor.identification.spatial_extent,
+            "constraints_other": harvested_resource_info.resource_descriptor.identification.other_constraints,
+            "created": harvested_resource_info.resource_descriptor.date_stamp,
+            "data_quality_statement": harvested_resource_info.resource_descriptor.data_quality,
+            "date": harvested_resource_info.resource_descriptor.identification.date,
+            "date_type": harvested_resource_info.resource_descriptor.identification.date_type,
+            "language": harvested_resource_info.resource_descriptor.language,
+            "purpose": harvested_resource_info.resource_descriptor.identification.purpose,
+            "supplemental_information": (harvested_resource_info.resource_descriptor.identification.supplemental_information),
+            "title": harvested_resource_info.resource_descriptor.identification.title,
+            "thumbnail_url": harvested_resource_info.resource_descriptor.distribution.thumbnail_url,
+        }
+        defaults["name"] = harvested_resource_info.resource_descriptor.identification.name
+        defaults["files"] = [slugify(self.url)+".csv"]
+        defaults.update(harvested_resource_info.resource_descriptor.additional_parameters)
+        return defaults
+
+    def _create_new_geonode_resource(self, geonode_resource_type, defaults):
+        resource_files = defaults.get("files", [])
+        DatasetManager.upload_files(resource_files)
+        geonode_resource = ds_resource_manager.create(
+            defaults["uuid"],
+            resource_type=geonode_resource_type,
+            defaults=defaults,
+            resource_files,
+            importer_session_opts={"name": defaults["uuid"]},
+        )
+        return geonode_resource
+
+    def _update_existing_geonode_resource(self, geonode_resource, defaults):
+    #     resource_files = defaults.get("files", [])
+    #     geonode_resource = gs_resource_manager.update(
+    #         geonode_resource,
+    #         resource_type=geonode_resource_type,
+    #         defaults=defaults,
+    #         importer_session_opts={"name": defaults["uuid"]},
+    #     )
+        return geonode_resource
+
 @lru_cache
 def CSVParser(url: str):
-    return ""
-    # query_params = {"downloadformat": "csv"}
-    # response = requests.get(url, params=query_params)
-    # if response.ok:
-    #     return response.content
-    #     # return CSVResource(response.content)
-    # return ""
+    query_params = {"downloadformat": "csv"}
+    response = requests.get(url, params=query_params)
+    fn = slugify(url)+".csv"
+    if not response.ok:
+        return ""
+    try:
+        with open(fn, mode="wb") as file:
+            file.write(response.content)
+            return fn
+    except:
+        return ""
+
