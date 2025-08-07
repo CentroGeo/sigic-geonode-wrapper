@@ -50,7 +50,6 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
         """
         with transaction.atomic():
-            # TODO initializa modelo
             instance = models.Service.objects.create(
                 uuid=str(uuid4()),
                 base_url=self.url,
@@ -58,16 +57,9 @@ class CSVServiceHandler(base.ServiceHandlerBase):
                 method=self.indexing_method,
                 owner=owner,
                 metadata_only=False,
-            #     version=str(self.parsed_service._json_struct.get("currentVersion", 0.0))
-            #     .encode("utf-8", "ignore")
-            #     .decode("utf-8"),
                 version="ignore",
                 name=self.name,
                 title=self.title,
-            #     abstract=str(self.parsed_service._json_struct.get("serviceDescription"))
-            #     .encode("utf-8", "ignore")
-            #     .decode("utf-8")
-            #     or _("Not provided"),
                 abstract = "Not provided",
             )
 
@@ -92,66 +84,10 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
     def get_keywords(self):
         return ["TODO", "prueba", "palabras", "clave"]
-        # return []
 
     def get_harvester_type(self):
         return "sigic_geonode.remote_services.csv_harvester.CSVHarvester"
 
     def get_harvester_configuration_options(self):
-        return {}
-
-    # def _parse_datasets(self, layers):
-    #     map_datasets = []
-    #     for lyr in layers:
-    #         map_datasets.append(self._dataset_meta(lyr))
-    #         map_datasets.extend(self._parse_datasets(lyr.subLayers))
-    #     return map_datasets
-
-    # def _dataset_meta(self, layer):
-    #     _ll_keys = [
-    #         "id",
-    #         "title",
-    #         "abstract",
-    #         "type",
-    #         "geometryType",
-    #         "copyrightText",
-    #         "extent",
-    #         "fields",
-    #         "minScale",
-    #         "maxScale",
-    #     ]
-    #     _ll = {}
-    #     if isinstance(layer, dict):
-    #         for _key in _ll_keys:
-    #             _ll[_key] = layer[_key] if _key in layer else None
-    #     else:
-    #         for _key in _ll_keys:
-    #             _ll[_key] = getattr(layer, _key, None)
-    #     if not _ll["title"] and getattr(layer, "name"):
-    #         _ll["title"] = getattr(layer, "name")
-    #     return MapLayer(**_ll)
-
-    # def _offers_geonode_projection(self, srs):
-    #     geonode_projection = getattr(settings, "DEFAULT_MAP_CRS", "EPSG:3857")
-    #     return geonode_projection in f"EPSG:{srs}"
-
-    # def _get_indexed_dataset_fields(self, dataset_meta):
-    #     srs = f"EPSG:{dataset_meta.extent.spatialReference.wkid}"
-    #     bbox = utils.decimal_encode(
-    #         [dataset_meta.extent.xmin, dataset_meta.extent.ymin, dataset_meta.extent.xmax, dataset_meta.extent.ymax]
-    #     )
-    #     typename = slugify(f"{dataset_meta.id}-{''.join(c for c in dataset_meta.title if ord(c) < 128)}")
-    #     return {
-    #         "name": dataset_meta.title,
-    #         "store": self.name,
-    #         "subtype": "remote",
-    #         "workspace": "remoteWorkspace",
-    #         "typename": typename,
-    #         "alternate": f"{slugify(self.url)}:{dataset_meta.id}",
-    #         "title": dataset_meta.title,
-    #         "abstract": dataset_meta.abstract,
-    #         "bbox_polygon": BBOXHelper.from_xy([bbox[0], bbox[2], bbox[1], bbox[3]]).as_polygon(),
-    #         "srid": srs,
-    #         "keywords": ["ESRI", "ArcGIS REST MapServer", dataset_meta.title],
-    #     }
+        return {"file_path": self.parsed_service}
 
