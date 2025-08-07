@@ -1,21 +1,24 @@
+import os
 import requests
 import typing
 from functools import lru_cache
 from dataclasses import dataclass, field
+from uuid import uuid4
+from datetime import date
 
 from django.utils.text import slugify
 from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.layers.models import Dataset
-from geonode.geoserver.manager import GeoServerResourceManager
+from geonode.resource.manager import resource_manager
 
-gs_resource_manager = GeoServerResourceManager()
 
 @dataclass()
 class CSVRemoteData:
     unique_identifier: str
     title: str
     resource_type: str
+    url: str
     abstract: str = ""
     should_be_harvested: bool = False
 
@@ -32,7 +35,7 @@ class CSVHarvester(BaseHarvesterWorker):
         super().__init__(remote_url, harvester_id)
         self.name = slugify(remote_url)
         self.title = self.name
-        self.url = self.remote_url
+        self.url = remote_url
         self.http_session = requests.Session()
 
     def allows_copying_resources(self):
@@ -54,9 +57,10 @@ class CSVHarvester(BaseHarvesterWorker):
         # regresar lista de recursos
         return [
             CSVRemoteData(
-                unique_identifier = self.url,
+                unique_identifier = str(uuid4()),
                 title = self.title,
                 resource_type = "CSV",
+                url = self.url
             )
         ]
 
@@ -70,17 +74,23 @@ class CSVHarvester(BaseHarvesterWorker):
                 identification=RecordIdentification(
                     name=self.name,
                     title=self.title,
+                    date=str(date.today()),
+                    date_type="upload",
                     abstract="",
+                    purpose="",
                     # TODO Extremos de datos geo
                     # spatial_extent=,
                     other_constraints="",
                     other_keywords=[],
+                    supplemental_information="",
                 ),
+                language="spa",
+                data_quality="",
                 distribution=RecordDistribution(
-                    link_url=harvestable_resource.unique_identifier,
+                    link_url=self.url,
                     thumbnail_url=None,
                 ),
-                reference_systems=[],
+                reference_systems=[""],
                 additional_parameters={},
             ),
             additional_information=None,
@@ -110,8 +120,8 @@ class CSVHarvester(BaseHarvesterWorker):
             "uuid": str(harvested_resource_info.resource_descriptor.uuid),
             "abstract": harvested_resource_info.resource_descriptor.identification.abstract,
             "bbox_polygon": harvested_resource_info.resource_descriptor.identification.spatial_extent,
+            "srid": harvested_resource_info.resource_descriptor.reference_systems[0],
             "constraints_other": harvested_resource_info.resource_descriptor.identification.other_constraints,
-            "created": harvested_resource_info.resource_descriptor.date_stamp,
             "data_quality_statement": harvested_resource_info.resource_descriptor.data_quality,
             "date": harvested_resource_info.resource_descriptor.identification.date,
             "date_type": harvested_resource_info.resource_descriptor.identification.date_type,
@@ -127,32 +137,27 @@ class CSVHarvester(BaseHarvesterWorker):
         return defaults
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
-        resource_files = defaults.get("files", [])
-        DatasetManager.upload_files(resource_files)
-        geonode_resource = ds_resource_manager.create(
+        CSVParser(self.url)
+        geonode_resource = resource_manager.create(
             defaults["uuid"],
             resource_type=geonode_resource_type,
             defaults=defaults,
-            resource_files,
-            importer_session_opts={"name": defaults["uuid"]},
         )
         return geonode_resource
 
     def _update_existing_geonode_resource(self, geonode_resource, defaults):
-    #     resource_files = defaults.get("files", [])
-    #     geonode_resource = gs_resource_manager.update(
-    #         geonode_resource,
-    #         resource_type=geonode_resource_type,
-    #         defaults=defaults,
-    #         importer_session_opts={"name": defaults["uuid"]},
-    #     )
+        geonode_resource = resource_manager.update(
+            defaults["uuid"],
+            instance=geonode_resource,
+            vals=defaults,
+        )
         return geonode_resource
 
 @lru_cache
 def CSVParser(url: str):
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
-    fn = slugify(url)+".csv"
+    fn = os.getcwd()+"/"+slugify(url)+".csv"
     if not response.ok:
         return ""
     try:
