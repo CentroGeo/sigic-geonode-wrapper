@@ -8,7 +8,7 @@ from django.db import transaction
 
 from geonode import GeoNodeException
 from geonode.harvesting.models import Harvester
-from sigic_geonode.services.csv_harvester import CSVParser
+from sigic_geonode.remote_services.csv_harvester import CSVParser
 
 from geonode.services import models, enumerations
 from geonode.services.serviceprocessors import base
@@ -27,7 +27,6 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
         self.indexing_method = enumerations.INDEXED
         self.name = slugify(url)[:255]
-        # self.title = str(_title).encode("utf-8", "ignore").decode("utf-8")
         self.title = slugify(url)[:255]
 
     @property
@@ -35,12 +34,10 @@ class CSVServiceHandler(base.ServiceHandlerBase):
         return CSVParser(self.url)
 
     def probe(self):
-        # TODO Logica para verificar que es un archivo válido
-        return True
-        # try:
-        #     return True if len(self.parsed_service._json_struct) > 0 else False
-        # except Exception:
-        #     return False
+        try:
+            return True if len(self.parsed_service) > 0 else False
+        except Exception:
+            return False
 
     def create_cascaded_store(self, service):
         return None
@@ -60,7 +57,6 @@ class CSVServiceHandler(base.ServiceHandlerBase):
                 type=self.service_type,
                 method=self.indexing_method,
                 owner=owner,
-                # metadata_only=True,
                 metadata_only=False,
             #     version=str(self.parsed_service._json_struct.get("currentVersion", 0.0))
             #     .encode("utf-8", "ignore")
@@ -75,7 +71,6 @@ class CSVServiceHandler(base.ServiceHandlerBase):
                 abstract = "Not provided",
             )
 
-            # TODO initializa el Harvester
             service_harvester = Harvester.objects.create(
                 name=self.name,
                 default_owner=owner,
@@ -96,15 +91,13 @@ class CSVServiceHandler(base.ServiceHandlerBase):
         return instance
 
     def get_keywords(self):
-        # TODO Tener lógica de palabras claves
         return ["TODO", "prueba", "palabras", "clave"]
-        # return self.parsed_service._json_struct.get("capabilities", "").split(",")
+        # return []
 
     def get_harvester_type(self):
-        return "sigic_geonode.services.csv_harvester.CSVHarvester"
+        return "sigic_geonode.remote_services.csv_harvester.CSVHarvester"
 
     def get_harvester_configuration_options(self):
-        #TODO llenar según el harvester
         return {}
 
     # def _parse_datasets(self, layers):
