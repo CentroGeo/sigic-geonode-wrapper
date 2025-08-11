@@ -10,7 +10,6 @@ RUN sed -i -e 's/# C.UTF-8 UTF-8/C.UTF-8 UTF-8/' /etc/locale.gen && \
 ENV LC_ALL C.UTF-8
 ENV LANG C.UTF-8
 
-# add bower and grunt command
 COPY src /usr/src/sigic_geonode/
 WORKDIR /usr/src/sigic_geonode
 
@@ -25,7 +24,8 @@ RUN chmod +x /usr/bin/celery-commands
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
-RUN yes w | pip install --src /usr/src -r requirements.txt &&\
+
+RUN yes w | pip install --src /usr/src -r requirements.txt && \
     yes w | pip install -e .
 
 # Cleanup apt update lists
