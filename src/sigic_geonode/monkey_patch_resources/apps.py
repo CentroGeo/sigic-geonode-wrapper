@@ -1,6 +1,8 @@
 from django.apps import AppConfig
 import logging
 
+logger = logging.getLogger(__name__)
+
 class MonkeyPatchResourcesConfig(AppConfig):
     name = "sigic_geonode.monkey_patch_resources"
     verbose_name = "Monkey Patch Resources"
@@ -9,6 +11,6 @@ class MonkeyPatchResourcesConfig(AppConfig):
         try:
             # Importa y ejecuta el parche al iniciar Django
             import sigic_geonode.monkey_patch_resources.monkey_patch
-            logger.info("Monkey patch importado")
+            logger.info("Monkey patch importado correctamente")
         except Exception:
-            logging.getLogger(__name__).exception("Falló el monkey patch")
+            logger.exception("Falló el monkey patch")
