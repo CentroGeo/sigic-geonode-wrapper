@@ -40,7 +40,6 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
         return qs
 
     def custom_list(self, request, *args, **kwargs):
-        print("custom_list llamado")
         # Si no piden custom, responde como siempre
         if request.query_params.get("custom", "").lower() != "true":
             return _orig_list(self, request, *args, **kwargs)
