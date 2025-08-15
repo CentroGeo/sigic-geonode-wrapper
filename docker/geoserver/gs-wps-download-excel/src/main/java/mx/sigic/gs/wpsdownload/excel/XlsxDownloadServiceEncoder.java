@@ -5,14 +5,12 @@ import org.geoserver.wps.download.DownloadServiceEncoder;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureIterator;
 
-import org.opengis.util.ProgressListener;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
+import org.geotools.util.ProgressListener;
+import org.geotools.feature.simple.SimpleFeature;
+import org.geotools.feature.simple.SimpleFeatureType;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTWriter;
-
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -22,7 +20,6 @@ import java.util.Set;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 
-@Component
 public class XlsxDownloadServiceEncoder implements DownloadServiceEncoder {
 
     public static final String MIME_XLSX =
