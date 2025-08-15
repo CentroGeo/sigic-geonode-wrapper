@@ -1,0 +1,73 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>mx.sigic</groupId>
+  <artifactId>gs-wps-download-excel</artifactId>
+  <version>1.0.0</version>
+  <name>GeoServer WPS Download Excel (XLS/XLSX)</name>
+  <properties>
+    <geoserver.version>2.24.4</geoserver.version>
+    <java.version>11</java.version>
+  </properties>
+
+  <dependencies>
+    <!-- GeoServer core + WPS + wps-download (el extension point de gs:Download) -->
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-main</artifactId>
+      <version>${geoserver.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wps</artifactId>
+      <version>${geoserver.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wps-download</artifactId>
+      <version>${geoserver.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- GeoTools (provistos por GeoServer en runtime) -->
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-main</artifactId>
+      <version>${geoserver.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Excel -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi</artifactId>           <!-- HSSF para .xls -->
+      <version>5.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>     <!-- XSSF/SXSSF para .xlsx -->
+      <version>5.2.3</version>
+    </dependency>
+
+    <!-- JTS (WKT) -->
+    <dependency>
+      <groupId>org.locationtech.jts</groupId>
+      <artifactId>jts-core</artifactId>
+      <version>1.19.0</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration><release>${java.version}</release></configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
