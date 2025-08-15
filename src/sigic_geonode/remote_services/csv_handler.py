@@ -89,5 +89,5 @@ class CSVServiceHandler(base.ServiceHandlerBase):
         return "sigic_geonode.remote_services.csv_harvester.CSVHarvester"
 
     def get_harvester_configuration_options(self):
-        return {"file_path": self.parsed_service}
+        return {"harvest_datasets": True, "harvest_documents": True}
 
