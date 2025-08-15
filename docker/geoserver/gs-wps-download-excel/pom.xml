@@ -8,55 +8,59 @@
   <name>GeoServer WPS Download Excel (XLS/XLSX)</name>
 
   <properties>
-    <geoserver.version>2.24.4</geoserver.version>
-    <geotools.version>30.4</geotools.version> <!-- si no resuelve, prueba 30.3 o 30.5 -->
     <java.version>11</java.version>
   </properties>
 
   <dependencies>
-    <!-- GeoServer (los tendrás instalados en tu ~/.m2 con install:install-file) -->
+    <!-- GeoServer (forzado con systemPath desde ./lib) -->
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-main</artifactId>
-      <version>${geoserver.version}</version>
-      <scope>provided</scope>
+      <version>2.24.4</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/gs-main-2.24.4.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wps-core</artifactId>
-      <version>${geoserver.version}</version>
-      <scope>provided</scope>
+      <version>2.24.4</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/gs-wps-core-2.24.4.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wps-download</artifactId>
-      <version>${geoserver.version}</version>
-      <scope>provided</scope>
+      <version>2.24.4</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/gs-wps-download-2.24.4.jar</systemPath>
     </dependency>
 
-    <!-- GeoTools APIs (para SimpleFeature*, ProgressListener, etc.) -->
+    <!-- GeoTools API (system) -->
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-api</artifactId>
       <version>30.4</version>
-      <scope>provided</scope>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/gt-api-30.4.jar</systemPath>
     </dependency>
-
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-main</artifactId>
       <version>30.4</version>
-      <scope>provided</scope>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/gt-main-30.4.jar</systemPath>
     </dependency>
 
+    <!-- GeoAPI (system) -->
     <dependency>
       <groupId>org.opengis</groupId>
       <artifactId>geoapi</artifactId>
       <version>3.0.2</version>
-      <scope>provided</scope>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/lib/geoapi-3.0.2.jar</systemPath>
     </dependency>
 
-    <!-- Excel -->
+    <!-- Excel + JTS (normales, desde Central) -->
     <dependency>
       <groupId>org.apache.poi</groupId>
       <artifactId>poi</artifactId>
@@ -67,8 +71,6 @@
       <artifactId>poi-ooxml</artifactId>
       <version>5.2.3</version>
     </dependency>
-
-    <!-- JTS (WKT) -->
     <dependency>
       <groupId>org.locationtech.jts</groupId>
       <artifactId>jts-core</artifactId>
@@ -88,20 +90,4 @@
       </plugin>
     </plugins>
   </build>
-
-  <!-- Repos de OSGeo/GeoTools SOLO para compilar (runtime ya lo aporta GeoServer) -->
-  <repositories>
-    <repository>
-      <id>geotools-releases</id>
-      <url>https://repo.osgeo.org/repository/geotools-releases/</url>
-    </repository>
-    <repository>
-      <id>osgeo-public</id>
-      <url>https://repo.osgeo.org/repository/public/</url>
-    </repository>
-    <repository>
-      <id>geoserver-releases</id>
-      <url>https://repo.osgeo.org/repository/geoserver-releases/</url>
-    </repository>
-  </repositories>
 </project>
