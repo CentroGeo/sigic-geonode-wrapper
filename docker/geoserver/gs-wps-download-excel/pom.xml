@@ -38,16 +38,17 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-api</artifactId>
-      <version>${geotools.version}</version>
+      <version>30.4</version>
       <scope>provided</scope>
     </dependency>
+
     <dependency>
       <groupId>org.geotools</groupId>
-      <artifactId>gt-opengis</artifactId>
-      <version>${geotools.version}</version>
+      <artifactId>gt-main</artifactId>
+      <version>30.4</version>
       <scope>provided</scope>
     </dependency>
-    <!-- (opcional pero útil si tu mirror no trae gt-opengis completo) -->
+
     <dependency>
       <groupId>org.opengis</groupId>
       <artifactId>geoapi</artifactId>
