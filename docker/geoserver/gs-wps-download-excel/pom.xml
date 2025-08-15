@@ -31,6 +31,12 @@
       <version>${geoserver.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-api</artifactId>
+      <version>30.4</version> <!-- ajusta a tu 30.x real -->
+      <scope>provided</scope>
+    </dependency>
 
     <!-- Excel -->
     <dependency>
