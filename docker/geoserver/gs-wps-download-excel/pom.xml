@@ -20,21 +20,18 @@
       <artifactId>gs-main</artifactId>
       <version>${geoserver.version}</version>
       <scope>provided</scope>
-      <systemPath>${project.basedir}/lib/gs-main-2.24.4.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wps-core</artifactId>
       <version>${geoserver.version}</version>
       <scope>provided</scope>
-      <systemPath>${project.basedir}/lib/gs-wps-core-2.24.4.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wps-download</artifactId>
       <version>${geoserver.version}</version>
       <scope>provided</scope>
-      <systemPath>${project.basedir}/lib/gs-wps-download-2.24.4.jar</systemPath>
     </dependency>
 
     <!-- GeoTools APIs (para SimpleFeature*, ProgressListener, etc.) -->
@@ -43,7 +40,6 @@
       <artifactId>gt-api</artifactId>
       <version>30.4</version>
       <scope>provided</scope>
-      <systemPath>${project.basedir}/lib/gt-api-30.4.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -51,7 +47,6 @@
       <artifactId>gt-main</artifactId>
       <version>30.4</version>
       <scope>provided</scope>
-      <systemPath>${project.basedir}/lib/gt-main-30.4.jar</systemPath>
     </dependency>
 
     <dependency>
