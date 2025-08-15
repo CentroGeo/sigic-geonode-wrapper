@@ -8,13 +8,14 @@ from uuid import uuid4
 from datetime import date
 
 from django.utils.text import slugify
+from django.db import transaction
 from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.layers.models import Dataset
-from geonode.geoserver.helpers import gs_uploader, create_geoserver_db_featurestore
-from importer.publisher import DataPublisher
 from geonode.resource.manager import resource_manager
+from geonode.geoserver.manager import GeoServerResourceManager
 from geonode.storage.manager import storage_manager
+from geonode.base import enumerations
 from django.contrib.gis.geos import Polygon
 
 
@@ -41,6 +42,7 @@ class CSVHarvester(BaseHarvesterWorker):
         self.name = slugify(remote_url)
         self.title = self.name
         self.url = remote_url
+        self.uuid = str(uuid4())
         self.http_session = requests.Session()
 
     def allows_copying_resources(self):
@@ -62,7 +64,7 @@ class CSVHarvester(BaseHarvesterWorker):
         # regresar lista de recursos
         return [
             CSVRemoteData(
-                unique_identifier = str(uuid4()),
+                unique_identifier = self.uuid,
                 title = self.title,
                 resource_type = "CSV",
                 url = self.url
@@ -109,7 +111,7 @@ class CSVHarvester(BaseHarvesterWorker):
         geonode_resource = harvestable_resource.geonode_resource
         if geonode_resource is None:
             geonode_resource_type = self.get_geonode_resource_type(harvestable_resource.remote_resource_type)
-            geonode_resource = self._create_new_geonode_resource(geonode_resource_type, harvestable_resource, defaults)
+            geonode_resource = self._create_new_geonode_resource(geonode_resource_type, defaults)
         elif not geonode_resource.uuid == str(harvested_resource_info.resource_descriptor.uuid):
             raise RuntimeError(
                 f"""Recurso {geonode_resource!r} ya existe localmente pero su
@@ -143,7 +145,7 @@ class CSVHarvester(BaseHarvesterWorker):
         # return {key: value for key, value in defaults.items() if value is not None}
         return defaults
 
-    def _create_new_geonode_resource(self, geonode_resource_type, harvestable_resource, defaults):
+    def _create_new_geonode_resource(self, geonode_resource_type, defaults):
         file_path = download_to_geonode(self.url)
         defaults["files"] = [file_path]
         geonode_resource = resource_manager.create(
@@ -151,9 +153,14 @@ class CSVHarvester(BaseHarvesterWorker):
             resource_type=geonode_resource_type,
             defaults=defaults,
         )
-        data_publisher = DataPublisher("importer.handlers.csv.handler.CSVFileHandler")
-        resource2publish = data_publisher.extract_resource_to_publish({"base_file": file_path}, "upload", self.name)
-        data_publisher.publish_resources([resource2publish])
+        with transaction.atomic():
+            geoserver_resource = GeoServerResourceManager().create(
+                defaults["uuid"],
+                resource_type=geonode_resource_type,
+                defaults=defaults,
+            )
+            geoserver_resource.save(notify=False)
+        geonode_resource.save(notify=False)
         return geonode_resource
 
     def _update_existing_geonode_resource(self, geonode_resource, defaults):
