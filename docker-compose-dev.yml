@@ -1,0 +1,6 @@
+# docker-compose.dev.yml
+services:
+  django:
+    volumes:
+      - ./src/sigic_geonode:/usr/src/sigic_geonode/sigic_geonode
+    command: "uwsgi --ini /usr/src/sigic_geonode/uwsgi.ini --py-autoreload 2"
