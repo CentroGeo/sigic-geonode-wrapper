@@ -89,6 +89,14 @@
       <releases><enabled>true</enabled></releases>
       <snapshots><enabled>false</enabled></snapshots>
     </repository>
+
+    <repository>
+      <id>geotools-releases</id>
+      <name>GeoTools Releases</name>
+      <url>https://repo.osgeo.org/repository/geotools-releases/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
   </repositories>
 
 </project>
