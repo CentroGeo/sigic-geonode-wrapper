@@ -6,13 +6,15 @@
   <artifactId>gs-wps-download-excel</artifactId>
   <version>1.0.0</version>
   <name>GeoServer WPS Download Excel (XLS/XLSX)</name>
+
   <properties>
     <geoserver.version>2.24.4</geoserver.version>
+    <geotools.version>30.4</geotools.version> <!-- si no resuelve, prueba 30.3 o 30.5 -->
     <java.version>11</java.version>
   </properties>
 
   <dependencies>
-    <!-- GeoServer core + WPS + wps-download (el extension point de gs:Download) -->
+    <!-- GeoServer (los tendrás instalados en tu ~/.m2 con install:install-file) -->
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-main</artifactId>
@@ -31,22 +33,37 @@
       <version>${geoserver.version}</version>
       <scope>provided</scope>
     </dependency>
+
+    <!-- GeoTools APIs (para SimpleFeature*, ProgressListener, etc.) -->
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-api</artifactId>
-      <version>30.4</version> <!-- ajusta a tu 30.x real -->
+      <version>${geotools.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-opengis</artifactId>
+      <version>${geotools.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- (opcional pero útil si tu mirror no trae gt-opengis completo) -->
+    <dependency>
+      <groupId>org.opengis</groupId>
+      <artifactId>geoapi</artifactId>
+      <version>3.0.2</version>
       <scope>provided</scope>
     </dependency>
 
     <!-- Excel -->
     <dependency>
       <groupId>org.apache.poi</groupId>
-      <artifactId>poi</artifactId>           <!-- HSSF para .xls -->
+      <artifactId>poi</artifactId>
       <version>5.2.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.poi</groupId>
-      <artifactId>poi-ooxml</artifactId>     <!-- XSSF/SXSSF para .xlsx -->
+      <artifactId>poi-ooxml</artifactId>
       <version>5.2.3</version>
     </dependency>
 
@@ -64,37 +81,26 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
-        <configuration><release>${java.version}</release></configuration>
+        <configuration>
+          <release>${java.version}</release>
+        </configuration>
       </plugin>
     </plugins>
   </build>
 
+  <!-- Repos de OSGeo/GeoTools SOLO para compilar (runtime ya lo aporta GeoServer) -->
   <repositories>
-    <!-- Repo OSGeo Releases (GeoServer/GeoTools) -->
-    <repository>
-      <id>osgeo</id>
-      <name>OSGeo Release Repository</name>
-      <url>https://repo.osgeo.org/repository/release/</url>
-      <releases><enabled>true</enabled></releases>
-      <snapshots><enabled>false</enabled></snapshots>
-    </repository>
-
-    <!-- Repo específico de GeoServer (por si algún artefacto solo aparece aquí) -->
-    <repository>
-      <id>geoserver-releases</id>
-      <name>GeoServer Releases</name>
-      <url>https://repo.osgeo.org/repository/Geoserver-releases/</url>
-      <releases><enabled>true</enabled></releases>
-      <snapshots><enabled>false</enabled></snapshots>
-    </repository>
-
     <repository>
       <id>geotools-releases</id>
-      <name>GeoTools Releases</name>
       <url>https://repo.osgeo.org/repository/geotools-releases/</url>
-      <releases><enabled>true</enabled></releases>
-      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+    <repository>
+      <id>osgeo-public</id>
+      <url>https://repo.osgeo.org/repository/public/</url>
+    </repository>
+    <repository>
+      <id>geoserver-releases</id>
+      <url>https://repo.osgeo.org/repository/geoserver-releases/</url>
     </repository>
   </repositories>
-
 </project>
