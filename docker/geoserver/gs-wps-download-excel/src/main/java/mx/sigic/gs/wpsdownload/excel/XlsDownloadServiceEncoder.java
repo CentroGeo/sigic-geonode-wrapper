@@ -1,11 +1,17 @@
 package mx.sigic.gs.wpsdownload.excel;
 
 import org.geoserver.wps.download.DownloadServiceEncoder;
-import org.geotools.api.data.simple.SimpleFeatureCollection;
-import org.geotools.api.feature.simple.SimpleFeatureType;
-import org.geotools.api.feature.simple.SimpleFeature;
+
+import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.feature.FeatureIterator;
+
+import org.opengis.util.ProgressListener;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
+
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTWriter;
+
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -22,21 +28,23 @@ public class XlsDownloadServiceEncoder implements DownloadServiceEncoder {
     public static final String MIME_XLS = "application/vnd.ms-excel";
 
     @Override
-    public Set<String> getOutputMimeTypes() { return Set.of(MIME_XLS); }
+    public Set<String> getOutputMimeTypes() {
+        return Set.of(MIME_XLS);
+    }
 
     @Override
     public void encode(SimpleFeatureCollection features,
                        OutputStream out,
                        Map<String, Object> encoderParams,
-                       org.opengis.util.ProgressListener listener) throws IOException {
+                       ProgressListener listener) throws IOException {
 
-        try (HSSFWorkbook wb = new HSSFWorkbook()) { // NO streaming en HSSF
+        try (HSSFWorkbook wb = new HSSFWorkbook()) { // XLS no tiene streaming
             Sheet sheet = wb.createSheet("data");
 
             SimpleFeatureType schema = features.getSchema();
             int colCount = schema.getAttributeCount();
 
-            // Header
+            // Encabezados
             Row header = sheet.createRow(0);
             for (int c = 0; c < colCount; c++) {
                 header.createCell(c).setCellValue(schema.getDescriptor(c).getLocalName());
@@ -50,7 +58,7 @@ public class XlsDownloadServiceEncoder implements DownloadServiceEncoder {
             WKTWriter wkt = new WKTWriter();
             int r = 1;
 
-            try (SimpleFeatureIterator it = features.features()) {
+            try (FeatureIterator<SimpleFeature> it = features.features()) {
                 while (it.hasNext()) {
                     SimpleFeature f = it.next();
                     Row row = sheet.createRow(r++);
@@ -73,7 +81,10 @@ public class XlsDownloadServiceEncoder implements DownloadServiceEncoder {
                 }
             }
 
-            for (int c = 0; c < Math.min(colCount, 25); c++) sheet.autoSizeColumn(c);
+            // Auto-ajuste (limitar por performance)
+            for (int c = 0; c < Math.min(colCount, 25); c++) {
+                sheet.autoSizeColumn(c);
+            }
 
             wb.write(out);
         }
