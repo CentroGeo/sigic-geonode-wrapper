@@ -1,6 +1,7 @@
 import os
 import requests
 import typing
+from pathlib import Path
 from functools import lru_cache
 from dataclasses import dataclass, field
 from uuid import uuid4
@@ -11,6 +12,8 @@ from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdent
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.layers.models import Dataset
 from geonode.resource.manager import resource_manager
+from geonode.storage.manager import storage_manager
+from django.contrib.gis.geos import Polygon
 
 
 @dataclass()
@@ -79,7 +82,9 @@ class CSVHarvester(BaseHarvesterWorker):
                     abstract="",
                     purpose="",
                     # TODO Extremos de datos geo
-                    # spatial_extent=,
+                    spatial_extent=Polygon(
+                        ((-122.19, 12.1),(-122.19, 32.72),(-84.64, 32.72),(-84.64, 12.1),(-122.19, 12.1))
+                    ),
                     other_constraints="",
                     other_keywords=[],
                     supplemental_information="",
@@ -90,7 +95,7 @@ class CSVHarvester(BaseHarvesterWorker):
                     link_url=self.url,
                     thumbnail_url=None,
                 ),
-                reference_systems=[""],
+                reference_systems=["EPSG:4326"],
                 additional_parameters={},
             ),
             additional_information=None,
@@ -132,12 +137,14 @@ class CSVHarvester(BaseHarvesterWorker):
             "thumbnail_url": harvested_resource_info.resource_descriptor.distribution.thumbnail_url,
         }
         defaults["name"] = harvested_resource_info.resource_descriptor.identification.name
-        defaults["files"] = [slugify(self.url)+".csv"]
+        defaults["files"] = [download_to_geoserver(url)]
         defaults.update(harvested_resource_info.resource_descriptor.additional_parameters)
+        # return {key: value for key, value in defaults.items() if value is not None}
         return defaults
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
-        CSVParser(self.url)
+        geoserver_path = download_to_geoserver(self.url)
+        defaults["files"] = [geoserver_path]
         geonode_resource = resource_manager.create(
             defaults["uuid"],
             resource_type=geonode_resource_type,
@@ -157,13 +164,23 @@ class CSVHarvester(BaseHarvesterWorker):
 def CSVParser(url: str):
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
-    fn = os.getcwd()+"/"+slugify(url)+".csv"
-    if not response.ok:
-        return ""
-    try:
-        with open(fn, mode="wb") as file:
-            file.write(response.content)
-            return fn
-    except:
-        return ""
+    target_name = slugify(url)
+    fn = os.getcwd()+"/"+target_name+".csv"
+    with open(fn, mode="wb") as file:
+        file.write(response.content)
+    return fn
+
+def download_to_geoserver(url: str):
+    query_params = {"downloadformat": "csv"}
+    response = requests.get(url, params=query_params)
+    target_name = slugify(url)+".csv"
+    fn = os.getcwd()+"/"+target_name
+    with open(fn, mode="wb+") as file:
+        file.write(response.content)
+        file.read()
+        if storage_manager.exists(target_name):
+            storage_manager.delete(target_name)
+        file_name = storage_manager.save(target_name, file)
+        result = Path(storage_manager.path(file_name))
+    return result
 
