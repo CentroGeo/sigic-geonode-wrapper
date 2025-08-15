@@ -4,16 +4,16 @@ import org.geoserver.wps.download.DownloadServiceEncoder;
 
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureIterator;
-
-import org.opengis.util.ProgressListener;               // OGC (no GeoTools)
-import org.opengis.feature.simple.SimpleFeature;        // OGC
-import org.opengis.feature.simple.SimpleFeatureType;    // OGC
+import org.geotools.util.ProgressListener;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,17 +36,8 @@ public class XlsxDownloadServiceEncoder implements DownloadServiceEncoder {
                        Map<String, Object> encoderParams,
                        ProgressListener listener) throws IOException {
 
-        try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) { // ~100 filas en memoria
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
             Sheet sheet = wb.createSheet("data");
-
-            SimpleFeatureType schema = features.getSchema();
-            int colCount = schema.getAttributeCount();
-
-            // Encabezados
-            Row header = sheet.createRow(0);
-            for (int c = 0; c < colCount; c++) {
-                header.createCell(c).setCellValue(schema.getDescriptor(c).getLocalName());
-            }
 
             // Estilos
             CreationHelper ch = wb.getCreationHelper();
@@ -54,24 +45,38 @@ public class XlsxDownloadServiceEncoder implements DownloadServiceEncoder {
             dateStyle.setDataFormat(ch.createDataFormat().getFormat("yyyy-mm-dd hh:mm:ss"));
 
             WKTWriter wkt = new WKTWriter();
-            int r = 1;
 
-            try (FeatureIterator<SimpleFeature> it = features.features()) {
+            List<String> headers = new ArrayList<>();
+            boolean headerWritten = false;
+            int rowIndex = 0;
+
+            try (FeatureIterator<?> it = features.features()) {
                 while (it.hasNext()) {
-                    SimpleFeature f = it.next();
-                    Row row = sheet.createRow(r++);
-                    for (int c = 0; c < colCount; c++) {
-                        Object v = f.getAttribute(c);
+                    Object f = it.next();
+
+                    // Construir encabezados desde el primer feature, vía reflexión
+                    if (!headerWritten) {
+                        headers = extractHeadersFromFeature(f);
+                        Row header = sheet.createRow(rowIndex++);
+                        for (int c = 0; c < headers.size(); c++) {
+                            header.createCell(c).setCellValue(headers.get(c));
+                        }
+                        headerWritten = true;
+                    }
+
+                    Row row = sheet.createRow(rowIndex++);
+                    for (int c = 0; c < headers.size(); c++) {
+                        Object v = getAttributeByIndex(f, c);
                         Cell cell = row.createCell(c);
                         if (v == null) {
                             cell.setBlank();
-                        } else if (v instanceof Geometry) {
-                            cell.setCellValue(wkt.write((Geometry) v));
                         } else if (v instanceof Number) {
                             cell.setCellValue(((Number) v).doubleValue());
                         } else if (v instanceof java.util.Date) {
                             cell.setCellValue((java.util.Date) v);
                             cell.setCellStyle(dateStyle);
+                        } else if (v instanceof Geometry) {
+                            cell.setCellValue(wkt.write((Geometry) v));
                         } else {
                             cell.setCellValue(String.valueOf(v));
                         }
@@ -79,13 +84,54 @@ public class XlsxDownloadServiceEncoder implements DownloadServiceEncoder {
                 }
             }
 
-            // Auto-ajuste (limitar por performance)
-            for (int c = 0; c < Math.min(colCount, 25); c++) {
+            // Auto-size (limitar para no afectar performance)
+            for (int c = 0; c < Math.min(headers.size(), 25); c++) {
                 sheet.autoSizeColumn(c);
             }
 
             wb.write(out);
-            wb.dispose(); // limpia temporales
+            wb.dispose();
+        } catch (RuntimeException e) {
+            // Envuelve excepciones de reflexión en IOException para la firma
+            throw new IOException("Error generando XLSX", e);
+        }
+    }
+
+    // ===== Helpers con reflexión (evitan dependencia de gt-opengis) =====
+
+    @SuppressWarnings("unchecked")
+    private static List<String> extractHeadersFromFeature(Object feature) {
+        try {
+            // SimpleFeatureType ft = feature.getFeatureType();
+            Object ft = feature.getClass().getMethod("getFeatureType").invoke(feature);
+
+            // List<AttributeDescriptor> desc = ft.getAttributeDescriptors();
+            Method getAttrDesc = ft.getClass().getMethod("getAttributeDescriptors");
+            List<Object> descriptors = (List<Object>) getAttrDesc.invoke(ft);
+
+            List<String> headers = new ArrayList<>(descriptors.size());
+            for (Object d : descriptors) {
+                // Name name = d.getName(); String col = name.getLocalPart();
+                Object name = d.getClass().getMethod("getName").invoke(d);
+                String col;
+                try {
+                    col = (String) name.getClass().getMethod("getLocalPart").invoke(name);
+                } catch (NoSuchMethodException nsme) {
+                    col = String.valueOf(name);
+                }
+                headers.add(col);
+            }
+            return headers;
+        } catch (Exception e) {
+            throw new RuntimeException("No pude leer encabezados del Feature vía reflexión", e);
+        }
+    }
+
+    private static Object getAttributeByIndex(Object feature, int index) {
+        try {
+            return feature.getClass().getMethod("getAttribute", int.class).invoke(feature, index);
+        } catch (Exception e) {
+            throw new RuntimeException("No pude leer atributo[" + index + "] del Feature", e);
         }
     }
 }
