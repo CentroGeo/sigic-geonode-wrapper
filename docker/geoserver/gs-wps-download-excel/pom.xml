@@ -21,21 +21,13 @@
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
-      <artifactId>gs-wps</artifactId>
+      <artifactId>gs-wps-core</artifactId>
       <version>${geoserver.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wps-download</artifactId>
-      <version>${geoserver.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- GeoTools (provistos por GeoServer en runtime) -->
-    <dependency>
-      <groupId>org.geotools</groupId>
-      <artifactId>gt-main</artifactId>
       <version>${geoserver.version}</version>
       <scope>provided</scope>
     </dependency>
