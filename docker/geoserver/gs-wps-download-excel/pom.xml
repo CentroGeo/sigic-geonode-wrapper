@@ -70,4 +70,25 @@
       </plugin>
     </plugins>
   </build>
+
+  <repositories>
+    <!-- Repo OSGeo Releases (GeoServer/GeoTools) -->
+    <repository>
+      <id>osgeo</id>
+      <name>OSGeo Release Repository</name>
+      <url>https://repo.osgeo.org/repository/release/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+
+    <!-- Repo específico de GeoServer (por si algún artefacto solo aparece aquí) -->
+    <repository>
+      <id>geoserver-releases</id>
+      <name>GeoServer Releases</name>
+      <url>https://repo.osgeo.org/repository/Geoserver-releases/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+
 </project>

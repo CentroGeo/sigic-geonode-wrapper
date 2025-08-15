@@ -51,7 +51,7 @@ public class XlsxDownloadServiceEncoder implements DownloadServiceEncoder {
             WKTWriter wkt = new WKTWriter();
             int r = 1;
 
-            try (var it = features.features()) {
+            try (SimpleFeatureIterator it = features.features()) {
                 while (it.hasNext()) {
                     SimpleFeature f = it.next();
                     Row row = sheet.createRow(r++);
