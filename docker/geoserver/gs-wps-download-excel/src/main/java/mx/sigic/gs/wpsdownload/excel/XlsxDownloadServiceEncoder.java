@@ -5,9 +5,9 @@ import org.geoserver.wps.download.DownloadServiceEncoder;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureIterator;
 
-import org.geotools.util.ProgressListener;
-import org.geotools.feature.simple.SimpleFeature;
-import org.geotools.feature.simple.SimpleFeatureType;
+import org.opengis.util.ProgressListener;               // OGC (no GeoTools)
+import org.opengis.feature.simple.SimpleFeature;        // OGC
+import org.opengis.feature.simple.SimpleFeatureType;    // OGC
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTWriter;
