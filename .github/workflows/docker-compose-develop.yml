@@ -32,10 +32,10 @@ jobs:
 
       - name: Build & tag Docker image
         run: |
-          docker build \
+          docker build --no-cache \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }} \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }} \
-            -f Dockerfile .
+            -f Dockerfile .          
 
       - name: Push image
         run: |
@@ -74,7 +74,13 @@ jobs:
         run: |
           sed -i "s|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:.*|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}|g" docker-compose-ghcr.yml
 
-      - name: Docker Compose up
+      - name: Docker Compose Down
         run: |
           docker compose -f docker-compose-ghcr.yml down || true
+
+      - name: Docker Compose Up
+        run: |
           docker compose --env-file .env -f docker-compose-ghcr.yml up -d --remove-orphans
+
+      - name : Docker Cleanup
+        run: docker system prune -af
