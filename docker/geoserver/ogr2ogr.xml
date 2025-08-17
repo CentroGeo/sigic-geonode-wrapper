@@ -1,0 +1,71 @@
+<OgrConfiguration>
+    <!-- Si ogr2ogr no está en PATH, pon la ruta completa -->
+    <ogr2ogrLocation>/usr/bin/ogr2ogr</ogr2ogrLocation>
+    <!-- Si hace falta, apunta a GDAL_DATA -->
+    <!-- <gdalData>/usr/share/gdal</gdalData> -->
+
+    <formats>
+
+        <!-- ========== XLSX (WPS/WFS vía OGR) ========== -->
+        <Format>
+            <ogrFormat>XLSX</ogrFormat> <!-- nombre EXACTO del driver GDAL -->
+            <formatName>OGR-XLSX</formatName>
+            <fileExtension>.xlsx</fileExtension>
+            <singleFile>true</singleFile>
+            <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+            <type>binary</type>
+        </Format>
+
+        <!-- ========== Shapefile (equivalente al default de gs:Download) ========== -->
+        <Format>
+            <ogrFormat>ESRI Shapefile</ogrFormat>
+            <formatName>OGR-SHP-ZIP</formatName>
+            <fileExtension>.shp</fileExtension>
+            <!-- Shapefile genera varios ficheros; el plugin OGR los devolverá como ZIP -->
+            <!-- Deja type=binary (por defecto) -->
+        </Format>
+
+        <!-- ========== GeoPackage (mismo MIME que acepta gs:Download) ========== -->
+        <Format>
+            <ogrFormat>GPKG</ogrFormat>
+            <formatName>OGR-GPKG</formatName>
+            <fileExtension>.gpkg</fileExtension>
+            <singleFile>true</singleFile>
+            <mimeType>application/geopackage+sqlite3</mimeType>
+            <type>binary</type>
+        </Format>
+
+        <!-- ========== GeoJSON (útil y muy común) ========== -->
+        <Format>
+            <ogrFormat>GeoJSON</ogrFormat>
+            <formatName>OGR-GeoJSON</formatName>
+            <fileExtension>.geojson</fileExtension>
+            <singleFile>true</singleFile>
+            <mimeType>application/json</mimeType>
+            <type>text</type>
+        </Format>
+
+        <!-- ========== KML (sin estilo; mismo ejemplo que la doc) ========== -->
+        <Format>
+            <ogrFormat>KML</ogrFormat>
+            <formatName>OGR-KML</formatName>
+            <fileExtension>.kml</fileExtension>
+            <singleFile>true</singleFile>
+            <mimeType>application/vnd.google-earth.kml</mimeType>
+            <type>xml</type>
+        </Format>
+
+        <!-- ========== CSV (geometría como WKT) ========== -->
+        <Format>
+            <ogrFormat>CSV</ogrFormat>
+            <formatName>OGR-CSV</formatName>
+            <fileExtension>.csv</fileExtension>
+            <singleFile>true</singleFile>
+            <mimeType>text/csv</mimeType>
+            <option>-lco</option>
+            <option>GEOMETRY=AS_WKT</option>
+            <type>text</type>
+        </Format>
+
+    </formats>
+</OgrConfiguration>
