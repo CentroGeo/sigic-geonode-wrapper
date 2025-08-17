@@ -68,5 +68,16 @@
       <type>text</type>
     </Format>
 
+    <!-- ========== XLSX (geometría como WKT) ========== -->
+    <Format>
+      <ogrFormat>XLSX</ogrFormat>  <!-- nombre exacto del driver GDAL -->
+      <formatName>OGR-XLSX</formatName>   <!-- nombre “humano” que verás en WFS -->
+      <fileExtension>.xlsx</fileExtension>
+      <singleFile>true</singleFile>
+      <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+      <option>GEOMETRY=AS_WKT</option>
+      <type>binary</type>
+    </Format>
+
   </formats>
 </OgrConfiguration>
