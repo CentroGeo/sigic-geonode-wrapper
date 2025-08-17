@@ -75,6 +75,8 @@
       <singleFile>true</singleFile>
       <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
       <type>binary</type>
+      <option>-nlt</option>
+      <option>NONE</option>
     </Format>
 
   </formats>
