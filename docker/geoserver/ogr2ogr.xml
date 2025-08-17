@@ -51,7 +51,6 @@
       <formatName>OGR-KML</formatName>
       <fileExtension>.kml</fileExtension>
       <singleFile>true</singleFile>
-      <!-- la doc usa este MIME; si prefieres, cambia a ...kml+xml -->
       <mimeType>application/vnd.google-earth.kml</mimeType>
       <type>xml</type>
     </Format>
@@ -70,8 +69,8 @@
 
     <!-- ========== XLSX (geometría como WKT) ========== -->
     <Format>
-      <ogrFormat>XLSX</ogrFormat>  <!-- nombre exacto del driver GDAL -->
-      <formatName>OGR-XLSX</formatName>   <!-- nombre “humano” que verás en WFS -->
+      <ogrFormat>XLSX</ogrFormat>
+      <formatName>OGR-XLSX</formatName>
       <fileExtension>.xlsx</fileExtension>
       <singleFile>true</singleFile>
       <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
