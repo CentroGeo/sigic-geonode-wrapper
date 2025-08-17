@@ -6,5 +6,6 @@
          http://www.springframework.org/schema/beans/spring-beans.xsd">
 
   <bean class="mx.sigic.wps.excel.XlsxPPIO" />
-  <bean class="mx.sigic.wps.excel.XlsPPIO" />
+  <bean class="mx.sigic.gs.wpsdownload.excel.XlsxPPIO" />
+  <bean class="mx.sigic.gs.wpsdownload.excel.XlsPPIO" />
 </beans>
