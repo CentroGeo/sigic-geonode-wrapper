@@ -1,25 +1,33 @@
 import os
+import io
 import requests
 import typing
-from pathlib import Path
+import logging
 from functools import lru_cache
 from dataclasses import dataclass, field
 from uuid import uuid4
 from datetime import date
+from importlib import import_module
+from pathlib import Path
 
 from django.utils.text import slugify
-from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
-from geonode.harvesting.harvesters.base import BaseHarvesterWorker
-from geonode.resource.manager import resource_manager
-from geonode.storage.manager import storage_manager
-from geonode.layers.models import Dataset
-from geonode.base.auth import get_or_create_token
+from django.core.files import uploadedfile
+from django.core.files.uploadedfile import UploadedFile
 from django.contrib.gis.geos import Polygon
 from django.conf import settings
 from django.http import HttpRequest
 
-from importlib import import_module
+from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
+from geonode.harvesting.harvesters.base import BaseHarvesterWorker, download_resource_file
+from geonode.harvesting import config
+from geonode.resource.manager import resource_manager
+from geonode.storage.manager import storage_manager
+from geonode.layers.models import Dataset
+from geonode.base.auth import get_or_create_token
+
+from importer.api.views import ImporterViewSet
 engine = import_module(settings.SESSION_ENGINE)
+logger = logging.getLogger(__name__)
 
 @dataclass()
 class CSVRemoteData:
@@ -160,9 +168,9 @@ class CSVHarvester(BaseHarvesterWorker):
         return defaults
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
-        file_path = download_to_geonode(self.url)
-        defaults["files"] = file_path
-        setup_importer(defaults)
+        # file_path = download_resource_file(self.url, target_name=self.name+".csv")
+        file = download_to_geonode(self.url, target_name=os.getenv("MEDIA_ROOT")+self.name+".csv")
+        setup_importer(defaults, file)
 
         geonode_resource = resource_manager.create(
             defaults["uuid"],
@@ -185,11 +193,30 @@ def CSVParser(url: str):
     fn = os.getcwd()+"/"+target_name+".csv"
     return fn
 
-def download_to_geonode(url: str):
+def download_to_geonode(url: str, target_name: str):
+    # query_params = {"downloadformat": "csv"}
+    # response = requests.get(url, params=query_params)
+    # response.raise_for_status()
+    # file_size = response.headers.get("Content-Length")
+    # content_type = response.headers.get("Content-Type")
+    # charset = response.apparent_encoding
+    # size_threshold = config.get_setting("HARVESTED_RESOURCE_FILE_MAX_MEMORY_SIZE")
+    # if file_size is not None and int(file_size) < size_threshold:
+    #     logger.debug("Downloading to an in-memory buffer...")
+    #     buf = io.BytesIO()
+    #     file_ = uploadedfile.InMemoryUploadedFile(buf, None, target_name, content_type, file_size, charset)
+    # else:
+    #     logger.debug("Downloading to a temporary file...")
+    #     file_ = uploadedfile.TemporaryUploadedFile(target_name, content_type, file_size, charset)
+    # return file_
+
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
     target_name = slugify(url)+".csv"
     fn = os.getcwd()+"/"+target_name
+    file_size = response.headers.get("Content-Length")
+    content_type = response.headers.get("Content-Type")
+    charset = response.apparent_encoding
     with open(fn, mode="wb+") as file:
         file.write(response.content)
         file.read()
@@ -197,27 +224,52 @@ def download_to_geonode(url: str):
             storage_manager.delete(target_name)
         file_name = storage_manager.save(target_name, file)
         result = Path(storage_manager.path(file_name))
-    return result
+    return UploadedFile(open(result, mode="rb"), result.name, content_type=content_type, size=file_size, charset=charset)
 
-def setup_importer(defaults):
+def setup_importer(defaults, file):
+    # logger = logging.getLogger(__name__)
+    # files={
+    #     "base_file": (defaults["files"].name, open(str(defaults["files"].absolute(), mode="rb"))),
+    #     "charset": (None, "UTF-8"),
+    #     "store_spatial_files": (None, True),
+    #     "Time": (None, True),
+    # }
+    # cookies = {
+    #     'JSESSIONID': '19C56F6CF3CFA0ABF5941441F1726D8D',
+    #     'csrftoken': 'sBZLZzrdF5CTDwmhPw1zEJjBe9fcSp8q',
+    #     'sessionid': 'h4zzq9w252q95puj340i5vtgpe6g073q',
+    #     'tabstyle': 'html-tab',
+    # }
+    # headers = {
+    #         'Accept': 'application/json, text/plain, */*',
+    #         }
+    # response = requests.post(
+    #     reverse('ImporterViewSet'),
+    #     files=files,
+    #     cookies=cookies,
+    #     headers=headers,
+    # )
+    # logger.error(str(response.request.data))
+    # logger.error(str(response.headers))
+    # logger.error(str(response.))
     request = HttpRequest()
     request.method = "POST"
     request.user = defaults["owner"]
     request.session = engine.SessionStore()
     request.session["access_token"] = get_or_create_token(defaults["owner"])
-    from django.core.files import File
-    import logging
-    file = File(open(str(defaults["files"].absolute()), mode="rb"))
-    logger = logging.getLogger(__name__)
-    request.data ={
+    request.data = {
         "base_file": file,
         "action": "upload",
         "override_existing_layer": True,
     }
+    request.headers = {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "multipart/form-data",
+    }
+    request.FILES = {
+        "base_file": file
+    }
     request.session.save()
-    logger.error(str(request.data))
-    from importer.api.views import ImporterViewSet
     importer = ImporterViewSet(request=request)
-    logger.error(str(importer.request.data))
     importer.create(request)
 
