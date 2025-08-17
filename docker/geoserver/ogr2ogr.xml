@@ -1,6 +1,6 @@
 <OgrConfiguration>
   <!-- Si ogr2ogr no está en PATH, pon la ruta completa -->
-  <ogr2ogrLocation>ogr2ogr</ogr2ogrLocation>
+  <ogr2ogrLocation>/usr/bin/ogr2ogr</ogr2ogrLocation>
   <!-- Si hace falta, apunta a GDAL_DATA -->
   <!-- <gdalData>/usr/share/gdal</gdalData> -->
 
