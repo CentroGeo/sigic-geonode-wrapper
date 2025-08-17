@@ -32,7 +32,7 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
             if mode == "all":
                 # Debe contener TODAS las keywords indicadas  (es un and)
                 for kw in keywords:
-                        qs = qs.filter(keywords__name__iexact=kw)
+                    qs = qs.filter(keywords__name__iexact=kw)
             else:
                 # ANY (intersección no vacía)
                 qs = qs.filter(keywords__name__in=keywords).distinct()
