@@ -75,6 +75,7 @@
       <fileExtension>.xlsx</fileExtension>
       <singleFile>true</singleFile>
       <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+      <option>-lco</option>
       <option>GEOMETRY=AS_WKT</option>
       <type>binary</type>
     </Format>
