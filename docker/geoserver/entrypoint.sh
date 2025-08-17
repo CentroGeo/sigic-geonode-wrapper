@@ -164,13 +164,8 @@ else
     /usr/local/tomcat/tmp/set_geoserver_auth.sh ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/ ${TAGNAME[@]} > /dev/null 2>&1
 fi
 
-if ! [ -f ${GEOSERVER_DATA_DIR}/ogr2ogr.xml ]
-then
-    echo "Configuration file '$GEOSERVER_DATA_DIR'/ogr2ogr.xml is not available so it will be copied from /usr/local/tomcat/tmp/ogr2ogr.xml"
-    cp /usr/local/tomcat/tmp/ogr2ogr.xml ${GEOSERVER_DATA_DIR}/ogr2ogr.xml
-else
-    echo "Configuration file '$GEOSERVER_DATA_DIR'/ogr2ogr.xml is available so it is gone to skip"
-fi
+# Copy the ogr2ogr.xml file to the geoserver data directory
+cp /usr/local/tomcat/tmp/ogr2ogr.xml ${GEOSERVER_DATA_DIR}/ogr2ogr.xml
 
 # backup geonode REST role service config.xml
 cp "${GEOSERVER_DATA_DIR}/security/role/geonode REST role service/config.xml" "${GEOSERVER_DATA_DIR}/security/role/geonode REST role service/config.xml.orig"

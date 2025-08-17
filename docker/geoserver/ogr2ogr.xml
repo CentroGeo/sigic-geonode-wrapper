@@ -70,13 +70,33 @@
     <!-- ========== XLSX (geometría como WKT) ========== -->
     <Format>
       <ogrFormat>XLSX</ogrFormat>
-      <formatName>OGR-XLSX</formatName>
+      <formatName>OGR-XLSX-ATTR</formatName>
       <fileExtension>.xlsx</fileExtension>
       <singleFile>true</singleFile>
       <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+      <option>-nlt</option><option>NONE</option>
       <type>binary</type>
-      <option>-nlt</option>
-      <option>NONE</option>
+    </Format>
+
+    <Format>
+      <ogrFormat>XLSX</ogrFormat>
+      <formatName>OGR-XLSX-WKT</formatName>
+      <fileExtension>.xlsx</fileExtension>
+      <singleFile>true</singleFile>
+      <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+
+      <!-- Creamos columna WKT a partir de la geometría -->
+      <option>-dialect</option>
+      <option>SQLITE</option>
+      <option>-sql</option>
+      <!-- @layer suele resolverse al nombre de la capa de entrada en el plugin OGR de GeoServer.
+           Si tu versión no lo soporta, reemplázalo por el nombre real de la capa. -->
+      <option>SELECT *, ST_AsText(geometry) AS WKT FROM @layer</option>
+
+      <!-- Si quieres descartar el campo geometry original para evitar columnas vacías -->
+      <!-- <option>-nlt</option><option>NONE</option> -->
+
+      <type>binary</type>
     </Format>
 
   </formats>
