@@ -161,7 +161,8 @@ class CSVHarvester(BaseHarvesterWorker):
         return defaults
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
-        file = download_to_geonode(self.url, target_name=os.getenv("MEDIA_ROOT")+self.name+".csv")
+        target_name = slugify(self.url)+".csv"
+        file = download_to_geonode(self.url, target_name=target_name)
         create_from_importer(defaults, file)
 
         geonode_resource = resource_manager.create(
@@ -188,7 +189,6 @@ def CSVParser(url: str):
 def download_to_geonode(url: str, target_name: str):
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
-    target_name = slugify(url)+".csv"
     fn = os.getcwd()+"/"+target_name
     file_size = response.headers.get("Content-Length")
     content_type = response.headers.get("Content-Type")
