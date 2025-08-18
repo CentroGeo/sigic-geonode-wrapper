@@ -26,22 +26,32 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geonode-image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geoserver-image=sigic-geoserver" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
-      - name: Build & tag Docker image
+      - name: Build & tag GeoNode Docker image
         run: |
           docker build --no-cache \
-            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }} \
-            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }} \
-            -f Dockerfile .          
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.branch }} \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }} \
+            -f Dockerfile .
 
-      - name: Push image
+      - name: Build & tag GeoServer Docker image
         run: |
-          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }}
-          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}
+          docker build --no-cache \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:2.24.4-v2 \
+            -f docker/geoserver/Dockerfile .
 
+      - name: Push GeoNode image
+        run: |
+          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.branch }}
+          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }}
+
+      - name: Push GeoServer image
+        run: |
+            docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:2.24.4-v2
 
   deploy:
     name: Deploy GeoNode Wrapper to dev server
@@ -63,7 +73,7 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geonode-image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
@@ -72,7 +82,7 @@ jobs:
 
       - name: Reemplazar imagen en docker-compose-ghcr.yml
         run: |
-          sed -i "s|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:.*|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}|g" docker-compose-ghcr.yml
+          sed -i "s|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:.*|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }}|g" docker-compose-ghcr.yml
 
       - name: Docker Compose Down
         run: |

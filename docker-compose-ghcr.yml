@@ -87,7 +87,7 @@ services:
 
   # Geoserver backend
   geoserver:
-    image: ${COMPOSE_PROJECT_NAME}/geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
+    image: ghcr.io/centrogeo/sigic-geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
     build:
       context: ./docker/geoserver
       dockerfile: Dockerfile
