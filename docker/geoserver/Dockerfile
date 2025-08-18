@@ -1,5 +1,5 @@
-ARG BASE_IMAGE_VERSION
-FROM geonode/geoserver:${BASE_IMAGE_VERSION}
+ARG GEOSERVER_BASE_IMAGE_VERSION
+FROM geonode/geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
 
 RUN apt-get update && apt-get install -y gdal-bin && rm -rf /var/lib/apt/lists/*
 
