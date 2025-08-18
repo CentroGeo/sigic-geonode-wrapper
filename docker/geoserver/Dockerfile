@@ -1,4 +1,4 @@
-ARG GEOSERVER_BASE_IMAGE_VERSION
+ARG GEOSERVER_BASE_IMAGE_VERSION=2.24.4-v2
 FROM geonode/geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
 
 RUN apt-get update && apt-get install -y gdal-bin && rm -rf /var/lib/apt/lists/*
