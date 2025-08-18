@@ -5,6 +5,12 @@ on:
     branches:
       - develop
 
+env:
+  GEONODE_BASE_IMAGE_VERSION: 4.4.x.sigic
+  NGINX_BASE_IMAGE_VERSION: 1.25.3-latest
+  GEOSERVER_BASE_IMAGE_VERSION: 2.24.4-v2
+  GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v3
+
 jobs:
   build:
     name: Build SIGIC GeoNode Wrapper image (develop)
@@ -14,6 +20,9 @@ jobs:
     permissions:
       packages: write
       contents: read
+
+    env:
+      DOCKER_BUILDKIT: 1
 
     steps:
       - name: Checkout code
@@ -40,8 +49,8 @@ jobs:
 
       - name: Build & tag GeoServer Docker image
         run: |
-          docker build --no-cache \
-            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:2.24.4-v2 \
+          docker build --no-cache  \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
             -f docker/geoserver/Dockerfile .
 
       - name: Push GeoNode image
@@ -51,7 +60,7 @@ jobs:
 
       - name: Push GeoServer image
         run: |
-            docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:2.24.4-v2
+            docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }}
 
   deploy:
     name: Deploy GeoNode Wrapper to dev server
