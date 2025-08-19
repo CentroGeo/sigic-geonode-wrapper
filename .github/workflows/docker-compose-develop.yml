@@ -5,6 +5,12 @@ on:
     branches:
       - develop
 
+env:
+  GEONODE_BASE_IMAGE_VERSION: 4.4.x.sigic
+  NGINX_BASE_IMAGE_VERSION: 1.25.3-latest
+  GEOSERVER_BASE_IMAGE_VERSION: 2.24.4-v2
+  GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v3
+
 jobs:
   build:
     name: Build SIGIC GeoNode Wrapper image (develop)
@@ -14,6 +20,9 @@ jobs:
     permissions:
       packages: write
       contents: read
+
+    env:
+      DOCKER_BUILDKIT: 1
 
     steps:
       - name: Checkout code
@@ -26,21 +35,35 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geonode-image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geoserver-image=sigic-geoserver" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
-      - name: Build & tag Docker image
+      - name: Build & tag GeoNode Docker image
         run: |
-          docker build \
-            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }} \
-            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }} \
+          docker build --no-cache \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.branch }} \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }} \
             -f Dockerfile .
 
-      - name: Push image
+      - name: Build & tag GeoServer Docker image
         run: |
-          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.branch }}
-          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}
+          cd docker/geoserver
+          docker build --no-cache \
+            --build-arg GEOSERVER_BASE_IMAGE_VERSION=${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
+            -f Dockerfile .
+          cd -
+
+      - name: Push GeoNode image
+        run: |
+          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.branch }}
+          docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }}
+
+      - name: Push GeoServer image
+        run: |
+            docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }}
 
   deploy:
     name: Deploy GeoNode Wrapper to dev server
@@ -62,7 +85,7 @@ jobs:
         id: vars
         run: |
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
-          echo "image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
+          echo "geonode-image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
@@ -71,9 +94,15 @@ jobs:
 
       - name: Reemplazar imagen en docker-compose-ghcr.yml
         run: |
-          sed -i "s|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:.*|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha }}|g" docker-compose-ghcr.yml
+          sed -i "s|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:.*|ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geonode-image }}:${{ steps.vars.outputs.sha }}|g" docker-compose-ghcr.yml
 
-      - name: Docker Compose up
+      - name: Docker Compose Down
         run: |
           docker compose -f docker-compose-ghcr.yml down || true
+
+      - name: Docker Compose Up
+        run: |
           docker compose --env-file .env -f docker-compose-ghcr.yml up -d --remove-orphans
+
+      - name : Docker Cleanup
+        run: docker system prune -af
