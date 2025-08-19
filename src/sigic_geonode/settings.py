@@ -214,10 +214,10 @@ REST_FRAMEWORK = {
 }
 
 HARVESTER_TYPES = {
-    "CSV": "sigic_geonode.remote_services.csv_harvester.CSVHarvester",
+    "FILE": "sigic_geonode.remote_services.file_harvester.FileHarvester",
 }
 
 SERVICES_TYPE_MODULES = [
-    "sigic_geonode.remote_services.csv_service.CSVServiceInfo",
+    "sigic_geonode.remote_services.file_service.FileServiceInfo",
 ]
 

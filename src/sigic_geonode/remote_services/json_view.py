@@ -1,2 +1,0 @@
-class JSONView():
-    pass

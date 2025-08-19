@@ -29,7 +29,7 @@ engine = import_module(settings.SESSION_ENGINE)
 MEXICO_SPATIAL_EXTENT = Polygon(((-122.19, 12.1),(-122.19, 32.72),(-84.64, 32.72),(-84.64, 12.1),(-122.19, 12.1)))
 
 @dataclass()
-class CSVRemoteData:
+class FileRemoteData:
     unique_identifier: str
     title: str
     resource_type: str
@@ -38,12 +38,12 @@ class CSVRemoteData:
     should_be_harvested: bool = False
 
 @dataclass()
-class CSVDataInfo:
+class FileDataInfo:
     resource_descriptor: RecordDescription
     additional_information: typing.Any | None
     copied_resources: typing.List[typing.Any] | None = field(default_factory=list)
 
-class CSVHarvester(BaseHarvesterWorker):
+class FileHarvester(BaseHarvesterWorker):
     http_session: requests.Session
 
     def __init__(self, remote_url: str, harvester_id: int):
@@ -71,10 +71,10 @@ class CSVHarvester(BaseHarvesterWorker):
     def list_resources(self, offset = 0):
         # TODO Agregar funcionalidad en caso de tener archivos zip
         return [
-            CSVRemoteData(
+            FileRemoteData(
                 unique_identifier = self.uuid,
                 title = self.title,
-                resource_type = "CSV",
+                resource_type = "FILE",
                 url = self.url
             )
         ]
@@ -84,7 +84,7 @@ class CSVHarvester(BaseHarvesterWorker):
         return True
 
     def get_resource(self, harvestable_resource: "HarvestableResource"):
-        return CSVDataInfo(
+        return FileDataInfo(
             resource_descriptor=RecordDescription(
                 uuid=harvestable_resource.unique_identifier,
                 identification=RecordIdentification(
@@ -118,7 +118,7 @@ class CSVHarvester(BaseHarvesterWorker):
             copied_resources=None,
         )
 
-    def update_geonode_resource(self, harvested_info: CSVDataInfo, harvestable_resource: "HarvestableResource"):
+    def update_geonode_resource(self, harvested_info: FileDataInfo, harvestable_resource: "HarvestableResource"):
         defaults = self.get_geonode_resource_defaults(harvested_info, harvestable_resource)
         geonode_resource = harvestable_resource.geonode_resource
         if geonode_resource is None:
@@ -139,7 +139,7 @@ class CSVHarvester(BaseHarvesterWorker):
         geonode_resource = resource_manager.update(str(harvested_info.resource_descriptor.uuid))
         self.finalize_resource_update(geonode_resource, harvested_info, harvestable_resource)
 
-    def get_geonode_resource_defaults(self, harvested_resource_info: CSVDataInfo, harvestable_resource: "HarvestableResource"):
+    def get_geonode_resource_defaults(self, harvested_resource_info: FileDataInfo, harvestable_resource: "HarvestableResource"):
         defaults = {
             "owner": harvestable_resource.harvester.default_owner,
             "uuid": str(harvested_resource_info.resource_descriptor.uuid),
@@ -171,7 +171,7 @@ class CSVHarvester(BaseHarvesterWorker):
         return geonode_resource
 
 @lru_cache
-def CSVParser(url: str):
+def FileParser(url: str):
     target_name = slugify(url)
     fn = os.getcwd()+"/"+target_name+".csv"
     return fn

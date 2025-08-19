@@ -8,17 +8,17 @@ from django.db import transaction
 
 from geonode import GeoNodeException
 from geonode.harvesting.models import Harvester
-from sigic_geonode.remote_services.csv_harvester import CSVParser
+from sigic_geonode.remote_services.file_harvester import FileParser
 
 from geonode.services import models, enumerations
 from geonode.services.serviceprocessors import base
 
 logger = logging.getLogger(__name__)
 
-class CSVServiceHandler(base.ServiceHandlerBase):
+class FileServiceHandler(base.ServiceHandlerBase):
     """Remote service handler for ESRI:ArcGIS:MapServer services"""
 
-    service_type = "CSV"
+    service_type = "FILE"
 
     def __init__(self, url, geonode_service_id=None, *args, **kwargs):
         self.args = args
@@ -31,7 +31,7 @@ class CSVServiceHandler(base.ServiceHandlerBase):
 
     @property
     def parsed_service(self):
-        return CSVParser(self.url)
+        return FileParser(self.url)
 
     def probe(self):
         try:
@@ -86,7 +86,7 @@ class CSVServiceHandler(base.ServiceHandlerBase):
         return ["TODO", "prueba", "palabras", "clave"]
 
     def get_harvester_type(self):
-        return "sigic_geonode.remote_services.csv_harvester.CSVHarvester"
+        return "sigic_geonode.remote_services.file_harvester.FileHarvester"
 
     def get_harvester_configuration_options(self):
         return {"harvest_datasets": True, "harvest_documents": True}
