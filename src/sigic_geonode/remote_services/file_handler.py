@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class FileServiceHandler(base.ServiceHandlerBase):
     """Remote service handler for ESRI:ArcGIS:MapServer services"""
 
-    service_type = "FILE"
+    service_type = "File"
 
     def __init__(self, url, geonode_service_id=None, *args, **kwargs):
         self.args = args
@@ -26,7 +26,9 @@ class FileServiceHandler(base.ServiceHandlerBase):
         base.ServiceHandlerBase.__init__(self, url, geonode_service_id)
 
         self.indexing_method = enumerations.INDEXED
+        # TODO setear name
         self.name = slugify(url)[:255]
+        # TODO setear title
         self.title = slugify(url)[:255]
 
     @property
@@ -83,7 +85,7 @@ class FileServiceHandler(base.ServiceHandlerBase):
         return instance
 
     def get_keywords(self):
-        return ["TODO", "prueba", "palabras", "clave"]
+        return []
 
     def get_harvester_type(self):
         return "sigic_geonode.remote_services.file_harvester.FileHarvester"

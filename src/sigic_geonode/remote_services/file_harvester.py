@@ -18,7 +18,6 @@ from django.utils.text import slugify
 from geonode.harvesting.resourcedescriptor import RecordDescription, RecordIdentification, RecordDistribution
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.resource.manager import resource_manager
-from geonode.storage.manager import storage_manager
 from geonode.layers.models import Dataset
 from geonode.base.auth import get_or_create_token
 
@@ -74,7 +73,7 @@ class FileHarvester(BaseHarvesterWorker):
             FileRemoteData(
                 unique_identifier = self.uuid,
                 title = self.title,
-                resource_type = "FILE",
+                resource_type = "File",
                 url = self.url
             )
         ]
