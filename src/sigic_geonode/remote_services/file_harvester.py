@@ -163,7 +163,7 @@ class FileHarvester(BaseHarvesterWorker):
         target_name = slugify(self.url)+".csv"
         with download_to_geonode(self.url, target_name=target_name) as file:
             create_from_importer(defaults, file)
-        geonode_resource = resource_manager.search({"title": defaults["title"], "state": "PROCESSED"}).first()
+        geonode_resource = resource_manager.search({"title": defaults["title"], "state": "PROCESSED"}, resource_type=geonode_resource_type).first()
 
         return geonode_resource
 
