@@ -1,6 +1,7 @@
 import os
 import requests
 import typing
+from contextlib import contextmanager
 
 from uuid import uuid4
 from pathlib import Path
@@ -160,8 +161,8 @@ class FileHarvester(BaseHarvesterWorker):
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
         target_name = slugify(self.url)+".csv"
-        file = download_to_geonode(self.url, target_name=target_name)
-        create_from_importer(defaults, file)
+        with download_to_geonode(self.url, target_name=target_name) as file:
+            create_from_importer(defaults, file)
         geonode_resource = resource_manager.search({"title": defaults["title"], "state": "PROCESSED"}).first()
 
         return geonode_resource
@@ -175,6 +176,7 @@ def FileParser(url: str):
     fn = os.getcwd()+"/"+target_name+".csv"
     return fn
 
+@contextmanager
 def download_to_geonode(url: str, target_name: str):
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
@@ -185,7 +187,10 @@ def download_to_geonode(url: str, target_name: str):
     with open(fn, mode="wb+") as file:
         file.write(response.content)
     path = Path(fn)
-    return UploadedFile(open(fn, mode="rb"), path.name, content_type=content_type, size=file_size, charset=charset)
+
+    with open(fn, mode="rb") as file:
+        uploaded_file = UploadedFile(open(fn, mode="rb"), path.name, content_type=content_type, size=file_size, charset=charset)
+        yield uploaded_file
 
 def create_from_importer(defaults, file):
     request = HttpRequest()
