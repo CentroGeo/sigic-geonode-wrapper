@@ -1,6 +1,7 @@
 import os
 import requests
 import typing
+import tempfile
 from contextlib import contextmanager
 
 from uuid import uuid4
@@ -173,14 +174,14 @@ class FileHarvester(BaseHarvesterWorker):
 @lru_cache
 def FileParser(url: str):
     target_name = slugify(url)
-    fn = os.getcwd()+"/"+target_name+".csv"
+    fn = get_temp_dir()+"/"+target_name+".csv"
     return fn
 
 @contextmanager
 def download_to_geonode(url: str, target_name: str):
     query_params = {"downloadformat": "csv"}
     response = requests.get(url, params=query_params)
-    fn = os.getcwd()+"/"+target_name
+    fn = get_temp_dir()+"/"+target_name
     file_size = response.headers.get("Content-Length")
     content_type = response.headers.get("Content-Type")
     charset = response.apparent_encoding
@@ -213,4 +214,9 @@ def create_from_importer(defaults, file):
     request.session.save()
     importer = ImporterViewSet(request=request)
     importer.create(request)
+
+def get_temp_dir():
+    if settings.FILE_UPLOAD_TEMP_DIR is not None:
+        return settings.FILE_UPLOAD_TEMP_DIR
+    return tempfile.gettempdir()
 
