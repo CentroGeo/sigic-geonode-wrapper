@@ -165,19 +165,9 @@ class CSVHarvester(BaseHarvesterWorker):
         file = download_to_geonode(self.url, target_name=target_name)
         create_from_importer(defaults, file)
 
-        geonode_resource = resource_manager.create(
-            defaults["uuid"],
-            resource_type=geonode_resource_type,
-            defaults=defaults,
-        )
         return geonode_resource
 
     def _update_existing_geonode_resource(self, geonode_resource, defaults):
-        geonode_resource = resource_manager.update(
-            self.harvester_id,
-            instance=geonode_resource,
-            vals=defaults,
-        )
         return geonode_resource
 
 @lru_cache
@@ -195,12 +185,8 @@ def download_to_geonode(url: str, target_name: str):
     charset = response.apparent_encoding
     with open(fn, mode="wb+") as file:
         file.write(response.content)
-        file.read()
-        if storage_manager.exists(target_name):
-            storage_manager.delete(target_name)
-        file_name = storage_manager.save(target_name, file)
-        path = Path(storage_manager.path(file_name))
-    return UploadedFile(open(path, mode="rb"), result.name, content_type=content_type, size=file_size, charset=charset)
+    path = Path(fn)
+    return UploadedFile(open(fn, mode="rb"), path.name, content_type=content_type, size=file_size, charset=charset)
 
 def create_from_importer(defaults, file):
     request = HttpRequest()
