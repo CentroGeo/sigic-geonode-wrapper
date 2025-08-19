@@ -180,7 +180,12 @@ def FileParser(url: str):
 @contextmanager
 def download_to_geonode(url: str, target_name: str):
     query_params = {"downloadformat": "csv"}
-    response = requests.get(url, params=query_params)
+    try:
+        response = requests.get(url, params=query_params, timeout=30)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logging.error(f"Failed to download file from {url}: {e}")
+        raise
     fn = get_temp_dir()+"/"+target_name
     file_size = response.headers.get("Content-Length")
     content_type = response.headers.get("Content-Type")
