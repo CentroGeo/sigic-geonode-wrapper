@@ -25,7 +25,7 @@ from importer.api.views import ImporterViewSet
 
 engine = import_module(settings.SESSION_ENGINE)
 
-MEXICO_SPATIAL_EXTENT = Polygon(((-122.19, 12.1),(-122.19, 32.72),(-84.64, 32.72),(-84.64, 12.1),(-122.19, 12.1)))
+PLACEHOLDER_SPATIAL_EXTENT = Polygon(((-180, -90),(-180, 90),(180, 90),(180, -90),(-180, -90)))
 
 @dataclass()
 class FileRemoteData:
@@ -97,8 +97,7 @@ class FileHarvester(BaseHarvesterWorker):
                     abstract="",
                     # TODO Purpose según valores entrada
                     purpose="",
-                    # TODO Extremos de datos geo según los datos
-                    spatial_extent=MEXICO_SPATIAL_EXTENT,
+                    spatial_extent=PLACEHOLDER_SPATIAL_EXTENT,
                     other_constraints="",
                     other_keywords=[],
                     supplemental_information="",
