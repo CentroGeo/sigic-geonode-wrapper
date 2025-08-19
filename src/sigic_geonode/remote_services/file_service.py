@@ -2,7 +2,7 @@ from sigic_geonode.remote_services.file_handler import FileServiceHandler
 
 class FileServiceInfo():
     services_type = {
-        "File": {
+        "FILE": {
             "OWS": False,
             "handler": FileServiceHandler,
             "label": "File Service",

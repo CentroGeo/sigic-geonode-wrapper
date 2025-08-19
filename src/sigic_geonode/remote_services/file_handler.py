@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class FileServiceHandler(base.ServiceHandlerBase):
     """Remote service handler for ESRI:ArcGIS:MapServer services"""
 
-    service_type = "File"
+    service_type = "FILE"
 
     def __init__(self, url, geonode_service_id=None, *args, **kwargs):
         self.args = args
