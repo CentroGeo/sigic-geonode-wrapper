@@ -179,7 +179,8 @@ def FileParser(url: str):
 
 @contextmanager
 def download_to_geonode(url: str, target_name: str):
-    query_params = {"downloadformat": "csv"}
+def download_to_geonode(url: str, target_name: str, file_format: str = "csv"):
+    query_params = {"downloadformat": file_format}
     try:
         response = requests.get(url, params=query_params, timeout=30)
         response.raise_for_status()
