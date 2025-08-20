@@ -174,11 +174,7 @@ class FileHarvester(BaseHarvesterWorker):
 @lru_cache
 def FileParser(url: str):
     target_name = slugify(url)
-def FileParser(url: str, file_extension: str = None):
-    target_name = slugify(url)
-    if file_extension is None:
-        file_extension = Path(url).suffix or ".csv"
-    fn = get_temp_dir() + "/" + target_name + file_extension
+    fn = get_temp_dir()+"/"+target_name+".csv"
     return fn
 
 @contextmanager
