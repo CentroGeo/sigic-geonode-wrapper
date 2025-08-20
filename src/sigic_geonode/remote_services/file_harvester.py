@@ -197,7 +197,18 @@ def download_to_geonode(url: str, target_name: str, file_format: str = "csv"):
     charset = response.apparent_encoding
     with open(fn, mode="wb+") as file:
         file.write(response.content)
+    file_size_str = response.headers.get("Content-Length")
+    try:
+        file_size = int(file_size_str) if file_size_str is not None else None
+    except (ValueError, TypeError):
+        file_size = None
+    content_type = response.headers.get("Content-Type")
+    charset = response.apparent_encoding
+    with open(fn, mode="wb+") as file:
+        file.write(response.content)
     path = Path(fn)
+    if file_size is None:
+        file_size = path.stat().st_size
 
     with open(fn, mode="rb") as file:
         uploaded_file = UploadedFile(open(fn, mode="rb"), path.name, content_type=content_type, size=file_size, charset=charset)
