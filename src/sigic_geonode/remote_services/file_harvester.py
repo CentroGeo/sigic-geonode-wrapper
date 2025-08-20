@@ -191,7 +191,7 @@ def download_to_geonode(url: str, target_name: str, file_format: str = "csv"):
     except requests.RequestException as e:
         logging.error(f"Failed to download file from {url}: {e}")
         raise
-    fn = str(Path(get_temp_dir()) / target_name)
+    fn = get_temp_dir()+"/"+target_name
     file_size = response.headers.get("Content-Length")
     content_type = response.headers.get("Content-Type")
     charset = response.apparent_encoding
