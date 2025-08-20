@@ -127,9 +127,9 @@ class FileHarvester(BaseHarvesterWorker):
             geonode_resource = self._create_new_geonode_resource(geonode_resource_type, defaults)
         elif not geonode_resource.uuid == str(harvested_info.resource_descriptor.uuid):
             raise RuntimeError(
-                f"""Recurso {geonode_resource!r} ya existe localmente pero su
-                UUID ({geonode_resource.uuid}) no concuerda con el recurso
-                remoto que ya existe, UUID {harvested_info.resource_descriptor.uuid!r}"""
+                f"""Resource {geonode_resource!r} already exists with
+                UUID ({geonode_resource.uuid}) and does not match the
+                remote resource with UUID {harvested_info.resource_descriptor.uuid!r}"""
             )
         else:
             geonode_resource = self._update_existing_geonode_resource(geonode_resource, defaults)
