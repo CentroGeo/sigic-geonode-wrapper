@@ -1,7 +1,7 @@
-import os
 import requests
 import typing
 import tempfile
+import logging
 from contextlib import contextmanager
 
 from uuid import uuid4
@@ -25,6 +25,7 @@ from geonode.base.auth import get_or_create_token
 
 from importer.api.views import ImporterViewSet
 
+logger = logging.getLogger(__name__)
 engine = import_module(settings.SESSION_ENGINE)
 
 PLACEHOLDER_SPATIAL_EXTENT = Polygon(((-180, -90),(-180, 90),(180, 90),(180, -90),(-180, -90)))
