@@ -196,7 +196,7 @@ def download_to_geonode(url: str, target_name: str):
     path = Path(fn)
 
     with open(fn, mode="rb") as file:
-        uploaded_file = UploadedFile(open(fn, mode="rb"), path.name, content_type=content_type, size=file_size, charset=charset)
+        uploaded_file = UploadedFile(file, path.name, content_type=content_type, size=file_size, charset=charset)
         yield uploaded_file
 
 def create_from_importer(defaults, file):
