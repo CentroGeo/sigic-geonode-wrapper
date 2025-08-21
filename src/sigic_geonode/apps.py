@@ -33,7 +33,7 @@ def run_setup_hooks(*args, **kwargs):
 
 def setup_sigic_hooks(*args, **kwargs):
     import django.contrib.auth.decorators as auth_decorators
-    from sigic_geonode.auth.keycloak import jwt_or_session_login_required
+    from sigic_geonode.sigic_auth.keycloak import jwt_or_session_login_required
     auth_decorators.login_required = jwt_or_session_login_required
 
 
