@@ -168,13 +168,13 @@ INSTALLED_APPS += (
 )
 
 MIDDLEWARE = [
-    'sigic_geonode.auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
+    'sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
     for mw in MIDDLEWARE
 ]
 
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
 SOCIALACCOUNT_OIDC_PROVIDER=os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
-SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.auth.account_adapters.SigicOpenIDConnectAdapter")
+SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter")
 SOCIALACCOUNT_PROVIDER_NAME=os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
 SOCIALACCOUNT_PROVIDERS={
@@ -203,7 +203,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-        "sigic_geonode.auth.keycloak.KeycloakJWTAuthentication",
+        "sigic_geonode.sigic_auth.keycloak.KeycloakJWTAuthentication",
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
