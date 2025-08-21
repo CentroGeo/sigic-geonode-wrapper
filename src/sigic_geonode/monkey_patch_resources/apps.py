@@ -10,7 +10,7 @@ class MonkeyPatchResourcesConfig(AppConfig):
     def ready(self):
         try:
             # Importa y ejecuta el parche al iniciar Django
-            import sigic_geonode.monkey_patch_resources.monkey_patch
+            import sigic_geonode.monkey_patch_resources.patches
             logger.info("Monkey patch importado correctamente")
         except Exception:
             logger.exception("Falló el monkey patch")
