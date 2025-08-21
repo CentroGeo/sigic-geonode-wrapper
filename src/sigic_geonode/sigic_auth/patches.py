@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 
 _PATCHED = False
 
+
 def patch_drf_get_authenticators():
     global _PATCHED
     if _PATCHED:
