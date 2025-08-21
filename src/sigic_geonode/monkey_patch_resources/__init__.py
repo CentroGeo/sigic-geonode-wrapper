@@ -1,1 +1,0 @@
-default_app_config = "sigic_geonode.monkey_patch_resources.apps.MonkeyPatchResourcesConfig"
