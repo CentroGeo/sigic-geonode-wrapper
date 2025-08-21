@@ -7,10 +7,12 @@ _PATCH_LOCK = threading.Lock()
 
 def patch_drf_get_authenticators():
     global _PATCHED
+
     with _PATCH_LOCK:
         if _PATCHED:
             return
         _PATCHED = True
+
         # Import tardío para evitar ciclos
         from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
         _orig_get_authenticators = APIView.get_authenticators
