@@ -154,14 +154,14 @@ fi
 # set basic tagname
 TAGNAME=( "baseUrl" "authApiKey" )
 
-if ! [ -f ${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/config.xml ]
+if ! [ -f ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml ]
 then
-    echo "Configuration file '${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/config.xml' is not available so it is going to be skipped"
+    echo "Configuration file '${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml' is not available so it is going to be skipped"
 else
     # backup geonodeAuthProvider config.xml
-    cp ${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/config.xml ${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/config.xml.orig
+    cp ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml.orig
     # run the setting script for geonodeAuthProvider
-    /usr/local/tomcat/tmp/set_geoserver_auth.sh ${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/config.xml ${GEOSERVER_DATA_DIR}/security/sigic_auth/geonodeAuthProvider/ ${TAGNAME[@]} > /dev/null 2>&1
+    /usr/local/tomcat/tmp/set_geoserver_auth.sh ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/config.xml ${GEOSERVER_DATA_DIR}/security/auth/geonodeAuthProvider/ ${TAGNAME[@]} > /dev/null 2>&1
 fi
 
 # Copy the ogr2ogr.xml file to the geoserver data directory
