@@ -8,12 +8,13 @@
 
         <!-- ========== XLSX (WPS/WFS vía OGR) ========== -->
         <Format>
-            <ogrFormat>XLSX</ogrFormat> <!-- nombre EXACTO del driver GDAL -->
-            <formatName>OGR-XLSX</formatName>
-            <fileExtension>.xlsx</fileExtension>
-            <singleFile>true</singleFile>
-            <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
-            <type>binary</type>
+          <ogrFormat>XLSX</ogrFormat>
+          <formatName>OGR-XLSX</formatName>
+          <fileExtension>.xlsx</fileExtension>
+          <singleFile>true</singleFile>
+          <mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimeType>
+          <option>-nlt</option><option>NONE</option>
+          <type>binary</type>
         </Format>
 
         <!-- ========== Shapefile (equivalente al default de gs:Download) ========== -->
