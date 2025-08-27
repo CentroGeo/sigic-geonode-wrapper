@@ -78,9 +78,6 @@ jobs:
       - name: Crear archivo .env desde secret
         run: echo "${{ secrets.GEONODE_ENV_FILE_CONTENT }}" > .env
 
-      - name: Verificar .env (debug temporal)
-        run: cat .env
-
       - name: Set variables
         id: vars
         run: |

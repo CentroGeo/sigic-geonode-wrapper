@@ -215,4 +215,11 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "geonode.base.api.exceptions.geonode_exception_handler",
 }
 
+HARVESTER_TYPES = {
+    "FILE": "sigic_geonode.remote_services.file_harvester.FileHarvester",
+}
+
+SERVICES_TYPE_MODULES = [
+    "sigic_geonode.remote_services.file_service.FileServiceInfo",
+]
 
