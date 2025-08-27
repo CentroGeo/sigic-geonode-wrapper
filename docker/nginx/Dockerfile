@@ -3,4 +3,4 @@ FROM geonode/nginx:${BASE_IMAGE_VERSION}
 
 WORKDIR /etc/nginx/
 
-COPY geonode.conf.envsubst ./sites-enabled/
+COPY geonode.conf.envsubst /etc/nginx/sites-enabled/
