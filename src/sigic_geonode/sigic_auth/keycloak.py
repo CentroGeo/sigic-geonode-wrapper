@@ -55,7 +55,7 @@ class KeycloakJWTAuthentication(BaseAuthentication):
 
             User = get_user_model()
             user, _ = User.objects.get_or_create(username=payload['preferred_username'])
-            return (user, None)
+            return user, None
 
         except (ExpiredSignatureError, JWTClaimsError, JWTError, Exception) as e:
             print("Excepción al autenticar:", e)
