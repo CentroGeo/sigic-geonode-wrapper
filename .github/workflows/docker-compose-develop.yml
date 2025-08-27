@@ -51,7 +51,7 @@ jobs:
         run: |
           cd docker/geoserver
           docker build --no-cache \
-            --build-arg GEOSERVER_BASE_IMAGE_VERSION=${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
+            --build-arg BASE_IMAGE_VERSION=${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
             -f Dockerfile .
           cd -
