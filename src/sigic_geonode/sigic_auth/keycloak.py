@@ -20,9 +20,11 @@ JWKS_URL = f"{SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER}/protocol/openid-connect/certs"
 class KeycloakJWTAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get('Authorization')
+
         if not auth_header or not auth_header.startswith('Bearer '):
             return None
 
+        print("AUTH header (masked): %s", auth_header[:10] + "**********" + auth_header[-6:])
         token = auth_header.split(' ')[1]
 
         try:
