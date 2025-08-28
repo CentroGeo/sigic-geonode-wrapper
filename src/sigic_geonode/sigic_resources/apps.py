@@ -12,7 +12,7 @@ class MonkeyPatchResourcesConfig(AppConfig):
     def ready(self):
         try:
             # Importa y ejecuta el parche al iniciar Django
-            import sigic_geonode.sigic_resources.patches  # noqa: F401
+            import sigic_geonode.sigic_resources.patches  # Import for side effects: applies monkey patches on app startup. Do not remove. # noqa: F401
 
             logger.info("Monkey patch importado correctamente")
         except Exception:
