@@ -164,9 +164,7 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
 INSTALLED_APPS += (
-    # "sigic_geonode.misc", # esto de los links ya no va a ir dentro de geonode, debe ser un proyecto aparte
     "sigic_geonode.sigic_auth",
-    "sigic_geonode.sigic_auth.apps.SigicAuthConfig"
     "sigic_geonode.sigic_resources",
 )
 
