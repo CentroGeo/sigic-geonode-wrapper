@@ -49,7 +49,7 @@ services:
 
   # Nginx is serving django static and media files and proxies to django and geonode
   geonode:
-    image: ${COMPOSE_PROJECT_NAME}/nginx:${NGINX_BASE_IMAGE_VERSION}
+    image: ghcr.io/centrogeo/sigic-nginx:${NGINX_BASE_IMAGE_VERSION}
     build:
       context: ./docker/nginx
       dockerfile: Dockerfile
