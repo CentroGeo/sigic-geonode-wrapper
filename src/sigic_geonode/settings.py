@@ -17,16 +17,18 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
+# flake8: noqa
+
+import ast
 
 # Django settings for the GeoNode project.
 import os
-import ast
 
 try:
     from urllib.parse import urlparse, urlunparse
-    from urllib.request import urlopen, Request
+    from urllib.request import Request, urlopen
 except ImportError:
-    from urllib2 import urlopen, Request
+    from urllib2 import Request, urlopen
     from urlparse import urlparse, urlunparse
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -170,16 +172,25 @@ INSTALLED_APPS += (
 )
 
 MIDDLEWARE = [
-    'sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
+    "sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT"
+    if mw == "django.middleware.csrf.CsrfViewMiddleware"
+    else mw
     for mw in MIDDLEWARE
 ]
 
-SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
-SOCIALACCOUNT_OIDC_PROVIDER=os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
-SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter")
-SOCIALACCOUNT_PROVIDER_NAME=os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
+SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(
+    os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True")
+)
+SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
+    "SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect"
+)
+SOCIALACCOUNT_ADAPTER = os.environ.get(
+    "SOCIALACCOUNT_ADAPTER",
+    "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter",
+)
+SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
-SOCIALACCOUNT_PROVIDERS={
+SOCIALACCOUNT_PROVIDERS = {
     SOCIALACCOUNT_OIDC_PROVIDER: {
         "NAME": SOCIALACCOUNT_OIDC_PROVIDER,
         "SCOPE": ["openid", "email", "profile"],
@@ -187,16 +198,28 @@ SOCIALACCOUNT_PROVIDERS={
         "COMMON_FIELDS": {
             "email": "email",
             "last_name": "family_name",
-            "first_name": "given_name"
+            "first_name": "given_name",
         },
-        "USER_FIELDS": {
-            "username": "preferred_username"
-        },
-        "ACCESS_TOKEN_URL": os.getenv("SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token"),
-        "AUTHORIZE_URL": os.getenv("SOCIALACCOUNT_OIDC_AUTHORIZE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth"),
-        "ID_TOKEN_ISSUER": os.getenv("SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER", "https://iam.dev.geoint.mx/realms/sigic"),
-        "PROFILE_URL": os.getenv("SOCIALACCOUNT_OIDC_PROFILE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo"),
-        "OAUTH_PKCE_ENABLED": ast.literal_eval(os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True"))
+        "USER_FIELDS": {"username": "preferred_username"},
+        "ACCESS_TOKEN_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token",
+        ),
+        "AUTHORIZE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_AUTHORIZE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth",
+        ),
+        "ID_TOKEN_ISSUER": os.getenv(
+            "SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER",
+            "https://iam.dev.geoint.mx/realms/sigic",
+        ),
+        "PROFILE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_PROFILE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo",
+        ),
+        "OAUTH_PKCE_ENABLED": ast.literal_eval(
+            os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True")
+        ),
     }
 }
 
@@ -222,4 +245,3 @@ HARVESTER_TYPES = {
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.remote_services.file_service.FileServiceInfo",
 ]
-

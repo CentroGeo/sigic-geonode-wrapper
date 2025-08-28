@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 # This is the script directory
 # pushd $(dirname $0)

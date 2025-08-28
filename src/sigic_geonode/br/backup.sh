@@ -30,7 +30,7 @@ else
     BKP_FOLDER_NAME="backup_restore"
 fi
 
-cd /usr/src/sigic_geonode/ 
+cd /usr/src/sigic_geonode/
 
 ./manage.sh backup -i -f -c $PWD/sigic_geonode/br/settings_docker.ini --backup-dir /$BKP_FOLDER_NAME/
 

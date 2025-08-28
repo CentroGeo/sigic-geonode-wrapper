@@ -18,6 +18,7 @@
 #
 #########################################################################
 import argparse
+import ast
 import json
 import logging
 import os
@@ -25,7 +26,6 @@ import random
 import re
 import string
 import sys
-import ast
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -139,9 +139,12 @@ def generate_env_file(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="ENV file builder",
-        description="Tool for generate environment file automatically. The information can be passed or via CLI or via JSON file ( --file /path/env.json)",
+        description=(
+            "Tool for generate environment file automatically. "
+            "The information can be passed or via CLI or via JSON file ( --file /path/env.json)"
+        ),
         usage="python create-envfile.py localhost -f /path/to/json/file.json",
-        allow_abbrev=False
+        allow_abbrev=False,
     )
     parser.add_argument(
         "--noinput",
@@ -153,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-hn",
         "--hostname",
-        help=f"Host name, default localhost",
+        help="Host name, default localhost",
         default="localhost",
     )
 
@@ -167,7 +170,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--file",
-        help="absolute path of the file with the configuration. Note: we expect that the keys of the dictionary have the same name as the CLI params",
+        help=(
+            "absolute path of the file with the configuration. "
+            "Note: we expect that the keys of the dictionary have the same name as the CLI params"
+        ),
     )
     # booleans
     parser.add_argument(

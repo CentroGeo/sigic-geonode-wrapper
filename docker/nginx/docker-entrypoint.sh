@@ -15,7 +15,7 @@ echo "Creating autoissued certificates for HTTP host"
 if [ ! -f "/geonode-certificates/autoissued/privkey.pem" ] || [[ $(find /geonode-certificates/autoissued/privkey.pem -mtime +365 -print) ]]; then
         echo "Autoissued certificate does not exist or is too old, we generate one"
         mkdir -p "/geonode-certificates/autoissued/"
-        openssl req -x509 -nodes -days 1825 -newkey rsa:2048 -keyout "/geonode-certificates/autoissued/privkey.pem" -out "/geonode-certificates/autoissued/fullchain.pem" -subj "/CN=${HTTP_HOST:-HTTPS_HOST}" 
+        openssl req -x509 -nodes -days 1825 -newkey rsa:2048 -keyout "/geonode-certificates/autoissued/privkey.pem" -out "/geonode-certificates/autoissued/fullchain.pem" -subj "/CN=${HTTP_HOST:-HTTPS_HOST}"
 else
         echo "Autoissued certificate already exists"
 fi
@@ -90,5 +90,5 @@ echo "-----------------------------------------------------"
 echo "FINISHED NGINX ENTRYPOINT ---------------------------"
 echo "-----------------------------------------------------"
 
-# Run the CMD 
+# Run the CMD
 exec "$@"

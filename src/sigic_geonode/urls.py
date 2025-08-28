@@ -18,8 +18,9 @@
 #
 #########################################################################
 
+from django.urls import include, re_path
 from geonode.urls import urlpatterns as geonode_urlpatterns
-from django.urls import re_path, path, include
+
 from sigic_geonode.upload.views import SigicImporterViewSet
 
 urlpatterns = [
@@ -28,9 +29,5 @@ urlpatterns = [
         SigicImporterViewSet.as_view({"post": "create"}),
         name="importer_upload",
     ),
-    re_path(
-        r"api/v2/", include('sigic_geonode.misc.urls')
-    ),
- ] + geonode_urlpatterns
-
-
+    re_path(r"api/v2/", include("sigic_geonode.misc.urls")),
+] + geonode_urlpatterns
