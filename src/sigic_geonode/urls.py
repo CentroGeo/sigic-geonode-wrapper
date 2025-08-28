@@ -21,6 +21,7 @@
 from geonode.urls import urlpatterns as geonode_urlpatterns
 from django.urls import re_path, path, include
 from sigic_geonode.upload.views import SigicImporterViewSet
+from sigic_auth.debug import whoami
 
 urlpatterns_bak = [
     re_path(
@@ -34,4 +35,6 @@ urlpatterns_bak = [
  ] + geonode_urlpatterns
 
 
-urlpatterns = []
+urlpatterns = [
+    path("whoami", whoami),
+]
