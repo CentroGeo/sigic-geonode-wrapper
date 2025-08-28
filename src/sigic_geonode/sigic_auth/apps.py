@@ -16,6 +16,12 @@ class SigicAuthConfig(AppConfig):
             log.info("[geonode_keycloak] OIDC deshabilitado. No se aplicarán parches.")
             return
 
+        # 1) Parche para añadir autenticador en DRF
         from .patches import patch_drf_get_authenticators
         patch_drf_get_authenticators()
         log.info("[geonode_keycloak] OIDC habilitado. Parche get_authenticators() aplicado.")
+
+        # 2) Parche para get_token_from_auth_header (NUEVO)
+        from .patches import patch_get_token_from_auth_header
+        patch_get_token_from_auth_header()
+        log.info("[geonode_keycloak] OIDC habilitado. Parche get_token_from_auth_header() aplicado.")
