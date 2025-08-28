@@ -17,7 +17,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
-# flake8: noqa
+# flake8: noqa evitar errores por imports estrellas y variables no declaradas
 
 import ast
 
