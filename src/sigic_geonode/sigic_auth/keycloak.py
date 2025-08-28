@@ -11,7 +11,9 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from functools import wraps
 from jose.exceptions import JWTError, ExpiredSignatureError, JWTClaimsError
 import os
+import logging
 
+logger = logging.getLogger("geonode")
 
 SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER = os.getenv('SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER', 'https://iam.dev.geoint.mx/realms/sigic')
 JWKS_URL = f"{SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER}/protocol/openid-connect/certs"
@@ -20,6 +22,7 @@ JWKS_URL = f"{SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER}/protocol/openid-connect/certs"
 class KeycloakJWTAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get('Authorization')
+        logger.info("AUTH header (masked): %s", auth_header[:10] + "**********" + auth_header[-6:])
         if not auth_header or not auth_header.startswith('Bearer '):
             return None
 
