@@ -43,9 +43,9 @@ from setuptools.command import easy_install
 from tqdm import tqdm
 
 try:
-    from sigic_geonode.local_settings import *  # noqa: F401, F403
+    from sigic_geonode.local_settings import *  # noqa: F401, F403 Evitar error flake8 por imports implícitas
 except ImportError:
-    from sigic_geonode.settings import *  # noqa: F401, F403
+    from sigic_geonode.settings import *  # noqa: F401, F403 Evitar error flake8 por imports implícitas
 
 try:
     from paver.path import pushd
