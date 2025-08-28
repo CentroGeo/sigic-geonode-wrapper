@@ -2,7 +2,7 @@ from django.apps import AppConfig
 from django.conf import settings
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('geonode')
 
 
 class SigicAuthConfig(AppConfig):
@@ -20,8 +20,10 @@ class SigicAuthConfig(AppConfig):
         from .patches import patch_drf_get_authenticators
         patch_drf_get_authenticators()
         log.info("[geonode_keycloak] OIDC habilitado. Parche get_authenticators() aplicado.")
+        print("[geonode_keycloak] OIDC habilitado. Parche get_authenticators() aplicado.")
 
         # 2) Parche para get_token_from_auth_header para promover Bearer token keycloak a token GeoNode
         from .patches import patch_get_token_from_auth_header
         patch_get_token_from_auth_header()
         log.info("[geonode_keycloak] OIDC habilitado. Parche get_token_from_auth_header() aplicado.")
+        print("[geonode_keycloak] OIDC habilitado. Parche get_token_from_auth_header() aplicado.")
