@@ -1,19 +1,17 @@
 import logging
-
 from uuid import uuid4
 
-from django.utils.text import slugify
-from django.utils.translation import gettext_lazy as _
 from django.db import transaction
-
+from django.utils.text import slugify
 from geonode import GeoNodeException
 from geonode.harvesting.models import Harvester
-from sigic_geonode.remote_services.file_harvester import FileParser
-
-from geonode.services import models, enumerations
+from geonode.services import enumerations, models
 from geonode.services.serviceprocessors import base
 
+from sigic_geonode.remote_services.file_harvester import FileParser
+
 logger = logging.getLogger(__name__)
+
 
 class FileServiceHandler(base.ServiceHandlerBase):
     """Remote service handler for ESRI:ArcGIS:MapServer services"""
@@ -62,7 +60,7 @@ class FileServiceHandler(base.ServiceHandlerBase):
                 version="ignore",
                 name=self.name,
                 title=self.title,
-                abstract = "Not provided",
+                abstract="Not provided",
             )
 
             service_harvester = Harvester.objects.create(
@@ -92,4 +90,3 @@ class FileServiceHandler(base.ServiceHandlerBase):
 
     def get_harvester_configuration_options(self):
         return {"harvest_datasets": True, "harvest_documents": True}
-

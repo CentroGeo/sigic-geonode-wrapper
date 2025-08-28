@@ -1,11 +1,9 @@
+import logging
+
 from geonode.base.api.views import ResourceBaseViewSet
 from rest_framework.response import Response
-from .utils import (
-    simplify_resource,
-    filter_by_extension,
-    filter_by_geometry,
-    )
-import logging
+
+from .utils import filter_by_extension, filter_by_geometry, simplify_resource
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +27,13 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
         try:
             logger.debug("🚀🚀 custom_get_queryset ejecutado")
 
-            qs  = _orig_get_queryset(self)
+            qs = _orig_get_queryset(self)
             req = self.request
 
             institution = req.query_params.get("institution")
-            year        = req.query_params.get("year")
-            category    = req.query_params.get("category")
-            keywords    = req.query_params.getlist("keywords")
+            year = req.query_params.get("year")
+            category = req.query_params.get("category")
+            keywords = req.query_params.getlist("keywords")
 
             if institution:
                 qs = qs.filter(attribution__iexact=institution)
@@ -62,10 +60,10 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
         except Exception as e:
             logger.warning(f"🚨🚨 Error en custom_get_queryset: {e}")
             return _orig_get_queryset(self)
-        
+
     def custom_list(self, request, *args, **kwargs):
         """
-        Sobrescribe el método list del ResourceBaseViewSet para permitir filtrado avanzado 
+        Sobrescribe el método list del ResourceBaseViewSet para permitir filtrado avanzado
         cuando el query param 'custom=true' está presente.
 
         Comportamiento adicional:
@@ -79,11 +77,11 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
         # Si no piden custom, responde como siempre
         if request.query_params.get("custom", "").lower() != "true":
             return _orig_list(self, request, *args, **kwargs)
-        
+
         logger.debug("🚀🚀 custom_list ejecutado")
         # Aquí  GeoNode SERIALIZA primero para tener dicts json´s manejables
-        resp  = _orig_list(self, request, *args, **kwargs)
-        data  = resp.data  # dict con links/total/... + 'resources' (lista)
+        resp = _orig_list(self, request, *args, **kwargs)
+        data = resp.data  # dict con links/total/... + 'resources' (lista)
         items = data.get("resources") or data.get("results") or []
 
         if request.query_params.get("extension"):
@@ -102,7 +100,7 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
             return Response(new_payload)
 
         return Response(simplified)
-    
+
     # Inyectamos las funcionalidades a ResourceBaseViewSet
     ResourceBaseViewSet.get_queryset = custom_get_queryset
     ResourceBaseViewSet.list = custom_list

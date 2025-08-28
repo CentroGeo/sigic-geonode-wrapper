@@ -1,7 +1,8 @@
-from geonode.people.adapters import LocalAccountAdapter, GenericOpenIDConnectAdapter
-from django.core.exceptions import ValidationError
-from allauth.account.utils import user_username
 import logging
+
+from allauth.account.utils import user_username
+from django.core.exceptions import ValidationError
+from geonode.people.adapters import GenericOpenIDConnectAdapter, LocalAccountAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 class SigicLocalAccountAdapter(LocalAccountAdapter):
     def populate_username(self, request, user):
         """Set username from social account's preferred_username if available"""
-        sociallogin = getattr(user, 'socialaccount_set', None)
+        sociallogin = getattr(user, "socialaccount_set", None)
         if sociallogin:
             try:
                 account = user.socialaccount_set.first()
@@ -23,11 +24,13 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
             user.full_clean()
             safe_username = user_username(user)
         except ValidationError:
-            safe_username = self.generate_unique_username([
-                user.first_name,
-                user.last_name,
-                user.email,
-            ])
+            safe_username = self.generate_unique_username(
+                [
+                    user.first_name,
+                    user.last_name,
+                    user.email,
+                ]
+            )
         user_username(user, safe_username)
 
 

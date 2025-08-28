@@ -1,6 +1,6 @@
 # Geonode Wrapper
 
-Proyecto envoltorio de GeoNode. 
+Proyecto envoltorio de GeoNode.
 
 Este es un proyecto Django con soporte para GeoNode incluido como biblioteca.
 
@@ -33,7 +33,7 @@ Contiene un Dockerfile y un docker-compose para facilitar el despliegue de un se
     django-admin startproject --template=http://gitlab.geoint.mx/sigic/geonode-compose/-/archive/$GN_VERSION/geonode-compose-main.zip -e py,sh,md,rst,json,yml,ini,env,sample,properties -n monitoring-cron -n Dockerfile project_name ~/project_name
 
     cd ~/project_name
-    python create-envfile.py 
+    python create-envfile.py
   ```
 `create-envfile.py` acepta los siguientes argumentos:
 
@@ -179,7 +179,7 @@ Asegúrate de tener instalado en tu máquina virtual :
 
 #### 1. Clonar el repositorio oficial
 
-```bash 
+```bash
 git clone https://gitlab.centrogeo.edu.mx/sigic/geonode-compose.git
 cd geonode-compose
 
@@ -191,7 +191,7 @@ python3 create-envfile.py —env_type=dev —hostname=ip/host/dominio
 
 ```
 
-El comando `create-envfile.py` debe adaptarse a la configuración específica de cada entorno.  
+El comando `create-envfile.py` debe adaptarse a la configuración específica de cada entorno.
 Por ejemplo, si estás trabajando en una máquina virtual local o en una red privada, puedes usar la IP de la VM como `--hostname`, o bien un nombre de dominio si ya cuentas con uno asignado públicamente.
 
 `--env_type:`
@@ -277,6 +277,18 @@ ip a
 ```
 
 Busca la IP de la interfaz `eth0`.
+
+#### 7. Instala git hooks con pre-commit
+Siguiendo los siguientes pasos tendrás los pre-commits ya instalados. Con esto cualquier cambio de archivo correrá flake8, isort y black para los archivos modificados. Esto corre automaticamente al hacer commit, no es necessario correr manualmente.
+
+Si se quiere correr a todos los documentos se puede usar el flag "--all-files", pero por defecto, se considerará que ya los demás archivos están formateados bien y solo se debe revisar cambios nuevos.
+
+```
+pip install pre-commit
+pre-commit install
+pre-commit run # Correr manualmente
+pre-commit run flake8 # nada más correr flake8 manualmente|
+```
 
 __________________________________________________________________
 

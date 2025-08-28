@@ -1,10 +1,11 @@
-from importer.api.views import ImporterViewSet
 from geonode.documents.api.views import DocumentViewSet
-from rest_framework.authentication import BasicAuthentication, SessionAuthentication
+from importer.api.views import ImporterViewSet
 from oauth2_provider.contrib.rest_framework import OAuth2Authentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
+
 from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
 
-# 
+#
 
 
 class SigicImporterViewSet(ImporterViewSet):
@@ -12,14 +13,18 @@ class SigicImporterViewSet(ImporterViewSet):
         BasicAuthentication,
         SessionAuthentication,
         OAuth2Authentication,
-        KeycloakJWTAuthentication,  
+        KeycloakJWTAuthentication,
     ]
 
 
 class SigicDocumentViewSet(DocumentViewSet):
     def get_authenticators(self):
-        from rest_framework.authentication import BasicAuthentication, SessionAuthentication
         from oauth2_provider.contrib.rest_framework import OAuth2Authentication
+        from rest_framework.authentication import (
+            BasicAuthentication,
+            SessionAuthentication,
+        )
+
         from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
 
         print("✅ get_authenticators personalizado en uso")

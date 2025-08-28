@@ -1,2 +1,2 @@
-class FileView():
+class FileView:
     pass
