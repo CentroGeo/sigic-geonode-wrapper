@@ -60,7 +60,7 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
                     qs = qs.filter(keywords__name__in=keywords).distinct()
             return qs
         except Exception as e:
-            logger.exception("❌ Error en custom_get_queryset")
+            logger.warning(f"🚨🚨 Error en custom_get_queryset: {e}")
             return _orig_get_queryset(self)
         
     def custom_list(self, request, *args, **kwargs):
