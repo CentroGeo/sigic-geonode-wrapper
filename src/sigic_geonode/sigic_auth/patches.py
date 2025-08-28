@@ -64,9 +64,11 @@ def patch_get_token_from_auth_header():
 
     def _looks_like_keycloak_accesstoken(token: str) -> bool:
         # Evita hacer red si claramente no es JWT: debe tener 2 puntos
+        print("_looks_like_keycloak_accesstoken token", token)
         return token.count(".") == 2
 
     def _patched(auth_header, create_if_not_exists: bool = False):
+        print("Patched get_token_from_auth_header called with:", auth_header if auth_header else auth_header)
         # Mantener compatibilidad exacta de firma y comportamiento
         if not auth_header:
             return None
@@ -77,6 +79,7 @@ def patch_get_token_from_auth_header():
 
         # Extraer el "raw token" (como hacía el original)
         raw = re.compile(re.escape("Bearer "), re.IGNORECASE).sub("", auth_header).strip()
+        print("raw", raw)
 
         # Intento de promoción SOLO si parece JWT (header.payload.signature)
         if _looks_like_keycloak_accesstoken(raw):
