@@ -17,7 +17,7 @@ def simplify_resource(res):
             "category":    res.get("category", {}),
         }
     except Exception as e:
-        logger.exception(f'❌ Ocurrió el siguiente error en simplify_resource: {e}')
+        logger.warning(f'🚨🚨 Ocurrió el siguiente error en simplify_resource: {e}')
         return {}
 
 def has_geometry(resource_dict):
@@ -31,7 +31,7 @@ def has_geometry(resource_dict):
         )
         return coords != [-1, -1, 0, 0]
     except Exception as e:
-        logger.exception(f"❌ Ocurrió el siguiente error en has_geometry: {e}")
+        logger.warning(f"🚨🚨 Ocurrió el siguiente error en has_geometry: {e}")
         return False
     
 def filter_by_geometry(items):
@@ -39,7 +39,7 @@ def filter_by_geometry(items):
     try:
         return [res for res in items if has_geometry(res)]
     except Exception as e:
-        logger.warning(f"❌ Error filtrando por geometría: {e}")
+        logger.warning(f"🚨🚨 Error filtrando por geometría: {e}")
         return items
     
 def filter_by_extension(items, requested_ext):
@@ -51,6 +51,6 @@ def filter_by_extension(items, requested_ext):
             if any(link.get("extension", "").lower() == ext for link in res.get("links", []))
         ]
     except Exception as e:
-        logger.warning(f"❌ Error filtrando por extensión: {e}")
+        logger.warning(f"🚨🚨 Error filtrando por extensión: {e}")
         return items
 
