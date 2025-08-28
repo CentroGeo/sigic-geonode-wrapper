@@ -278,6 +278,18 @@ ip a
 
 Busca la IP de la interfaz `eth0`.
 
+#### 7. Instala git hooks con pre-commit
+Siguiendo los siguientes pasos tendrás los pre-commits ya instalados. Con esto cualquier cambio de archivo correrá flake8, isort y black para los archivos modificados. Esto corre automaticamente al hacer commit, no es necessario correr manualmente.
+
+Si se quiere correr a todos los documentos se puede usar el flag "--all-files", pero por defecto, se considerará que ya los demás archivos están formateados bien y solo se debe revisar cambios nuevos.
+
+```
+pip install pre-commit
+pre-commit install
+pre-commit run # Correr manualmente
+pre-commit run flake8 # nada más correr flake8 manualmente|
+```
+
 __________________________________________________________________
 
 ### ESCENARIO B: Actualizacion
