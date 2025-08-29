@@ -47,8 +47,7 @@ def waitfordbs(ctx):
 def update(ctx):
     print("***************************setting env*********************************")
     debug = ast.literal_eval(os.getenv("DEBUG", "False"))
-    if debug is True:
-        ctx.run("env", pty=True)
+    ctx.run("env", pty=True)
     pub_host = _geonode_public_host()
     print(f"Public Hostname or IP is {pub_host}")
     pub_port = _geonode_public_port()
@@ -327,8 +326,7 @@ def update(ctx):
     )
     ctx.run(f"source {override_env}", pty=True)
     print("****************************finalize env**********************************")
-    if debug is True:
-        ctx.run("env", pty=True)
+    ctx.run("env", pty=True)
 
 
 @task

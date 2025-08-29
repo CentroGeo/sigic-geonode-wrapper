@@ -4,12 +4,35 @@ from geonode.base import auth as gba
 from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
 
 import re
+import time
+from jose import jwt
 
-# Opcional: si quieres ver también el usuario resuelto por Basic
 try:
     from geonode.base.auth import basic_auth_authenticate_user
 except Exception:  # pragma: no cover
     basic_auth_authenticate_user = None
+
+
+def _coerce_token_str(tok):
+    """
+    Acepta strings, DOT AccessToken (tiene .token), DRF Token (tiene .key), etc.
+    Devuelve str o None.
+    """
+    if tok is None:
+        return None
+    if isinstance(tok, str):
+        return tok
+    for attr in ("token", "key", "access_token", "value"):
+        val = getattr(tok, attr, None)
+        if isinstance(val, str):
+            return val
+    # último recurso: str()
+    try:
+        s = str(tok)
+        # evita representar objetos enormes/verbosos
+        return s if len(s) < 2048 else s[:2048]
+    except Exception:
+        return f"<{tok.__class__.__name__}>"
 
 
 def _summarize_token(tok: str, full: bool = False):
@@ -17,12 +40,10 @@ def _summarize_token(tok: str, full: bool = False):
         return None
     if full:
         return tok
-    # máscara segura por defecto
     return f"{tok[:8]}...{tok[-6:]} (len={len(tok)})"
 
 
 def _is_jwt(tok: str) -> bool:
-    # formato típico header.payload.signature
     return bool(tok) and tok.count(".") == 2
 
 
@@ -42,18 +63,10 @@ def _scheme(auth_header: str):
 
 @csrf_exempt
 def whoami(request):
-    """
-    Endpoint de depuración:
-    - Detecta esquema (Basic / Bearer)
-    - Ejecuta el mismo flujo lógico que tu parche:
-        * Basic -> token interno
-        * Bearer JWT Keycloak válido -> token interno
-        * Bearer no-JWT (token interno OAuth Toolkit) -> retorno sin cambios
-    - Reporta el "flow" seguido y el módulo de la función parcheada
-    """
     auth_header = request.headers.get("Authorization", "")
     scheme = _scheme(auth_header)
     verbose = request.GET.get("verbose") in ("1", "true", "yes")
+
     out = {
         "patched_module": getattr(gba.get_token_from_auth_header, "__module__", None),
         "request_user": {
@@ -66,14 +79,12 @@ def whoami(request):
         "details": {},
     }
 
-    # Si no hay cabecera Authorization, devolvemos pronto
     if not auth_header:
         out["details"]["note"] = "No llegó cabecera Authorization (revisa proxy)."
         return JsonResponse(out)
 
     try:
         if scheme == "Basic":
-            # Opcional: comprobar qué usuario resuelve Basic
             if basic_auth_authenticate_user:
                 try:
                     u = basic_auth_authenticate_user(auth_header)
@@ -82,18 +93,35 @@ def whoami(request):
                 except Exception as e:
                     out["details"]["basic_error"] = str(e)
 
-            # Obtenemos token interno como hace el core (equivalente a tu parche)
-            tok = gba.get_token_from_auth_header(auth_header, create_if_not_exists=True)
+            tok_obj = gba.get_token_from_auth_header(auth_header, create_if_not_exists=True)
+            tok = _coerce_token_str(tok_obj)
             out["flow"] = "basic->internal"
             out["details"]["token_internal"] = _summarize_token(tok, full=verbose)
+            out["details"]["token_type"] = tok_obj.__class__.__name__ if tok_obj is not None else None
             return JsonResponse(out)
 
         if scheme == "Bearer":
             raw = _extract_bearer(auth_header)
-            out["details"]["bearer_is_jwt_format"] = _is_jwt(raw)
             out["details"]["bearer_raw"] = _summarize_token(raw, full=verbose)
+            out["details"]["bearer_is_jwt_format"] = _is_jwt(raw)
 
-            # Intento Keycloak (como en el parche): si autentica -> promovemos a token interno
+            # Si parece JWT, mostramos claims sin verificar y hora actual para diagnosticar exp/iat
+            if _is_jwt(raw):
+                try:
+                    unverified = jwt.get_unverified_claims(raw)
+                    out["details"]["jwt_claims_unverified"] = {
+                        "iss": unverified.get("iss"),
+                        "aud": unverified.get("aud"),
+                        "iat": unverified.get("iat"),
+                        "exp": unverified.get("exp"),
+                    }
+                    out["details"]["now_epoch"] = int(time.time())
+                    if unverified.get("exp"):
+                        out["details"]["seconds_to_expiry"] = unverified["exp"] - int(time.time())
+                except Exception as e:
+                    out["details"]["jwt_unverified_error"] = str(e)
+
+            # Intento Keycloak: si autentica, promovemos a token interno
             kc_user = None
             try:
                 kc_res = KeycloakJWTAuthentication().authenticate(request)
@@ -104,24 +132,22 @@ def whoami(request):
 
             if kc_user:
                 out["details"]["keycloak_user"] = getattr(kc_user, "username", None)
-                promoted = gba.get_token_from_auth_header(auth_header, create_if_not_exists=True)
+                promoted_obj = gba.get_token_from_auth_header(auth_header, create_if_not_exists=True)
+                promoted = _coerce_token_str(promoted_obj)
                 out["flow"] = "keycloak->internal"
                 out["details"]["token_internal"] = _summarize_token(promoted, full=verbose)
+                out["details"]["token_type"] = promoted_obj.__class__.__name__ if promoted_obj is not None else None
                 return JsonResponse(out)
 
-            # Si no autentica como Keycloak, seguimos el comportamiento original:
-            # Para tokens internos (no-JWT), el core devuelve el token tal cual.
-            core_token = gba.get_token_from_auth_header(auth_header, create_if_not_exists=False)
-            out["details"]["core_result"] = _summarize_token(core_token, full=verbose)
-            # Heurística del flujo:
-            if core_token == raw:
-                out["flow"] = "bearer->raw"
-            else:
-                # Inusual, pero por si algún backend cambiara el valor.
-                out["flow"] = "bearer->core_result"
+            # Si no autentica con Keycloak, comportamiento original: para tokens internos, devuelve raw
+            core_obj = gba.get_token_from_auth_header(auth_header, create_if_not_exists=False)
+            core = _coerce_token_str(core_obj)
+            out["details"]["core_result"] = _summarize_token(core, full=verbose)
+            out["details"]["core_result_type"] = core_obj.__class__.__name__ if core_obj is not None else None
+
+            out["flow"] = "bearer->raw" if core == raw else "bearer->core_result"
             return JsonResponse(out)
 
-        # Esquema desconocido o ausente
         out["flow"] = "none"
         out["details"]["note"] = "Esquema no reconocido (ni Basic ni Bearer)."
         return JsonResponse(out)

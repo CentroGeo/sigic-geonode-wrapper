@@ -36,5 +36,5 @@ urlpatterns_bak = [
 
 
 urlpatterns = [
-    path("whoami", whoami),
+    path("sigic/whoami", whoami),
 ] + geonode_urlpatterns
