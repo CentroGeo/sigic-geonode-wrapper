@@ -2,8 +2,9 @@ from rest_framework.views import APIView
 import logging
 import re
 import types
+from functools import wraps
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('geonode')
 _PATCHED = False
 _PATCHED_AUTH_HEADER = False
 
@@ -48,8 +49,8 @@ def patch_drf_get_authenticators():
 def patch_get_token_from_auth_header():
     """
     Monkeypatch de geonode.base.auth.get_token_from_auth_header
-    para "promocionar" Bearer JWT de Keycloak a token interno de GeoNode,
-    reusando KeycloakJWTAuthentication.authenticate (sin duplicar lógica).
+    para 'promocionar' Bearer JWT de Keycloak a token interno de GeoNode,
+    reutilizando KeycloakJWTAuthentication.authenticate (sin duplicar lógica).
     """
     global _PATCHED_AUTH_HEADER
     if _PATCHED_AUTH_HEADER:
@@ -62,27 +63,25 @@ def patch_get_token_from_auth_header():
 
     _orig = geonode_base_auth.get_token_from_auth_header
 
-    def _looks_like_keycloak_accesstoken(token: str) -> bool:
-        # Evita hacer red si claramente no es JWT: debe tener 2 puntos
-        print("_looks_like_keycloak_accesstoken token", token)
+    def _looks_like_jwt(token: str) -> bool:
+        # JWT típico: header.payload.signature (2 puntos)
         return token.count(".") == 2
 
+    @wraps(_orig)
     def _patched(auth_header, create_if_not_exists: bool = False):
-        print("Patched get_token_from_auth_header called with:", auth_header if auth_header else auth_header)
         # Mantener compatibilidad exacta de firma y comportamiento
         if not auth_header:
             return None
 
-        # Si no es Bearer, deferimos al original (maneja Basic y "otros")
+        # Si no es Bearer, deferimos al original (maneja Basic y otros)
         if not re.search(r"\bBearer\b", auth_header, re.IGNORECASE):
             return _orig(auth_header, create_if_not_exists)
 
-        # Extraer el "raw token" (como hacía el original)
+        # Extraer el token "raw" (como hacía el original)
         raw = re.compile(re.escape("Bearer "), re.IGNORECASE).sub("", auth_header).strip()
-        print("raw", raw)
 
         # Intento de promoción SOLO si parece JWT (header.payload.signature)
-        if _looks_like_keycloak_accesstoken(raw):
+        if _looks_like_jwt(raw):
             try:
                 # Import tardío para evitar ciclos:
                 from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
@@ -96,12 +95,18 @@ def patch_get_token_from_auth_header():
                     user, _ = user_auth_tuple
                     if user and getattr(user, "is_active", True):
                         # Convertimos el usuario en token interno de GeoNode
-                        return get_auth_token(user) if not create_if_not_exists else get_or_create_token(user)
+                        token = (
+                            get_auth_token(user)
+                            if not create_if_not_exists
+                            else get_or_create_token(user)
+                        )
+                        log.debug("[sigic_auth] Keycloak bearer promovido a token interno para user=%s", getattr(user, "username", None))
+                        return token
 
             except Exception as e:
-                # Si falló la verificación OIDC, no rompemos compatibilidad:
+                # Si falla la verificación OIDC, no rompemos compatibilidad:
                 # seguimos con el comportamiento original (devuelve el token raw)
-                log.debug("[sigic_auth] Keycloak bearer promotion failed, falling back: %s", e)
+                log.debug("[sigic_auth] Keycloak bearer promotion failed, fallback to original: %s", e, exc_info=False)
 
         # No parece JWT o no pasó validación → comportamiento original
         return _orig(auth_header, create_if_not_exists)
