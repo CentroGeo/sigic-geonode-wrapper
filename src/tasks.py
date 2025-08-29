@@ -46,7 +46,9 @@ def waitfordbs(ctx):
 @task
 def update(ctx):
     print("***************************setting env*********************************")
-    ctx.run("env", pty=True)
+    debug = ast.literal_eval(os.getenv("DEBUG", "False"))
+    if debug is True:
+        ctx.run("env", pty=True)
     pub_host = _geonode_public_host()
     print(f"Public Hostname or IP is {pub_host}")
     pub_port = _geonode_public_port()
@@ -119,10 +121,8 @@ def update(ctx):
     }
     try:
         current_allowed = ast.literal_eval(
-            os.getenv("ALLOWED_HOSTS")
-            or "['{public_fqdn}', '{public_host}', 'localhost', 'django', 'geonode',]".format(
-                **envs
-            )
+            os.getenv("ALLOWED_HOSTS",
+                      "['{public_fqdn}', '{public_host}', 'localhost', 'django', 'geonode',]".format(**envs))
         )
     except ValueError:
         current_allowed = []
@@ -327,7 +327,8 @@ def update(ctx):
     )
     ctx.run(f"source {override_env}", pty=True)
     print("****************************finalize env**********************************")
-    ctx.run("env", pty=True)
+    if debug is True:
+        ctx.run("env", pty=True)
 
 
 @task
@@ -336,10 +337,13 @@ def migrations(ctx):
     ctx.run(
         f"python manage.py migrate --noinput --settings={_localsettings()}", pty=True
     )
+    """
+    TODO: revisar si esto se puede eliminar, parece que está metiendo datos de migración en la base de datos de capas y eso no es necesario
     ctx.run(
         f"python manage.py migrate --noinput --settings={_localsettings()} --database=datastore",
         pty=True,
     )
+    """
 
 
 @task
@@ -491,12 +495,14 @@ address {ip_list[0]}"
         )
     return ip_list[0]
 
+
 def _is_valid_ip(ip):
     try:
         ipaddress.IPv4Address(ip)
         return True
     except Exception as e:
         return False
+
 
 def _container_exposed_port(component, instname):
     port = "80"
@@ -506,11 +512,11 @@ def _container_exposed_port(component, instname):
             [
                 c.attrs["Config"]["ExposedPorts"]
                 for c in client.containers.list(
-                    filters={
-                        "label": f"org.geonode.component={component}",
-                        "status": "running",
-                    }
-                )
+                filters={
+                    "label": f"org.geonode.component={component}",
+                    "status": "running",
+                }
+            )
                 if str(instname) in c.name
             ][0]
         )
