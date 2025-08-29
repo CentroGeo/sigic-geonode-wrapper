@@ -142,7 +142,6 @@ def patch_proxy_authorization_header():
     _PATCHED_PROXY = True
 
     from geonode.proxy import views as proxy_views
-
     _orig_proxy = proxy_views.proxy
 
     @wraps(_orig_proxy)
@@ -164,7 +163,6 @@ def patch_proxy_authorization_header():
                 headers = dict(headers or {})
                 headers["Authorization"] = f"Bearer {tok}"
                 access_token = tok
-
             print("access_token", access_token)
 
         return _orig_proxy(
