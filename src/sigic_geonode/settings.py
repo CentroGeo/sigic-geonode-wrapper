@@ -163,10 +163,10 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # Add your specific LDAP configuration after this comment:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
-INSTALLED_APPS += (
+INSTALLED_APPS = (
     "sigic_geonode.sigic_auth",
     "sigic_geonode.sigic_resources",
-)
+) + INSTALLED_APPS
 
 MIDDLEWARE = [
     'sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
