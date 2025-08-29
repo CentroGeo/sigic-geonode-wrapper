@@ -158,8 +158,7 @@ def patch_proxy_authorization_header():
             if tok:
                 headers = dict(headers or {})
                 headers["Authorization"] = f"Bearer {tok}"
-                # (Opcional) evita duplicidad semántica: ya no dependas de ?access_token=
-                # Deja el query param si quieres compatibilidad GET; no estorba.
+                access_token = tok
 
         return _orig_proxy(
             request,
