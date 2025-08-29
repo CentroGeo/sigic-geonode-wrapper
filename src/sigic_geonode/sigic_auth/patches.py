@@ -74,6 +74,7 @@ def patch_get_token_from_auth_header():
 
     def _looks_like_jwt(token: str) -> bool:
         # JWT típico: header.payload.signature (2 puntos)
+        print("Token recibido para inspección JWT (masked): %s", token)
         return token.count(".") == 2
 
     @wraps(_orig)
@@ -98,10 +99,14 @@ def patch_get_token_from_auth_header():
                 # Construimos un "request" mínimo para llamar a tu authenticate()
                 fake_req = types.SimpleNamespace(headers={"Authorization": f"Bearer {raw}"})
                 user_auth_tuple = KeycloakJWTAuthentication().authenticate(fake_req)
+                
+                print("fake_req", fake_req)
+                print("user_auth_tuple", user_auth_tuple)
 
                 if user_auth_tuple:
                     # Tu authenticate() devuelve (user, None)
                     user, _ = user_auth_tuple
+                    print("user", user)
                     if user and getattr(user, "is_active", True):
                         # Convertimos el usuario en token interno de GeoNode
                         token = (
@@ -109,13 +114,13 @@ def patch_get_token_from_auth_header():
                             if not create_if_not_exists
                             else get_or_create_token(user)
                         )
-                        log.debug("[sigic_auth] Keycloak bearer promovido a token interno para user=%s", getattr(user, "username", None))
+                        print("[sigic_auth] Keycloak bearer promovido a token interno para user=%s", getattr(user, "username", None))
                         return token
 
             except Exception as e:
                 # Si falla la verificación OIDC, no rompemos compatibilidad:
                 # seguimos con el comportamiento original (devuelve el token raw)
-                log.debug("[sigic_auth] Keycloak bearer promotion failed, fallback to original: %s", e, exc_info=False)
+                print("[sigic_auth] Keycloak bearer promotion failed, fallback to original: %s", e, exc_info=False)
 
         # No parece JWT o no pasó validación → comportamiento original
         return _orig(auth_header, create_if_not_exists)
@@ -159,6 +164,8 @@ def patch_proxy_authorization_header():
                 headers = dict(headers or {})
                 headers["Authorization"] = f"Bearer {tok}"
                 access_token = tok
+
+            print("access_token", access_token)
 
         return _orig_proxy(
             request,
