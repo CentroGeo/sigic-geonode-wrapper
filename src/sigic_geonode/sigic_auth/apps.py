@@ -1,6 +1,5 @@
 from django.apps import AppConfig
 from django.conf import settings
-import logging
 
 class SigicAuthConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -10,7 +9,7 @@ class SigicAuthConfig(AppConfig):
         # Solo activar si el flag está prendido
         use_oidc = getattr(settings, "SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", False)
         if not use_oidc:
-            log.info("[geonode_keycloak] OIDC deshabilitado. No se aplicarán parches.")
+            print("[geonode_keycloak] OIDC deshabilitado. No se aplicarán parches.")
             return
 
         # 1) Parche para añadir authenticator keycloak en DRF
