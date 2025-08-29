@@ -19,5 +19,5 @@ class SigicAuthConfig(AppConfig):
 
         # 2) Parche para get_token_from_auth_header para promover Bearer token keycloak a token GeoNode
         from .patches import patch_get_token_from_auth_header
-        # patch_get_token_from_auth_header()
+        patch_get_token_from_auth_header()
         print("[geonode_keycloak] OIDC no habilitado. Parche get_token_from_auth_header() no aplicado.")
