@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 from django.conf import settings
 
+
 class SigicAuthConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'sigic_geonode.sigic_auth'
@@ -21,8 +22,3 @@ class SigicAuthConfig(AppConfig):
         from .patches import patch_get_token_from_auth_header
         patch_get_token_from_auth_header()
         print("[geonode_keycloak] OIDC habilitado. Parche get_token_from_auth_header() aplicado.")
-
-        # 3) asegura que el header downstream sea el interno de GeoNode
-        from .patches import patch_proxy_authorization_header
-        patch_proxy_authorization_header()
-        print("[geonode_keycloak] OIDC habilitado. Parche proxy_authorization_header() aplicado.")

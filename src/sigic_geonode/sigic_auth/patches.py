@@ -1,21 +1,10 @@
 from rest_framework.views import APIView
 import logging
-import re
-import types
-from functools import wraps
 
 log = logging.getLogger('geonode')
 _PATCHED = False
 _PATCHED_AUTH_HEADER = False
 _PATCHED_PROXY = False
-
-
-def _token_str(tok):
-    if tok is None:
-        return None
-    if hasattr(tok, "token"):  # DOT AccessToken
-        return tok.token
-    return str(tok)
 
 
 def patch_drf_get_authenticators():
@@ -59,123 +48,118 @@ def patch_get_token_from_auth_header():
     """
     Monkeypatch de geonode.base.auth.get_token_from_auth_header
     para 'promocionar' Bearer JWT de Keycloak a token interno de GeoNode,
-    reutilizando KeycloakJWTAuthentication.authenticate (sin duplicar lógica).
+    reutilizando KeycloakJWTAuthentication.authenticate().
+
+    Comportamiento:
+      - Basic            -> igual que el original (token interno; crea si se pide)
+      - Bearer (JWT OK)  -> token interno (crea si se pide)
+      - Bearer (no-JWT o inválido) -> igual que el original (raw token)
+      - Sin header       -> None
     """
+    import logging
+    import re
+    import types
+
+    log = logging.getLogger("geonode.sigic_auth")
     global _PATCHED_AUTH_HEADER
     if _PATCHED_AUTH_HEADER:
+        log.debug("[sigic_auth] get_token_from_auth_header ya estaba parcheado; skip")
         return
     _PATCHED_AUTH_HEADER = True
 
-    # Import tardío para no romper si GeoNode cambia orden de carga
     from geonode.base import auth as geonode_base_auth
     from geonode.base.auth import get_auth_token, get_or_create_token
 
     _orig = geonode_base_auth.get_token_from_auth_header
 
+    def _mask(tok: str, keep: int = 8) -> str:
+        if not tok:
+            return tok
+        if len(tok) <= keep + 6:
+            return f"{tok} (len={len(tok)})"
+        return f"{tok[:keep]}...{tok[-6:]} (len={len(tok)})"
+
+    def _extract_bearer(auth_header: str) -> str:
+        return re.compile(re.escape("Bearer "), re.IGNORECASE).sub("", auth_header or "").strip()
+
     def _looks_like_jwt(token: str) -> bool:
-        # JWT típico: header.payload.signature (2 puntos)
-        print("Token recibido para inspección JWT (masked): %s", token)
-        return token.count(".") == 2
+        # Estructura JWT canónica: 3 partes no vacías separadas por puntos
+        if not token:
+            return False
+        parts = token.split(".")
+        return len(parts) == 3 and all(parts)
+
+    class _FakeReq:
+        """
+        Fake request compatible con:
+        - request.headers['Authorization']
+        - request.META['HTTP_AUTHORIZATION']
+        """
+        def __init__(self, bearer: str):
+            auth_value = f"Bearer {bearer}"
+            # headers estilo Django request
+            self.headers = {"Authorization": auth_value}
+            # META estilo WSGI
+            self.META = {"HTTP_AUTHORIZATION": auth_value}
+            # por si el authenticator revisa cookies
+            self.COOKIES = {}
+
+    from functools import wraps
 
     @wraps(_orig)
     def _patched(auth_header, create_if_not_exists: bool = False):
-        # Mantener compatibilidad exacta de firma y comportamiento
+        # 0) Sin header -> None (igual que original)
         if not auth_header:
             return None
 
-        # Si no es Bearer, deferimos al original (maneja Basic y otros)
-        if not re.search(r"\bBearer\b", auth_header, re.IGNORECASE):
+        # 1) Basic -> delega al original (que ya crea token interno)
+        if re.search(r"\bBasic\b", auth_header, re.IGNORECASE):
             return _orig(auth_header, create_if_not_exists)
 
-        # Extraer el token "raw" (como hacía el original)
-        raw = re.compile(re.escape("Bearer "), re.IGNORECASE).sub("", auth_header).strip()
+        # 2) Bearer: intentamos promoción si parece JWT
+        if re.search(r"\bBearer\b", auth_header, re.IGNORECASE):
+            raw = _extract_bearer(auth_header)
+            log.debug("[sigic_auth] get_token_from_auth_header: Bearer recibido (masked)=%s", _mask(raw))
 
-        # Intento de promoción SOLO si parece JWT (header.payload.signature)
-        if _looks_like_jwt(raw):
-            try:
-                # Import tardío para evitar ciclos:
-                from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
+            if _looks_like_jwt(raw):
+                try:
+                    # Import tardío para evitar ciclos
+                    from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
 
-                # Construimos un "request" mínimo para llamar a tu authenticate()
-                fake_req = types.SimpleNamespace(headers={"Authorization": f"Bearer {raw}"})
-                user_auth_tuple = KeycloakJWTAuthentication().authenticate(fake_req)
-                
-                print("fake_req", fake_req)
-                print("user_auth_tuple", user_auth_tuple)
+                    fake_req = _FakeReq(raw)
+                    res = KeycloakJWTAuthentication().authenticate(fake_req)
+                    if res:
+                        user, _ = res
+                        if user and getattr(user, "is_active", True):
+                            token_obj = (
+                                get_auth_token(user)
+                                if not create_if_not_exists
+                                else get_or_create_token(user)
+                            )
+                            # Normalizar posibles tipos (objeto DOT u otros)
+                            tok_val = getattr(token_obj, "token", None) or (
+                                token_obj.get("token") if isinstance(token_obj, dict) else None
+                            ) or (token_obj if isinstance(token_obj, str) else None)
 
-                if user_auth_tuple:
-                    # Tu authenticate() devuelve (user, None)
-                    user, _ = user_auth_tuple
-                    print("user", user)
-                    if user and getattr(user, "is_active", True):
-                        # Convertimos el usuario en token interno de GeoNode
-                        token = (
-                            get_auth_token(user)
-                            if not create_if_not_exists
-                            else get_or_create_token(user)
-                        )
-                        print("[sigic_auth] Keycloak bearer promovido a token interno para user=%s", getattr(user, "username", None))
-                        return token
+                            log.debug(
+                                "[sigic_auth] Promoción OK -> token interno (masked)=%s user=%s",
+                                _mask(tok_val), getattr(user, "username", None)
+                            )
+                            return token_obj  # devolver el mismo tipo que usa GeoNode (objeto/dict/str)
+                        else:
+                            log.debug("[sigic_auth] authenticate() devolvió user inactivo o None")
+                    else:
+                        log.debug("[sigic_auth] authenticate() devolvió None")
 
-            except Exception as e:
-                # Si falla la verificación OIDC, no rompemos compatibilidad:
-                # seguimos con el comportamiento original (devuelve el token raw)
-                print("[sigic_auth] Keycloak bearer promotion failed, fallback to original: %s", e, exc_info=False)
+                except Exception as e:
+                    # Seguridad / compat: no romper llamadas existentes
+                    log.debug("[sigic_auth] Promoción falló; fallback al original: %s", str(e), exc_info=False)
 
-        # No parece JWT o no pasó validación → comportamiento original
+            # No parece JWT o promoción falló -> comportamiento original (raw)
+            return _orig(auth_header, create_if_not_exists)
+
+        # 3) Otros esquemas -> original
         return _orig(auth_header, create_if_not_exists)
 
-    # Aplicar el parche
     geonode_base_auth.get_token_from_auth_header = _patched
-    print("[sigic_auth] Patched geonode.base.auth.get_token_from_auth_header")
-
-
-def patch_proxy_authorization_header():
-    """
-    Monkeypatch a geonode.proxy.views.proxy para que,
-    si ya tenemos access_token (interno), reemplace el header Authorization
-    con 'Bearer <access_token>' antes de llamar al backend (GeoServer).
-    """
-    global _PATCHED_PROXY
-    if _PATCHED_PROXY:
-        return
-    _PATCHED_PROXY = True
-
-    from geonode.proxy import views as proxy_views
-    _orig_proxy = proxy_views.proxy
-
-    @wraps(_orig_proxy)
-    def _patched_proxy(
-        request,
-        url=None,
-        response_callback=None,
-        sec_chk_hosts=True,
-        timeout=None,
-        allowed_hosts=None,
-        headers=None,
-        access_token=None,
-        **kwargs,
-    ):
-        # Si tenemos token interno, fuerzo Authorization a Bearer <interno>
-        if access_token:
-            tok = _token_str(access_token)
-            if tok:
-                headers = dict(headers or {})
-                headers["Authorization"] = f"Bearer {tok}"
-                access_token = tok
-            print("access_token", access_token)
-
-        return _orig_proxy(
-            request,
-            url=url,
-            response_callback=response_callback,
-            sec_chk_hosts=sec_chk_hosts,
-            timeout=timeout,
-            allowed_hosts=allowed_hosts or [],
-            headers=headers,
-            access_token=access_token,
-            **kwargs,
-        )
-
-    proxy_views.proxy = _patched_proxy
-    print("[sigic_auth] Patched geonode.proxy.views.proxy to forward Authorization: Bearer <internal>")
+    log.info("[sigic_auth] Parche aplicado: geonode.base.auth.get_token_from_auth_header")
