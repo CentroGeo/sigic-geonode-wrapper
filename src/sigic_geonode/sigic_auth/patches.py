@@ -7,6 +7,15 @@ from functools import wraps
 log = logging.getLogger('geonode')
 _PATCHED = False
 _PATCHED_AUTH_HEADER = False
+_PATCHED_PROXY = False
+
+
+def _token_str(tok):
+    if tok is None:
+        return None
+    if hasattr(tok, "token"):  # DOT AccessToken
+        return tok.token
+    return str(tok)
 
 
 def patch_drf_get_authenticators():
@@ -114,3 +123,55 @@ def patch_get_token_from_auth_header():
     # Aplicar el parche
     geonode_base_auth.get_token_from_auth_header = _patched
     log.info("[sigic_auth] Patched geonode.base.auth.get_token_from_auth_header")
+
+
+def patch_proxy_authorization_header():
+    """
+    Monkeypatch a geonode.proxy.views.proxy para que,
+    si ya tenemos access_token (interno), reemplace el header Authorization
+    con 'Bearer <access_token>' antes de llamar al backend (GeoServer).
+    """
+    global _PATCHED_PROXY
+    if _PATCHED_PROXY:
+        return
+    _PATCHED_PROXY = True
+
+    from geonode.proxy import views as proxy_views
+
+    _orig_proxy = proxy_views.proxy
+
+    @wraps(_orig_proxy)
+    def _patched_proxy(
+        request,
+        url=None,
+        response_callback=None,
+        sec_chk_hosts=True,
+        timeout=None,
+        allowed_hosts=None,
+        headers=None,
+        access_token=None,
+        **kwargs,
+    ):
+        # Si tenemos token interno, fuerzo Authorization a Bearer <interno>
+        if access_token:
+            tok = _token_str(access_token)
+            if tok:
+                headers = dict(headers or {})
+                headers["Authorization"] = f"Bearer {tok}"
+                # (Opcional) evita duplicidad semántica: ya no dependas de ?access_token=
+                # Deja el query param si quieres compatibilidad GET; no estorba.
+
+        return _orig_proxy(
+            request,
+            url=url,
+            response_callback=response_callback,
+            sec_chk_hosts=sec_chk_hosts,
+            timeout=timeout,
+            allowed_hosts=allowed_hosts or [],
+            headers=headers,
+            access_token=access_token,
+            **kwargs,
+        )
+
+    proxy_views.proxy = _patched_proxy
+    log.info("[sigic_auth] Patched geonode.proxy.views.proxy to forward Authorization: Bearer <internal>")
