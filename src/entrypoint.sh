@@ -57,9 +57,8 @@ else
         invoke monitoringfixture
         invoke initialized
         invoke updateadmin
+        invoke statics
     fi
-
-    invoke statics
 
     echo "Executing UWSGI server $cmd for Production"
 fi
