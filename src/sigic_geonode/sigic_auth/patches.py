@@ -95,6 +95,7 @@ def patch_get_token_from_auth_header():
         - request.headers['Authorization']
         - request.META['HTTP_AUTHORIZATION']
         """
+
         def __init__(self, bearer: str):
             auth_value = f"Bearer {bearer}"
             # headers estilo Django request

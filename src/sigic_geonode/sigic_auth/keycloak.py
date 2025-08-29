@@ -24,14 +24,11 @@ class KeycloakJWTAuthentication(BaseAuthentication):
         if not auth_header or not auth_header.startswith('Bearer '):
             return None
 
-        print("AUTH header (masked): %s", auth_header[:10] + "**********" + auth_header[-6:])
         token = auth_header.split(' ')[1]
 
         try:
             jwks = requests.get(JWKS_URL).json()
             unverified_header = jwt.get_unverified_header(token)
-
-            print("Header del token:", unverified_header)
 
             key = next(k for k in jwks['keys'] if k['kid'] == unverified_header['kid'])
             public_key = jwk.construct(key)
@@ -49,8 +46,6 @@ class KeycloakJWTAuthentication(BaseAuthentication):
                 audience="account",
                 issuer=SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER
             )
-
-            print("Payload decodificado:", payload)
 
             if 'preferred_username' not in payload:
                 raise AuthenticationFailed("Token válido pero sin 'preferred_username'")

@@ -17,46 +17,35 @@
 #
 #########################################################################
 
+import datetime
 import fileinput
 import glob
+import logging
+import math
 import os
 import re
 import shutil
-import subprocess
 import signal
+import subprocess
 import sys
 import time
-import pytz
-import logging
-import datetime
-from dateutil.parser import parse as parsedate
-
-from urllib.parse import urlparse
-from urllib.request import urlopen, Request
-
 import zipfile
-from tqdm import tqdm
-import requests
-import math
-import psutil
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
+import psutil
+import pytz
+import requests
 import yaml
-from paver.easy import (
-    BuildFailure,
-    call_task,
-    cmdopts,
-    info,
-    needs,
-    path,
-    sh,
-    task,
-)
+from dateutil.parser import parse as parsedate
+from paver.easy import BuildFailure, call_task, cmdopts, info, needs, path, sh, task
 from setuptools.command import easy_install
+from tqdm import tqdm
 
 try:
-    from sigic_geonode.local_settings import *
+    from sigic_geonode.local_settings import *  # noqa: F401, F403 Evitar error flake8 por imports implícitas
 except ImportError:
-    from sigic_geonode.settings import *
+    from sigic_geonode.settings import *  # noqa: F401, F403 Evitar error flake8 por imports implícitas
 
 try:
     from paver.path import pushd
@@ -64,23 +53,23 @@ except ImportError:
     from paver.easy import pushd
 
 from geonode.settings import (
-    on_travis,
-    core_tests,
-    internal_apps_tests,
-    integration_tests,
-    integration_server_tests,
-    integration_upload_tests,
-    integration_monitoring_tests,
-    integration_csw_tests,
-    integration_bdd_tests,
-    INSTALLED_APPS,
+    ASYNC_SIGNALS,
+    CELERY_BEAT_SCHEDULER,
+    GEONODE_APPS,
     GEONODE_CORE_APPS,
     GEONODE_INTERNAL_APPS,
-    GEONODE_APPS,
-    OGC_SERVER,
-    ASYNC_SIGNALS,
+    INSTALLED_APPS,
     MONITORING_ENABLED,
-    CELERY_BEAT_SCHEDULER,
+    OGC_SERVER,
+    core_tests,
+    integration_bdd_tests,
+    integration_csw_tests,
+    integration_monitoring_tests,
+    integration_server_tests,
+    integration_tests,
+    integration_upload_tests,
+    internal_apps_tests,
+    on_travis,
 )
 
 try:
@@ -157,7 +146,8 @@ def grab(src, dest, name):
         logger.info(f" total_size [{total_size}] / wrote [{wrote}] ")
         if total_size != 0 and wrote != total_size:
             logger.error(
-                f"ERROR, something went wrong. Data could not be written. Expected to write {wrote} but wrote {total_size} instead"
+                "ERROR, something went wrong. Data could not be written. "
+                f"Expected to write {wrote} but wrote {total_size} instead"
             )
         else:
             shutil.move("output.bin", dest)
@@ -407,6 +397,7 @@ def package(options):
     Creates a tarball to use for building the system elsewhere
     """
     import tarfile
+
     import geonode
 
     version = geonode.get_version()
@@ -561,9 +552,10 @@ def start_django(options):
 
     if ASYNC_SIGNALS:
         sh(
-            f"{settings} celery -A geonode.celery_app:app worker --autoscale=20,10 --without-gossip --without-mingle -Ofair -B -E \
-            --statedb=/tmp/worker.state --scheduler={CELERY_BEAT_SCHEDULER} --loglevel=DEBUG \
-            --concurrency=10 --max-tasks-per-child=10 -n worker1@%h -f celery.log {foreground}"
+            f"{settings} celery -A geonode.celery_app:app worker "
+            "--autoscale=20,10 --without-gossip --without-mingle -Ofair -B -E "
+            f"--statedb=/tmp/worker.state --scheduler={CELERY_BEAT_SCHEDULER} --loglevel=DEBUG "
+            f"--concurrency=10 --max-tasks-per-child=10 -n worker1@%h -f celery.log {foreground}"
         )
         sh(f"{settings} python -W ignore manage.py runmessaging {foreground}")
 
@@ -701,7 +693,8 @@ def start_geoserver(options):
                 javapath = f'START /B "" "{javapath_opt}"'
 
             sh(
-                "%(javapath)s -Xms512m -Xmx2048m -server -Dgwc.context.suffix=gwc -XX:+UseConcMarkSweepGC -XX:MaxPermSize=512m"
+                "%(javapath)s -Xms512m -Xmx2048m -server -Dgwc.context.suffix=gwc"
+                "-XX:+UseConcMarkSweepGC -XX:MaxPermSize=512m"
                 " -DGEOSERVER_DATA_DIR=%(data_dir)s"
                 " -DGEOSERVER_CSRF_DISABLED=true"
                 " -Dgeofence.dir=%(geofence_dir)s"
@@ -1159,7 +1152,7 @@ def versions():
 
 def kill(arg1, arg2):
     """Stops a proces that contains arg1 and is filtered by arg2"""
-    from subprocess import Popen, PIPE
+    from subprocess import PIPE, Popen
 
     # Wait until ready
     t0 = time.time()

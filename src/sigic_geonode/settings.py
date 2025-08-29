@@ -169,7 +169,9 @@ INSTALLED_APPS += (
 )
 
 MIDDLEWARE = [
-    'sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
+    "sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT"
+    if mw == "django.middleware.csrf.CsrfViewMiddleware"
+    else mw
     for mw in MIDDLEWARE
 ]
 

@@ -17,19 +17,20 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
+import ast
+import datetime
+import ipaddress
+import json
+import logging
 import os
 import re
-import ast
-import json
-import time
-import docker
 import socket
-import ipaddress
-import logging
-import datetime
-
+import time
 from urllib.parse import urlparse, urlunparse
+
 from invoke import task
+
+import docker
 
 BOOTSTRAP_IMAGE_CHEIP = "codenvy/che-ip:nightly"
 
@@ -498,7 +499,7 @@ def _is_valid_ip(ip):
     try:
         ipaddress.IPv4Address(ip)
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
