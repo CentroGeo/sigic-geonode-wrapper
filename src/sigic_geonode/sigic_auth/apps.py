@@ -29,10 +29,10 @@ class SigicAuthConfig(AppConfig):
         geonode_api_authentication.get_token_from_auth_header = gba.get_token_from_auth_header
 
         import geonode.proxy.views as geonode_proxy_views
-        geonode_proxy_views.get_token_from_auth = gba.get_token_from_auth_header
+        geonode_proxy_views.get_token_from_auth_header = gba.get_token_from_auth_header
 
         import geonode.security.middleware as geonode_security_middleware
-        geonode_security_middleware.get_token_from_auth = gba.get_token_from_auth_header
+        geonode_security_middleware.get_token_from_auth_header = gba.get_token_from_auth_header
 
         import geonode.utils as geonode_utils
         geonode_utils.get_token_from_auth_header = gba.get_token_from_auth_header
