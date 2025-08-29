@@ -145,7 +145,7 @@ def patch_get_token_from_auth_header():
                                 "[sigic_auth] Promoción OK -> token interno (masked)=%s user=%s",
                                 _mask(tok_val), getattr(user, "username", None)
                             )
-                            return token_obj  # devolver el mismo tipo que usa GeoNode (objeto/dict/str)
+                            return token_obj.token  # devolver el mismo tipo que usa GeoNode (objeto/dict/str)
                         else:
                             log.debug("[sigic_auth] authenticate() devolvió user inactivo o None")
                     else:
