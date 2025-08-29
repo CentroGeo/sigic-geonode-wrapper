@@ -127,7 +127,7 @@ def patch_get_token_from_auth_header():
 
     # Aplicar el parche
     geonode_base_auth.get_token_from_auth_header = _patched
-    log.info("[sigic_auth] Patched geonode.base.auth.get_token_from_auth_header")
+    print("[sigic_auth] Patched geonode.base.auth.get_token_from_auth_header")
 
 
 def patch_proxy_authorization_header():
@@ -180,4 +180,4 @@ def patch_proxy_authorization_header():
         )
 
     proxy_views.proxy = _patched_proxy
-    log.info("[sigic_auth] Patched geonode.proxy.views.proxy to forward Authorization: Bearer <internal>")
+    print("[sigic_auth] Patched geonode.proxy.views.proxy to forward Authorization: Bearer <internal>")
