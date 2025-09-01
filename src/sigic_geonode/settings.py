@@ -227,3 +227,10 @@ HARVESTER_TYPES = {
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.remote_services.file_service.FileServiceInfo",
 ]
+
+INSTALLED_APPS += (
+    "sigic_geonode.media_uploads",
+)
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = "/mnt/volumes/media"
