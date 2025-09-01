@@ -8,7 +8,7 @@ from geonode.harvesting.models import Harvester
 from geonode.services import enumerations, models
 from geonode.services.serviceprocessors import base
 
-from sigic_geonode.remote_services.file_harvester import FileParser
+from sigic_geonode.sigic_remote_services.file_harvester import FileParser
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class FileServiceHandler(base.ServiceHandlerBase):
         return []
 
     def get_harvester_type(self):
-        return "sigic_geonode.remote_services.file_harvester.FileHarvester"
+        return "sigic_geonode.sigic_remote_services.file_harvester.FileHarvester"
 
     def get_harvester_configuration_options(self):
         return {"harvest_datasets": True, "harvest_documents": True}
