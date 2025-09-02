@@ -2,15 +2,21 @@ import logging
 from uuid import uuid4
 
 from django.db import transaction
-from django.utils.text import slugify
 from geonode import GeoNodeException
 from geonode.harvesting.models import Harvester
 from geonode.services import enumerations, models
 from geonode.services.serviceprocessors import base
 
-from sigic_geonode.sigic_remote_services.file_harvester import FileParser
+from sigic_geonode.sigic_remote_services.file_harvester import url_parse_file
 
 logger = logging.getLogger(__name__)
+
+ACCEPTED_EXTENSIONS = {
+    "csv": "CSV",
+    "json": "JSON",
+    "xls": "EXCEL",
+    "xlsx": "EXCEL",
+}
 
 
 class FileServiceHandler(base.ServiceHandlerBase):
@@ -23,19 +29,25 @@ class FileServiceHandler(base.ServiceHandlerBase):
         self.kwargs = kwargs
         base.ServiceHandlerBase.__init__(self, url, geonode_service_id)
 
-        self.indexing_method = enumerations.INDEXED
-        # TODO setear name
-        self.name = slugify(url)[:255]
-        # TODO setear title
-        self.title = slugify(url)[:255]
+        self.indexing_method: str = enumerations.INDEXED
+        parsed: str = url_parse_file(self.url)
+        self.name: str = parsed
+        self.title: str = parsed
 
     @property
     def parsed_service(self):
-        return FileParser(self.url)
+        return url_parse_file(self.url)
 
     def probe(self):
         try:
-            return True if len(self.parsed_service) > 0 else False
+            fn = self.parsed_service
+            split = fn.split(".")
+            if len(split) > 1 and split[-1] in ACCEPTED_EXTENSIONS.keys():
+                return True
+            logger.exception(
+                f"Extension not recognized, use one of: {ACCEPTED_EXTENSIONS.keys()}"
+            )
+            return False
         except Exception:
             return False
 
