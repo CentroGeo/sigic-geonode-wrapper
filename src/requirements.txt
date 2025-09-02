@@ -2,6 +2,7 @@
 -e git+https://github.com/CentroGeo/sigic-geonode-importer.git@1.1.x.sigic#egg=geonode-importer
 -e git+https://github.com/GeoNode/geonode.git@4.4.x#egg=GeoNode
 
+
 setuptools<81
 openpyxl
 python-jose
