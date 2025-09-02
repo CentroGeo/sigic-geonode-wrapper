@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 ACCEPTED_EXTENSIONS = {
     "csv": "CSV",
     "json": "JSON",
+    "geojson": "GEOJSON",
     "xls": "EXCEL",
     "xlsx": "EXCEL",
 }
