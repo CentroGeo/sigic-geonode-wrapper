@@ -119,7 +119,7 @@ location / {
   proxy_hide_header           X-Frame-Options;
   proxy_request_buffering     off;
 
-  # Posiblemente esto ya no es necesario debvido a que se usar proxy_pass y no uwsgi_pass, dejar comentado por ahora
+  # Posiblemente esto ya no es necesario debido a que se usar proxy_pass y no uwsgi_pass, dejar comentado por ahora
   # uwsgi_params
   # include /etc/nginx/uwsgi_params;
   # uwsgi_pass $upstream;
