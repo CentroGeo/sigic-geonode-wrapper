@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 import typing
 from contextlib import contextmanager
@@ -7,6 +8,7 @@ from datetime import date
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import requests
@@ -14,7 +16,6 @@ from django.conf import settings
 from django.contrib.gis.geos import Polygon
 from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpRequest
-from django.utils.text import slugify
 from geonode.base.auth import get_or_create_token
 from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.harvesting.models import HarvestableResource, Harvester
@@ -57,11 +58,12 @@ class FileHarvester(BaseHarvesterWorker):
 
     def __init__(self, remote_url: str, harvester_id: int):
         super().__init__(remote_url, harvester_id)
-        self.name = slugify(remote_url)
-        self.title = self.name
-        self.url = remote_url
-        self.uuid = str(uuid4())
+        self.name: str = url_parse_file(remote_url)
+        self.title: str = self.name
+        self.url: str = remote_url
+        self.uuid: str = str(uuid4())
         self.http_session = requests.Session()
+        self.ext: str = self.name.split(".")[-1]
 
     def allows_copying_resources(self):
         return False
@@ -193,8 +195,7 @@ class FileHarvester(BaseHarvesterWorker):
         return defaults
 
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
-        target_name = slugify(self.url) + ".csv"
-        with download_to_geonode(self.url, target_name=target_name) as file:
+        with download_to_geonode(self.url, target_name=self.name, ext=self.ext) as file:
             create_from_importer(defaults, file)
         geonode_resource = resource_manager.search(
             {"title": defaults["title"], "state": "PROCESSED"},
@@ -208,15 +209,14 @@ class FileHarvester(BaseHarvesterWorker):
 
 
 @lru_cache
-def FileParser(url: str):
-    target_name = slugify(url)
-    fn = get_temp_dir() + "/" + target_name + ".csv"
-    return fn
+def url_parse_file(url: str):
+    path = urlparse(url).path
+    return os.path.basename(path)
 
 
 @contextmanager
-def download_to_geonode(url: str, target_name: str):
-    query_params = {"downloadformat": "csv"}
+def download_to_geonode(url: str, target_name: str, ext: str):
+    query_params = {"downloadformat": ext}
     try:
         response = requests.get(url, params=query_params, timeout=30)
         response.raise_for_status()
