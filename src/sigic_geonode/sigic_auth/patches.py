@@ -1,7 +1,8 @@
-from rest_framework.views import APIView
 import logging
 
-log = logging.getLogger('geonode')
+from rest_framework.views import APIView
+
+log = logging.getLogger("geonode")
 _PATCHED = False
 _PATCHED_AUTH_HEADER = False
 _PATCHED_PROXY = False
@@ -58,7 +59,6 @@ def patch_get_token_from_auth_header():
     """
     import logging
     import re
-    import types
 
     log = logging.getLogger("geonode.sigic_auth")
     global _PATCHED_AUTH_HEADER
@@ -80,7 +80,11 @@ def patch_get_token_from_auth_header():
         return f"{tok[:keep]}...{tok[-6:]} (len={len(tok)})"
 
     def _extract_bearer(auth_header: str) -> str:
-        return re.compile(re.escape("Bearer "), re.IGNORECASE).sub("", auth_header or "").strip()
+        return (
+            re.compile(re.escape("Bearer "), re.IGNORECASE)
+            .sub("", auth_header or "")
+            .strip()
+        )
 
     def _looks_like_jwt(token: str) -> bool:
         # Estructura JWT canónica: 3 partes no vacías separadas por puntos
@@ -120,12 +124,17 @@ def patch_get_token_from_auth_header():
         # 2) Bearer: intentamos promoción si parece JWT
         if re.search(r"\bBearer\b", auth_header, re.IGNORECASE):
             raw = _extract_bearer(auth_header)
-            log.debug("[sigic_auth] get_token_from_auth_header: Bearer recibido (masked)=%s", _mask(raw))
+            log.debug(
+                "[sigic_auth] get_token_from_auth_header: Bearer recibido (masked)=%s",
+                _mask(raw),
+            )
 
             if _looks_like_jwt(raw):
                 try:
                     # Import tardío para evitar ciclos
-                    from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
+                    from sigic_geonode.sigic_auth.keycloak import (
+                        KeycloakJWTAuthentication,
+                    )
 
                     fake_req = _FakeReq(raw)
                     res = KeycloakJWTAuthentication().authenticate(fake_req)
@@ -138,23 +147,38 @@ def patch_get_token_from_auth_header():
                                 else get_or_create_token(user)
                             )
                             # Normalizar posibles tipos (objeto DOT u otros)
-                            tok_val = getattr(token_obj, "token", None) or (
-                                token_obj.get("token") if isinstance(token_obj, dict) else None
-                            ) or (token_obj if isinstance(token_obj, str) else None)
+                            tok_val = (
+                                getattr(token_obj, "token", None)
+                                or (
+                                    token_obj.get("token")
+                                    if isinstance(token_obj, dict)
+                                    else None
+                                )
+                                or (token_obj if isinstance(token_obj, str) else None)
+                            )
 
                             log.debug(
                                 "[sigic_auth] Promoción OK -> token interno (masked)=%s user=%s",
-                                _mask(tok_val), getattr(user, "username", None)
+                                _mask(tok_val),
+                                getattr(user, "username", None),
                             )
-                            return token_obj.token  # devolver el mismo tipo que usa GeoNode (objeto/dict/str)
+                            return (
+                                token_obj.token
+                            )  # devolver el mismo tipo que usa GeoNode (objeto/dict/str)
                         else:
-                            log.debug("[sigic_auth] authenticate() devolvió user inactivo o None")
+                            log.debug(
+                                "[sigic_auth] authenticate() devolvió user inactivo o None"
+                            )
                     else:
                         log.debug("[sigic_auth] authenticate() devolvió None")
 
                 except Exception as e:
                     # Seguridad / compat: no romper llamadas existentes
-                    log.debug("[sigic_auth] Promoción falló; fallback al original: %s", str(e), exc_info=False)
+                    log.debug(
+                        "[sigic_auth] Promoción falló; fallback al original: %s",
+                        str(e),
+                        exc_info=False,
+                    )
 
             # No parece JWT o promoción falló -> comportamiento original (raw)
             return _orig(auth_header, create_if_not_exists)
@@ -163,4 +187,6 @@ def patch_get_token_from_auth_header():
         return _orig(auth_header, create_if_not_exists)
 
     geonode_base_auth.get_token_from_auth_header = _patched
-    log.info("[sigic_auth] Parche aplicado: geonode.base.auth.get_token_from_auth_header")
+    log.info(
+        "[sigic_auth] Parche aplicado: geonode.base.auth.get_token_from_auth_header"
+    )
