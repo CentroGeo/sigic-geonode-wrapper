@@ -17,16 +17,18 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
+# flake8: noqa evitar errores por imports estrellas y variables no declaradas
+
+import ast
 
 # Django settings for the GeoNode project.
 import os
-import ast
 
 try:
     from urllib.parse import urlparse, urlunparse
-    from urllib.request import urlopen, Request
+    from urllib.request import Request, urlopen
 except ImportError:
-    from urllib2 import urlopen, Request
+    from urllib2 import Request, urlopen
     from urlparse import urlparse, urlunparse
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -65,8 +67,8 @@ ROOT_URLCONF = os.getenv("ROOT_URLCONF", "{}.urls".format(PROJECT_NAME))
 # Additional directories which hold static files
 # - Give priority to local geonode-project ones
 STATICFILES_DIRS = [
-                       os.path.join(LOCAL_ROOT, "static"),
-                   ] + STATICFILES_DIRS
+    os.path.join(LOCAL_ROOT, "static"),
+] + STATICFILES_DIRS
 
 # Location of locale files
 LOCALE_PATHS = (os.path.join(LOCAL_ROOT, "locale"),) + LOCALE_PATHS
@@ -86,7 +88,7 @@ LOGGING = {
     "formatters": {
         "verbose": {
             "format": "%(levelname)s %(asctime)s %(module)s %(process)d "
-                      "%(thread)d %(message)s"
+            "%(thread)d %(message)s"
         },
         "simple": {
             "format": "%(message)s",
@@ -145,9 +147,9 @@ CENTRALIZED_DASHBOARD_ENABLED = ast.literal_eval(
     os.getenv("CENTRALIZED_DASHBOARD_ENABLED", "False")
 )
 if (
-        CENTRALIZED_DASHBOARD_ENABLED
-        and USER_ANALYTICS_ENABLED
-        and "geonode_logstash" not in INSTALLED_APPS
+    CENTRALIZED_DASHBOARD_ENABLED
+    and USER_ANALYTICS_ENABLED
+    and "geonode_logstash" not in INSTALLED_APPS
 ):
     INSTALLED_APPS += ("geonode_logstash",)
 
@@ -175,10 +177,16 @@ MIDDLEWARE = [
     for mw in MIDDLEWARE
 ]
 
-SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
-SOCIALACCOUNT_OIDC_PROVIDER = os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
-SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER",
-                                       "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter")
+SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(
+    os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True")
+)
+SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
+    "SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect"
+)
+SOCIALACCOUNT_ADAPTER = os.environ.get(
+    "SOCIALACCOUNT_ADAPTER",
+    "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter",
+)
 SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
 SOCIALACCOUNT_PROVIDERS = {
@@ -189,19 +197,28 @@ SOCIALACCOUNT_PROVIDERS = {
         "COMMON_FIELDS": {
             "email": "email",
             "last_name": "family_name",
-            "first_name": "given_name"
+            "first_name": "given_name",
         },
-        "USER_FIELDS": {
-            "username": "preferred_username"
-        },
-        "ACCESS_TOKEN_URL": os.getenv("SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL",
-                                      "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token"),
-        "AUTHORIZE_URL": os.getenv("SOCIALACCOUNT_OIDC_AUTHORIZE_URL",
-                                   "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth"),
-        "ID_TOKEN_ISSUER": os.getenv("SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER", "https://iam.dev.geoint.mx/realms/sigic"),
-        "PROFILE_URL": os.getenv("SOCIALACCOUNT_OIDC_PROFILE_URL",
-                                 "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo"),
-        "OAUTH_PKCE_ENABLED": ast.literal_eval(os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True"))
+        "USER_FIELDS": {"username": "preferred_username"},
+        "ACCESS_TOKEN_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token",
+        ),
+        "AUTHORIZE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_AUTHORIZE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth",
+        ),
+        "ID_TOKEN_ISSUER": os.getenv(
+            "SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER",
+            "https://iam.dev.geoint.mx/realms/sigic",
+        ),
+        "PROFILE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_PROFILE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo",
+        ),
+        "OAUTH_PKCE_ENABLED": ast.literal_eval(
+            os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True")
+        ),
     }
 }
 
@@ -221,9 +238,9 @@ REST_FRAMEWORK = {
 }
 
 HARVESTER_TYPES = {
-    "FILE": "sigic_geonode.remote_services.file_harvester.FileHarvester",
+    "FILE": "sigic_geonode.sigic_remote_services.file_harvester.FileHarvester",
 }
 
 SERVICES_TYPE_MODULES = [
-    "sigic_geonode.remote_services.file_service.FileServiceInfo",
+    "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
