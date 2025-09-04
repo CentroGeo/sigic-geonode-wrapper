@@ -36,4 +36,9 @@ http {
         return          444;
     }
 
+    map $http_authorization $http_authorization_upstream {
+        default $http_authorization;
+        ""      "";
+    }
+
 }

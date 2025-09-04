@@ -18,12 +18,11 @@
 #
 #########################################################################
 
+from django.urls import path, include
 from geonode.urls import urlpatterns as geonode_urlpatterns
-from django.urls import re_path, path, include
-from sigic_geonode.upload.views import SigicImporterViewSet
 from sigic_geonode.sigic_auth.debug import whoami
 
 urlpatterns = [
-                  # path("sigic/whoami", whoami),
-                  path("mediauploads/", include("sigic_geonode.media_uploads.urls")),
-              ] + geonode_urlpatterns
+    path("sigic/whoami", whoami),
+    path("mediauploads/", include("sigic_geonode.media_uploads.urls")),
+] + geonode_urlpatterns
