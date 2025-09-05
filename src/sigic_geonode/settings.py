@@ -177,6 +177,10 @@ MIDDLEWARE = [
     for mw in MIDDLEWARE
 ]
 
+MIDDLEWARE += [
+    "sigic_geonode.sigic_auth.middleware.KeycloakUserFromBearerInjectionMiddleware",
+]
+
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(
     os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True")
 )
