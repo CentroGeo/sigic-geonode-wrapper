@@ -52,7 +52,7 @@ def _resolve_user(request):
     return AnonymousUser()
 
 
-class KeycloakBearerInjectionMiddleware:
+class KeycloakUserFromBearerInjectionMiddleware:
     """
     Inyecta request.user si viene Authorization: Bearer ... válido.
     Colócala DESPUÉS de AuthenticationMiddleware.
