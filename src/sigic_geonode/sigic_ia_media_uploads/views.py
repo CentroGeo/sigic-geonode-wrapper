@@ -20,12 +20,12 @@ def upload_image_preview(request):
         if not file:
             return JsonResponse({"error": "No file uploaded"}, status=400)
 
-        filename = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{file.name}"
+        filename = file.name
         
         if(category == "proyectos"):
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "IA", "uploads", "projects")
+            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "projects")
         else:
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "IA", "uploads", "contexts")
+            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
             
         os.makedirs(upload_dir, exist_ok=True)
         save_path = os.path.join(upload_dir, filename)
@@ -45,7 +45,7 @@ def upload_status(request):
     if request.method == 'POST':
         filename = request.POST.get("filename")
         
-        previews_dir = os.path.join(settings.MEDIA_ROOT, "IA", "uploads", "contexts")
+        previews_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
         file_path = os.path.join(previews_dir, filename)
 
         if not os.path.exists(file_path):

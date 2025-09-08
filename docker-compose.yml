@@ -10,7 +10,7 @@ x-common-django: &default-common-django
     - backup-restore:/backup_restore
     - data:/data
     - tmp:/tmp
-    - media:/mnt/volumes/media/
+    - modulo-ia:/mnt/volumes/statics/uploaded/ia
   depends_on:
     db:
       condition: service_healthy
@@ -71,7 +71,6 @@ services:
       - nginx-confd:/etc/nginx
       - nginx-certificates:/geonode-certificates
       - statics:/mnt/volumes/statics
-      - media:/mnt/volumes/media
     restart: unless-stopped
     networks:
       - sigic-network
@@ -135,7 +134,6 @@ services:
       - backup-restore:/backup_restore
       - data:/data
       - tmp:/tmp
-      - media:/mnt/volumes/media
     restart: unless-stopped
     depends_on:
       data-dir-conf:
@@ -218,8 +216,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-tmp
   rabbitmq:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
-  media:
-    name: ${COMPOSE_PROJECT_NAME}-media
+  modulo-ia:
+    name: ${COMPOSE_PROJECT_NAME}-modulo-ia
 
 networks:
   sigic-network:

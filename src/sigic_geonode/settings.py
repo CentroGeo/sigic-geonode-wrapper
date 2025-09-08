@@ -246,8 +246,5 @@ SERVICES_TYPE_MODULES = [
 ]
 
 INSTALLED_APPS += (
-    "sigic_geonode.media_uploads",
+    "sigic_geonode.sigic_ia_media_uploads",
 )
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = "/mnt/volumes/media"
