@@ -84,9 +84,12 @@ if not getattr(ResourceBaseViewSet, "_patched_by_monkey", False):
         data = resp.data  # dict con links/total/... + 'resources' (lista)
         items = data.get("resources") or data.get("results") or []
 
-        if request.query_params.get("extension"):
-            items = filter_by_extension(items, request.query_params.get("extension"))
+        # filtrado por extensiones:
+        extensions = request.query_params.getlist("file_extension")
+        if extensions:
+            items = filter_by_extension(items, extensions)
 
+        # filtrado por geometría
         if request.query_params.get("extent_ne") == "[-1,-1,0,0]":
             items = filter_by_geometry(items)
 
