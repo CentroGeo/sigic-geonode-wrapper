@@ -89,7 +89,6 @@ def update(ctx):
         "geodburl": os.environ.get("GEODATABASE_URL", geodb_url),
         "static_root": os.environ.get("STATIC_ROOT", "/mnt/volumes/statics/static/"),
         "media_root": os.environ.get("MEDIA_ROOT", "/mnt/volumes/statics/uploaded/"),
-        "media_external_root": os.environ.get("MEDIA_EXTERNAL_ROOT", "/mnt/volumes/media/"),
         "geoip_path": os.environ.get("GEOIP_PATH", "/mnt/volumes/statics/geoip.db"),
         "monitoring": os.environ.get("MONITORING_ENABLED", False),
         "monitoring_host_name": os.environ.get("MONITORING_HOST_NAME", "geonode"),
@@ -287,13 +286,6 @@ def update(ctx):
     ctx.run(
         "echo export MEDIA_ROOT=\
 {media_root} >> {override_fn}".format(
-            **envs
-        ),
-        pty=True,
-    )
-    ctx.run(
-        "echo export MEDIA_EXTERNAL_ROOT=\
-{media_external_root} >> {override_fn}".format(
             **envs
         ),
         pty=True,
