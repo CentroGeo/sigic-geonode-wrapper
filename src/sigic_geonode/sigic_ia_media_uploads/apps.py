@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 class UploadsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = "sigic_geonode.media_uploads"
+    name = "sigic_geonode.sigic_ia_media_uploads"
     verbose_name = "Media Uploads"
 
     def ready(self):
