@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view, parser_classes
+from rest_framework.response import Response
 import os
 import mimetypes
 
@@ -15,17 +16,12 @@ def upload_image_preview(request):
     
     if request.method == 'POST':
         file = request.FILES.get("file")
-        category = request.POST.get("category")
         
         if not file:
             return JsonResponse({"error": "No file uploaded"}, status=400)
 
         filename = file.name
-        
-        if category == "proyectos":
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "projects")
-        else:
-            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
+        upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
             
         os.makedirs(upload_dir, exist_ok=True)
         save_path = os.path.join(upload_dir, filename)
@@ -37,7 +33,7 @@ def upload_image_preview(request):
 
         return JsonResponse({
             "message": "File uploaded successfully",
-            "url": f"{settings.MEDIA_URL}{filename}"
+            "url": f"{upload_dir}{filename}"
         })
 
 @api_view(["GET", "POST"])
@@ -45,8 +41,12 @@ def upload_status(request):
     if request.method == 'POST':
         filename = request.POST.get("filename")
         
+        if not filename:
+            return Response({"error": "Falta el nombre del archivo"}, status=400)
+        
+        safe_filename = os.path.basename(filename)
         previews_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
-        file_path = os.path.join(previews_dir, filename)
+        file_path = os.path.join(previews_dir, safe_filename)
 
         if not os.path.exists(file_path):
             raise Http404("Archivo no encontrado")
@@ -55,4 +55,8 @@ def upload_status(request):
         if not mime_type:
             mime_type = "application/octet-stream"
 
-        return FileResponse(open(file_path, "rb"), content_type=mime_type)
+        try:
+            f = open(file_path, 'rb')
+            return FileResponse(f, content_type=mime_type)
+        except IOError as e:
+            return Response({"error": "No se pudo abrir el archivo"}, status=500)
