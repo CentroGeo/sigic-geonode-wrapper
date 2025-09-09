@@ -22,7 +22,7 @@ def upload_image_preview(request):
 
         filename = file.name
         
-        if(category == "proyectos"):
+        if category == "proyectos":
             upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "projects")
         else:
             upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
