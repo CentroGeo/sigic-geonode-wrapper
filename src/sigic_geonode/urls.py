@@ -18,11 +18,12 @@
 #
 #########################################################################
 
-from django.urls import path
+from django.urls import include, path
 from geonode.urls import urlpatterns as geonode_urlpatterns
 
 from sigic_geonode.sigic_auth.debug import whoami
 
 urlpatterns = [
     path("sigic/whoami", whoami),
+    path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
 ] + geonode_urlpatterns

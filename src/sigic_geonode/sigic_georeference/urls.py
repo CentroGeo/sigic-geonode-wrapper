@@ -1,0 +1,7 @@
+from django.urls import path
+
+from sigic_geonode.sigic_georeference.table_operations import JoinDataframes
+
+urlpatterns = [
+    path("/join", JoinDataframes.as_view(), name="join-dataframes"),
+]
