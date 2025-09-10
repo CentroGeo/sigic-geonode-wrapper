@@ -56,7 +56,6 @@ def upload_status(request):
             mime_type = "application/octet-stream"
 
         try:
-            f = open(file_path, 'rb')
-            return FileResponse(f, content_type=mime_type)
+            return FileResponse(file_path, content_type=mime_type)
         except IOError as e:
             return Response({"error": "No se pudo abrir el archivo"}, status=500)
