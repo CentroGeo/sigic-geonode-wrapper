@@ -33,7 +33,8 @@ def simplify_resource(res):
             "featured": res.get("featured", False),
             "advertised": res.get("advertised", False),
             "is_published": res.get("is_published", False),
-            "created22": res.get("created", ""),
+            "created": res.get("created", ""),
+            "date": res.get("created", ""),
         }
     except Exception as e:
         logger.warning(f"🚨🚨 Ocurrió el siguiente error en simplify_resource: {e}")
