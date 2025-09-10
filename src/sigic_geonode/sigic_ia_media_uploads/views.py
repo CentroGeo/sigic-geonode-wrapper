@@ -33,7 +33,7 @@ def upload_image_preview(request):
 
         return JsonResponse({
             "message": "File uploaded successfully",
-            "url": f"{upload_dir}{filename}"
+            "url": f"{settings.MEDIA_URL}ia/uploads/contexts/{filename}"
         })
 
 @api_view(["GET", "POST"])
