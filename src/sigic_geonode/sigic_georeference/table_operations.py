@@ -91,9 +91,9 @@ class JoinDataframes(APIView):
                         ),
                     )
                 )
-            except Exception as e:
+            except Exception:
                 connection.rollback()
-                return Response({"status": "failed", "error": str(e)})
+                return Response({"status": "failed running database changes"})
         try:
             self.update_attributes(ds, geo_ds, columns)
         except Exception:
@@ -160,9 +160,7 @@ class Reset(APIView):
 
         if response.status_code != 200:
             return Response({"status": "failed"})
-        return Response(
-            {"status": "success", "layer": layer, "response": response.content}
-        )
+        return Response({"status": "success"})
 
 
 def get_name_from_ds(ds: Dataset):
