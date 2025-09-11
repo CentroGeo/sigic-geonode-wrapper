@@ -177,6 +177,10 @@ MIDDLEWARE = [
     for mw in MIDDLEWARE
 ]
 
+MIDDLEWARE += [
+    "sigic_geonode.sigic_auth.middleware.KeycloakUserFromBearerInjectionMiddleware",
+]
+
 SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(
     os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True")
 )
@@ -244,3 +248,7 @@ HARVESTER_TYPES = {
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
+
+INSTALLED_APPS += (
+    "sigic_geonode.sigic_ia_media_uploads",
+)
