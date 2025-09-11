@@ -10,7 +10,10 @@ from rest_framework.response import Response
 import os
 import mimetypes
 
-@api_view(["GET", "POST"])
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+@api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
 def upload_image_preview(request):
     
@@ -20,7 +23,17 @@ def upload_image_preview(request):
         if not file:
             return JsonResponse({"error": "No file uploaded"}, status=400)
 
-        filename = file.name
+
+        filename = os.path.basename(file.name)
+        filename = filename.replace(" ", "_")
+        
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return Response({"error": f"Invalid file type: {ext}"}, status=400)
+        
+        if file.size > MAX_FILE_SIZE:
+            return Response({"error": "File too large"}, status=400)
+        
         upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
             
         os.makedirs(upload_dir, exist_ok=True)
@@ -36,7 +49,7 @@ def upload_image_preview(request):
             "url": f"{settings.MEDIA_URL}ia/uploads/contexts/{filename}"
         })
 
-@api_view(["GET", "POST"])
+@api_view(["POST"])
 def upload_status(request):
     if request.method == 'POST':
         filename = request.POST.get("filename")
@@ -45,11 +58,16 @@ def upload_status(request):
             return Response({"error": "Falta el nombre del archivo"}, status=400)
         
         safe_filename = os.path.basename(filename)
+        
+        ext = os.path.splitext(safe_filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return Response({"error": "Tipo de archivo no permitido"}, status=400)
+        
         previews_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
         file_path = os.path.join(previews_dir, safe_filename)
 
         if not os.path.exists(file_path):
-            raise Http404("Archivo no encontrado")
+            return Response({"error": "Archivo no encontrado"}, status=404)
 
         mime_type, _ = mimetypes.guess_type(file_path)
         if not mime_type:
