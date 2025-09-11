@@ -145,7 +145,7 @@ class Reset(APIView):
 
         # Enviar nuevos datos con commando de recalcular nativebbox/latlogbbox
         feature_types = response.json()
-        feature_types["featureType"]["srs"] = "EPSG:32614"
+        feature_types["featureType"]["srs"] = ds.srid
 
         response = requests.put(
             f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
