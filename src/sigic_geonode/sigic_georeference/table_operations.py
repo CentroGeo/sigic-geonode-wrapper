@@ -1,11 +1,10 @@
 import json
+import os
 
 import requests
-from django.conf import settings
-from geonode.base.auth import get_or_create_token
 from geonode.layers.models import Attribute, Dataset, Style
-from geonode.people.models import Profile
 from psycopg2.sql import SQL, Identifier
+from requests.auth import HTTPBasicAuth
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,8 +25,8 @@ class JoinDataframes(APIView):
             raise Exception(
                 f"Dataset {request_data.get('geo_layer', -1)} does not exist"
             )
-        layer_name: str = self.get_name_from_ds(ds)
-        geo_name: str = self.get_name_from_ds(geo_ds)
+        layer_name: str = get_name_from_ds(ds)
+        geo_name: str = get_name_from_ds(geo_ds)
         layer_pivot: str = request_data.get("layer_pivot", "")
         geo_pivot: str = request_data.get("geo_pivot", "")
         columns: list[str] = request_data.getlist("columns", [])
@@ -43,11 +42,17 @@ class JoinDataframes(APIView):
                     )
                 )
                 if "geometry" in columns:
-                    # TODO Use previous table geometry
                     cur.execute(
                         SQL(
-                            'ALTER TABLE {layer_table} ADD COLUMN "geometry" geometry(Geometry,32614);'
-                        ).format(layer_table=Identifier(layer_name))
+                            f"""SELECT srid FROM geometry_columns
+                            WHERE f_table_name='{geo_name}'"""
+                        )
+                    )
+                    srid = cur.fetchone()[0]
+                    cur.execute(
+                        SQL(
+                            f'ALTER TABLE {layer_name} ADD COLUMN "geometry" geometry(Geometry,{srid});'
+                        )
                     )
                 cur.execute(
                     SQL(
@@ -86,35 +91,26 @@ class JoinDataframes(APIView):
                         ),
                     )
                 )
-            except Exception:
+            except Exception as e:
                 connection.rollback()
-                return Response({"bye": "response"})
+                return Response({"status": "failed", "error": str(e)})
         try:
             self.update_attributes(ds, geo_ds, columns)
         except Exception:
             connection.rollback()
             return Response({"status": "failed updating attributes"})
-        if not self.update_gs_features(layer_name):
-            connection.rollback()
-            return Response({"status": "failed"})
         connection.commit()
         return Response({"status": "success"})
 
-    def get_name_from_ds(self, ds: Dataset):
-        alt = ds.alternate
-        alt_split = alt.split(":")
-        if len(alt_split) != 2 or alt_split[0] != "geonode":
-            raise Exception("Not a valid geonode database")
-        return alt_split[1]
-
     def update_attributes(self, ds: Dataset, geo_ds: Dataset, columns):
+        # Modificar los attributos dentro de postgres
         for col in columns:
             attribute_type = "xsd:string"
             if col == "geometry":
                 attribute_type = geo_ds.attributes.get(
                     attribute="geometry"
                 ).attribute_type
-            Attribute.objects.create(
+            _ = Attribute.objects.create(
                 dataset_id=ds.id,
                 attribute_type=attribute_type,
                 attribute=col,
@@ -128,27 +124,50 @@ class JoinDataframes(APIView):
         ds.bbox_polygon = geo_ds.bbox_polygon
         ds.save()
 
-    def update_gs_features(self, layer, geo_layer):
-        user = Profile.objects.get(id=1000)
-        gs_server = settings.GEOSERVER_LOCATION
-        url = f"{gs_server}rest/workspaces/geonode/datastores/{settings.GEONODE_GEODATABASE}/featuretypes"
+
+class Reset(APIView):
+    def post(self, request):
+        gs_server = os.getenv("GEOSERVER_LOCATION", "")
+        url = f"{gs_server}rest/workspaces/geonode/datastores/sigic_geonode_data/featuretypes"
+
+        ds: Dataset = Dataset.objects.filter(id=request.data.get("layer", -1)).first()
+        layer = get_name_from_ds(ds)
+
+        # Obtener los datos actuales para sobrescribir
         response = requests.get(
             f"{url}/{layer}.json",
-            headers={"Authorization": f"Bearer {str(get_or_create_token(user))}"},
+            auth=HTTPBasicAuth(
+                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
+                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
+            ),
+            timeout=15,
         )
+
+        # Enviar nuevos datos con commando de recalcular nativebbox/latlogbbox
         feature_types = response.json()
-        response = requests.get(
-            f"{url}/{geo_layer}.json",
-            headers={"Authorization": f"Bearer {str(get_or_create_token(user))}"},
-        )
-        new_srs = response.json()["featureType"]["srs"]
-        feature_types["featureType"]["srs"] = new_srs
+        feature_types["featureType"]["srs"] = "EPSG:32614"
+
         response = requests.put(
             f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
             data=json.dumps(feature_types),
-            headers={
-                "Authorization": f"Bearer {str(get_or_create_token(user))}",
-                "Content-Type": "application/json",
-            },
+            auth=HTTPBasicAuth(
+                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
+                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
+            ),
+            headers={"Content-Type": "application/json"},
+            timeout=15,
         )
-        return response.status_code == 200
+
+        if response.status_code != 200:
+            return Response({"status": "failed"})
+        return Response(
+            {"status": "success", "layer": layer, "response": response.content}
+        )
+
+
+def get_name_from_ds(ds: Dataset):
+    alt = ds.alternate
+    alt_split = alt.split(":")
+    if len(alt_split) != 2 or alt_split[0] != "geonode":
+        raise Exception("Not a valid geonode database")
+    return alt_split[1]
