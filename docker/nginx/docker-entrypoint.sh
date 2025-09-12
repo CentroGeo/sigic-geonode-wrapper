@@ -53,12 +53,17 @@ else
     # HTTP_SCHEME was defined externally
     if [ "$HTTP_SCHEME" = "https" ]; then
         if [ -z "${HTTPS_HOST}" ]; then
-            PUBLIC_HOST="${HTTP_HOST}:${HTTPS_PORT:-443}"
-        else
-            PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
+            if [ "$HTTPS_PORT" = "443" ]; then
+                PUBLIC_HOST="${HTTP_HOST}"
+            else
+                PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
         fi
     else
-        PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT:-80}"
+        if [ "$HTTP_PORT" = "80" ]; then
+            PUBLIC_HOST="${HTTP_HOST}"
+        else
+            PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT:-80}"
+        fi
     fi
 fi
 

@@ -58,7 +58,7 @@ location /geoserver {
   proxy_pass http://$upstream;
   proxy_http_version 1.1;
   proxy_redirect http://$upstream $HTTP_SCHEME://$HTTP_HOST;
-  proxy_request_buffering  off;
+  proxy_request_buffering off;
   client_max_body_size 0;
 }
 
@@ -93,9 +93,8 @@ location / {
   set $upstream $GEONODE_LB_HOST_IP:$GEONODE_LB_PORT;
 
   if ($request_method = OPTIONS) {
-      add_header Access-Control-Allow-Origin "*" always;
-      add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
-      add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin" always;
+      add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+      add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept";
       add_header Access-Control-Allow-Credentials true;
       add_header Content-Length 0;
       add_header Content-Type text/plain;
@@ -103,10 +102,9 @@ location / {
       return 204;
   }
 
-  add_header Access-Control-Allow-Origin "*" always;
   add_header Access-Control-Allow-Credentials false;
-  add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
-  add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin" always;
+  add_header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, Origin, User-Agent";
+  add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
   proxy_redirect              off;
   proxy_set_header            Host $PUBLIC_HOST;
@@ -119,17 +117,16 @@ location / {
   proxy_hide_header           X-Frame-Options;
   proxy_request_buffering     off;
 
-  # Posiblemente esto ya no es necesario debido a que se usar proxy_pass y no uwsgi_pass, dejar comentado por ahora
   # uwsgi_params
-  # include /etc/nginx/uwsgi_params;
-  # uwsgi_pass $upstream;
-  # uwsgi_ignore_client_abort on;
-  # uwsgi_request_buffering off;
+  include /etc/nginx/uwsgi_params;
 
   # pass all requests to the backend through to the upstream server
   proxy_pass http://$upstream;
   proxy_pass_header Authorization;
 
+  # when a client closes the connection then keep the channel to uwsgi open. Otherwise uwsgi throws an IOError
+  uwsgi_ignore_client_abort on;
+  uwsgi_request_buffering off;
 
   location ~* \.(?:js|jpg|jpeg|gif|png|tgz|gz|rar|bz2|doc|pdf|ppt|tar|wav|bmp|ttf|rtf|swf|ico|flv|woff|woff2|svg|xml)$ {
       gzip_static always;
