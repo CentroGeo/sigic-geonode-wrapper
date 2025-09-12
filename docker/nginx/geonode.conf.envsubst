@@ -117,9 +117,16 @@ location / {
   proxy_hide_header           X-Frame-Options;
   proxy_request_buffering     off;
 
+  # uwsgi_params
+  include /etc/nginx/uwsgi_params;
+
   # pass all requests to the backend through to the upstream server
   proxy_pass http://$upstream;
   proxy_pass_header Authorization;
+
+  # when a client closes the connection then keep the channel to uwsgi open. Otherwise uwsgi throws an IOError
+  uwsgi_ignore_client_abort on;
+  uwsgi_request_buffering off;
 
   location ~* \.(?:js|jpg|jpeg|gif|png|tgz|gz|rar|bz2|doc|pdf|ppt|tar|wav|bmp|ttf|rtf|swf|ico|flv|woff|woff2|svg|xml)$ {
       gzip_static always;
