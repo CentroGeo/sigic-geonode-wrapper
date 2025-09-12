@@ -44,15 +44,17 @@ class JoinDataframes(APIView):
                 if "geometry" in columns:
                     cur.execute(
                         SQL(
-                            f"""SELECT srid FROM geometry_columns
-                            WHERE f_table_name='{geo_name}'"""
-                        )
+                            """SELECT srid FROM geometry_columns
+                            WHERE f_table_name=%s"""
+                        ),
+                        [geo_name],
                     )
                     srid = cur.fetchone()[0]
                     cur.execute(
                         SQL(
-                            f'ALTER TABLE {layer_name} ADD COLUMN "geometry" geometry(Geometry,{srid});'
-                        )
+                            'ALTER TABLE {layer_table} ADD COLUMN "geometry" geometry(Geometry,%s);'
+                        ).format(layer_table=Identifier(layer_name)),
+                        [srid],
                     )
                 cur.execute(
                     SQL(
