@@ -57,6 +57,7 @@ else
                 PUBLIC_HOST="${HTTP_HOST}"
             else
                 PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
+            fi
         fi
     else
         if [ "$HTTP_PORT" = "80" ]; then
