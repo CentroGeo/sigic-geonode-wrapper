@@ -10,6 +10,7 @@ x-common-django: &default-common-django
     - backup-restore:/backup_restore
     - data:/data
     - tmp:/tmp
+    - modulo-ia:/mnt/volumes/statics/uploaded/ia
   depends_on:
     db:
       condition: service_healthy
@@ -215,6 +216,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-tmp
   rabbitmq:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
+  modulo-ia:
+    name: ${COMPOSE_PROJECT_NAME}-modulo-ia
 
 networks:
   sigic-network:

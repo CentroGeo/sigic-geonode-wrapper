@@ -248,3 +248,7 @@ HARVESTER_TYPES = {
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
+
+INSTALLED_APPS += (
+    "sigic_geonode.sigic_ia_media_uploads",
+)
