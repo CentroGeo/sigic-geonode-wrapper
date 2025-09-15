@@ -93,9 +93,9 @@ location / {
   set $upstream $GEONODE_LB_HOST_IP:$GEONODE_LB_PORT;
 
   if ($request_method = OPTIONS) {
-      add_header Access-Control-Allow-Origin "*";
-      add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+      add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, OPTIONS";
       add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept";
+      add_header Access-Control-Allow-Origin "*";
       add_header Access-Control-Allow-Credentials false;
       add_header Content-Length 0;
       add_header Content-Type text/plain;
@@ -104,9 +104,8 @@ location / {
   }
 
   add_header Access-Control-Allow-Credentials false;
-  add_header Access-Control-Allow-Origin "*";
   add_header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, Origin, User-Agent";
-  add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+  add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, OPTIONS";
 
   proxy_redirect              off;
   proxy_set_header            Host $PUBLIC_HOST;
