@@ -168,6 +168,7 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 INSTALLED_APPS += (
     "sigic_geonode.sigic_auth",
     "sigic_geonode.sigic_resources",
+    "sigic_geonode.sigic_datasets",
 )
 
 MIDDLEWARE = [
