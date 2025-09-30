@@ -6,24 +6,20 @@ from .serializers import SigicResourceShortSerializer
 
 class SigicResourceBaseViewSet(ResourceBaseViewSet):
     """
-    Extiende ResourceBaseViewSet con filtros personalizados Sigic."""
+    Extiende ResourceBaseViewSet con filtros personalizados Sigic. En esta clase se
+    mantienen los backends nativos de Geonode  y los personalizados, en los cuales
+    es importantes saber:
+    - En el SigicFilters usamos `pop()` para consumir únicamente nuestros filtros
+    custom (institution, year, has_geometry, extension).
+    - Esto evita que DynamicFilterBackend intente procesarlos y marque error:
+    "Invalid filter field".
+    - Así se logra un "arreglo" entre los dos backs:
+    - Los filtros nativos de GeoNode siguen funcionando (ej: category.identifier).
+    - Los filtros custom se procesan optimizados, ya que son operaciones directas en BD."""
 
-    filter_backends = [SigicFilters,] + [
-        backend
-        for backend in ResourceBaseViewSet.filter_backends
-        if backend.__name__ != "DynamicFilterBackend"
-        #     En esta parte se quitó el DynamicFilterBackend que trae GeoNode por defecto, ya que no
-        #     entiende la sintaxis filter{...} con nuestros filtros personalizados y generaba el error:
-        #     {
-        #     "success": false,
-        #     "errors": [
-        #         "Invalid filter field: extension"
-        #     ],
-        #     "code": "invalid"
-        # }
-        #     En su lugar, se añade SigicFilters para manejar esos parámetros de forma controlada,
-        #     eficiente y homologada con los filtros nativos de Geonode.
-    ]
+    filter_backends = [
+        SigicFilters,
+    ] + ResourceBaseViewSet.filter_backends
 
 
 class SigicResourceShortViewSet(SigicResourceBaseViewSet):
