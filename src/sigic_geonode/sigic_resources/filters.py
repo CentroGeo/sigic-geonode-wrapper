@@ -16,10 +16,10 @@ class SigicFilters(BaseFilterBackend):
         try:
             filters = {}
 
-            institution = request.query_params.get("filter{institution}")
-            year = request.query_params.get("filter{year}")
-            has_geometry = request.query_params.get("filter{has_geometry}")
-            extensions = request.query_params.getlist("filter{extension}")
+            institution = request.query_params.pop("filter{institution}", [None])[0]
+            year = request.query_params.pop("filter{year}", [None])[0]
+            has_geometry = request.query_params.pop("filter{has_geometry}", [None])[0]
+            extensions = request.query_params.pop("filter{extension}", [])
 
             if institution:
                 filters["attribution__iexact"] = institution
@@ -28,11 +28,8 @@ class SigicFilters(BaseFilterBackend):
             if has_geometry is not None:
                 if has_geometry.lower() == "true":
                     queryset = queryset.exclude(
-                        bbox_polygon=WORLD_BBOX, ll_bbox_polygon=WORLD_BBOX
-                    )
-                elif has_geometry.lower() == "false":
-                    queryset = queryset.filter(
-                        bbox_polygon=WORLD_BBOX, ll_bbox_polygon=WORLD_BBOX
+                        bbox_polygon=WORLD_BBOX,
+                        ll_bbox_polygon=WORLD_BBOX,
                     )
             if extensions:
                 queryset = queryset.annotate(
@@ -42,12 +39,16 @@ class SigicFilters(BaseFilterBackend):
                             extension__in=[ext.lower() for ext in extensions],
                         )
                     )
-                ).filter(has_ext=True, resource_type="document")
+                )
+                filters["has_ext"] = True
+                filters["resource_type"] = "document"
             if filters:
                 queryset = queryset.filter(**filters)
+
             return queryset
+
         except Exception as e:
             logger.warning(
-                f"🚨🚨 Error en el back SigicFilters, en la función filter_queryset : {e}"
+                f"🚨 Error en el back SigicFilters, en la función filter_queryset: {e}"
             )
             return queryset
