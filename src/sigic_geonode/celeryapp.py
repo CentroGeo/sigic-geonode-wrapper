@@ -22,7 +22,6 @@ from __future__ import absolute_import
 
 import json
 import os
-from time import sleep
 
 import requests
 from celery import Celery
@@ -48,20 +47,26 @@ def debug_task(self):
     print("Request: {!r}".format(self.request))
 
 
+def set_dataset_failed(ds: Dataset):
+    ds.state = enumerations.STATE_INVALID
+
+
 @app.task(
     bind=True,
     name="sigic_geonode.sync_geoserver",
     queue="sigic_geonode.sync_geoserver",
     max_retries=5,
+    on_failure=set_dataset_failed,
 )
 def sync_geoserver(self, layer_id: int):
-    sleep(3)
     gs_server = os.getenv("GEOSERVER_LOCATION", "")
     url = (
         f"{gs_server}rest/workspaces/geonode/datastores/sigic_geonode_data/featuretypes"
     )
 
     ds: Dataset = Dataset.objects.filter(id=layer_id).first()
+    if ds.state not in [enumerations.STATE_WAITING, enumerations.STATE_INVALID]:
+        return
     layer = get_name_from_ds(ds)
 
     # Obtener los datos actuales para sobrescribir
