@@ -249,6 +249,12 @@ SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
 
-INSTALLED_APPS += (
-    "sigic_geonode.sigic_ia_media_uploads",
+INSTALLED_APPS += ("sigic_geonode.sigic_ia_media_uploads",)
+
+CELERY_TASK_QUEUES += (
+    Queue(
+        "sigic_geonode.sync_geoserver",
+        GEONODE_EXCHANGE,
+        routing_key="sigic_geonode.sync_geoserver",
+    ),
 )
