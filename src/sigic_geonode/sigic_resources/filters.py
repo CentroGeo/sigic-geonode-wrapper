@@ -15,16 +15,19 @@ class SigicFilters(BaseFilterBackend):
     def filter_queryset(self, request, queryset, view):
         try:
             filters = {}
-
-            institution = request.query_params.pop("filter{institution}", [None])[0]
-            year = request.query_params.pop("filter{year}", [None])[0]
+            institutions = request.query_params.pop("filter{institution}", [])
+            # institution = request.query_params.pop("filter{institution}", [None])[0]
+            # year = request.query_params.pop("filter{year}", [None])[0]
+            years = request.query_params.pop("filter{year}", [])
             has_geometry = request.query_params.pop("filter{has_geometry}", [None])[0]
             extensions = request.query_params.pop("filter{extension}", [])
 
-            if institution:
-                filters["attribution__iexact"] = institution
-            if year:
-                filters["date__year"] = year
+            if institutions:
+                # filters["attribution__iexact"] = institution
+                filters["attribution__in"] = [inst.strip() for inst in institutions]
+            if years:
+                # filters["date__year"] = year
+                filters["date__year__in"] = [int(y) for y in years if y.isdigit()]
             if has_geometry is not None:
                 if has_geometry.lower() == "true":
                     queryset = queryset.exclude(
