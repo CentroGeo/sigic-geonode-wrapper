@@ -119,6 +119,24 @@ def generate_env_file(args):
         if tcp == "https" and not _vals_to_replace["email"]:
             raise Exception("With HTTPS enabled, the email parameter is required")
 
+        force_script_name = (
+            _vals_to_replace.get("force_script_name", "").strip().lstrip("/")
+        )
+        force_script_name_prefix = f"/{force_script_name}" if force_script_name else ""
+
+        _vals_to_replace["FORCE_SCRIPT_NAME"] = force_script_name_prefix
+        _vals_to_replace["GEONODE_BASE_URL"] = force_script_name_prefix
+        _vals_to_replace["STATIC_URL"] = (
+            f"{force_script_name_prefix}/static/"
+            if force_script_name_prefix
+            else "/static/"
+        )
+        _vals_to_replace["MEDIA_URL"] = (
+            f"{force_script_name_prefix}/uploaded/"
+            if force_script_name_prefix
+            else "/uploaded/"
+        )
+
         return {**_jsfile, **_vals_to_replace}
 
     for key, val in _get_vals_to_replace(args).items():
@@ -151,7 +169,7 @@ if __name__ == "__main__":
         "--no-input",
         action="store_false",
         dest="confirmation",
-        help=("skips prompting for confirmation."),
+        help="skips prompting for confirmation.",
     )
     parser.add_argument(
         "-hn",
@@ -198,6 +216,12 @@ if __name__ == "__main__":
         help="Development/production or test",
         choices=["prod", "test", "dev"],
         default="prod",
+    )
+    parser.add_argument(
+        "--force-script-name",
+        dest="force_script_name",
+        help="Subpath (e.g., geonode) if GeoNode runs under a subpath. Leave empty for root.",
+        default="",
     )
 
     args = parser.parse_args()
