@@ -16,9 +16,9 @@ RUN sed -i -e 's/# C.UTF-8 UTF-8/C.UTF-8 UTF-8/' /etc/locale.gen && \
 ENV LC_ALL C.UTF-8
 ENV LANG C.UTF-8
 
-RUN git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/CentroGeo/sigic-geonode-mapstore-client.git -b 4.4.x.sigic ../sigic-geonode-mapstore-client
-RUN git clone --depth 1 https://github.com/CentroGeo/sigic-geonode-importer.git -b 1.1.x.sigic ../sigic-geonode-importer
-RUN git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/GeoNode/geonode.git -b 4.4.x ../geonode
+RUN git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/CentroGeo/sigic-geonode-mapstore-client.git -b 4.4.x.sigic ../sigic-geonode-mapstore-client && \
+    git clone --depth 1 https://github.com/CentroGeo/sigic-geonode-importer.git -b 1.1.x.sigic ../sigic-geonode-importer && \
+    git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/GeoNode/geonode.git -b 4.4.x ../geonode
 
 COPY src/celery.sh /usr/bin/celery-commands
 RUN chmod +x /usr/bin/celery-commands
