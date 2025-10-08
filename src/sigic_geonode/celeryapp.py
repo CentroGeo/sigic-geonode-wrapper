@@ -72,21 +72,23 @@ def sync_geoserver(self, layer_id: int):
         return {"status": "failed", "msg": "Dataset not in valid state"}
     layer = get_name_from_ds(ds)
 
-    # Obtener los datos actuales para sobrescribir
-    response = requests.get(
-        f"{url}/{layer}.json",
-        auth=HTTPBasicAuth(
-            username=os.getenv("GEOSERVER_ADMIN_USER", ""),
-            password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
-        ),
-        timeout=15,
-    )
-
-    # Enviar nuevos datos con commando de recalcular nativebbox/latlogbbox
-    feature_types = response.json()
-    feature_types["featureType"]["srs"] = ds.srid
-
     try:
+        # Obtener los datos actuales para sobrescribir
+        response = requests.get(
+            f"{url}/{layer}.json",
+            auth=HTTPBasicAuth(
+                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
+                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
+            ),
+            timeout=15,
+        )
+        if response.status_code != 200:
+            raise Exception(f"Geoserver did not respond with 200, dataset {ds.id}")
+
+        # Enviar nuevos datos con commando de recalcular nativebbox/latlogbbox
+        feature_types = response.json()
+        feature_types["featureType"]["srs"] = ds.srid
+
         response = requests.put(
             f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
             data=json.dumps(feature_types),
