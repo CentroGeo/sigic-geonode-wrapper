@@ -7,8 +7,7 @@ from rest_framework.filters import BaseFilterBackend
 
 logger = logging.getLogger(__name__)
 
-# Bounding box mundial (sin geometría real) se asigna a los documentos pdf de manera gral.
-WORLD_BBOX = Polygon.from_bbox((-180, -90, 180, 90))
+WORLD_BBOX = Polygon.from_bbox((-1, -1, 0, 0))
 
 
 class SigicFilters(BaseFilterBackend):
@@ -19,7 +18,7 @@ class SigicFilters(BaseFilterBackend):
             has_geometry = request.query_params.pop("filter{has_geometry}", [None])[0]
             extensions = request.query_params.pop("filter{extension}", [])
 
-            # Diccionario para filtros simples (ej. year,has_ext, resource_type)
+            # Diccionario para filtros simples (ej. year,has_ext)
             filters = {}
             if years:
                 filters["date__year__in"] = [int(y) for y in years if y.isdigit()]
@@ -33,8 +32,8 @@ class SigicFilters(BaseFilterBackend):
                     )
                 )
                 filters["has_ext"] = True
-                filters["resource_type"] = "document"
-            # Aquí aplicamos filtros simples (year, has_ext, resource_type):
+
+            # Aquí aplicamos filtros simples (year, has_ext):
             if filters:
                 queryset = queryset.filter(**filters)
 
