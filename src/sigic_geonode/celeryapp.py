@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 
 import json
+import logging
 import os
 
 import requests
@@ -28,9 +29,10 @@ from celery import Celery
 from geonode.base import enumerations
 from geonode.layers.models import Dataset
 from requests.auth import HTTPBasicAuth
-from rest_framework.response import Response
 
-from sigic_geonode.sigic_georeference.utils import get_name_from_ds
+from sigic_geonode.sigic_georeference.utils import get_dataset, get_name_from_ds
+
+logger = logging.getLogger()
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sigic_geonode.settings")
 
@@ -49,6 +51,7 @@ def debug_task(self):
 
 def set_dataset_failed(ds: Dataset):
     ds.state = enumerations.STATE_INVALID
+    ds.save()
 
 
 @app.task(
@@ -64,9 +67,9 @@ def sync_geoserver(self, layer_id: int):
         f"{gs_server}rest/workspaces/geonode/datastores/sigic_geonode_data/featuretypes"
     )
 
-    ds: Dataset = Dataset.objects.filter(id=layer_id).first()
+    ds = get_dataset(layer_id)
     if ds.state not in [enumerations.STATE_WAITING, enumerations.STATE_INVALID]:
-        return
+        return {"status": "failed", "msg": "Dataset not in valid state"}
     layer = get_name_from_ds(ds)
 
     # Obtener los datos actuales para sobrescribir
@@ -83,21 +86,25 @@ def sync_geoserver(self, layer_id: int):
     feature_types = response.json()
     feature_types["featureType"]["srs"] = ds.srid
 
-    response = requests.put(
-        f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
-        data=json.dumps(feature_types),
-        auth=HTTPBasicAuth(
-            username=os.getenv("GEOSERVER_ADMIN_USER", ""),
-            password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
-        ),
-        headers={"Content-Type": "application/json"},
-        timeout=15,
-    )
-
-    if response.status_code != 200:
+    try:
+        response = requests.put(
+            f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
+            data=json.dumps(feature_types),
+            auth=HTTPBasicAuth(
+                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
+                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
+            ),
+            headers={"Content-Type": "application/json"},
+            timeout=15,
+        )
+        if response.status_code != 200:
+            raise Exception(f"Geoserver did not respond with 200, dataset {ds.id}")
+    except Exception as e:
         ds.state = enumerations.STATE_INVALID
         ds.save()
-        return Response({"status": "failed"})
+        logger.warning(f"Dataset not in valid state, error: {ds.id} {e}")
+        raise e
+
     ds.state = enumerations.STATE_PROCESSED
     ds.save()
-    return Response({"status": "success"})
+    return {"status": "success"}

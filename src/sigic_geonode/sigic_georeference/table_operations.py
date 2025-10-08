@@ -8,22 +8,14 @@ from rest_framework.views import APIView
 from sigic_geonode.celeryapp import sync_geoserver
 from sigic_geonode.sigic_helper.geodata_conn import connection
 
-from .utils import get_name_from_ds
+from .utils import get_dataset, get_name_from_ds
 
 
 class JoinDataframes(APIView):
     def post(self, request: Request):
         request_data: dict[str, str] = request.data
-        ds: Dataset = Dataset.objects.filter(id=request_data.get("layer", -1)).first()
-        geo_ds: Dataset = Dataset.objects.filter(
-            id=request_data.get("geo_layer", -1)
-        ).first()
-        if ds is None:
-            raise Exception(f"Dataset {request_data.get('layer', -1)} does not exist")
-        if geo_ds is None:
-            raise Exception(
-                f"Dataset {request_data.get('geo_layer', -1)} does not exist"
-            )
+        ds = get_dataset(request_data.get("layer", -1))
+        geo_ds = get_dataset(request_data.get("geo_layer", -1))
         layer_name: str = get_name_from_ds(ds)
         geo_name: str = get_name_from_ds(geo_ds)
         layer_pivot: str = request_data.get("layer_pivot", "")
@@ -150,7 +142,7 @@ class JoinDataframes(APIView):
 
 class Status(APIView):
     def get(self, _request, layer: int):
-        ds: Dataset = Dataset.objects.filter(id=layer).first()
+        ds = get_dataset(layer)
         return Response({"status": str(ds.state)})
 
 
@@ -158,9 +150,7 @@ class Reset(APIView):
     def post(self, request):
         try:
             request_data: dict[str, str] = request.data
-            ds: Dataset = Dataset.objects.filter(
-                id=request_data.get("layer", -1)
-            ).first()
+            ds = get_dataset(request_data.get("layer", -1))
             sync_geoserver.apply_async((ds.id,))
         except Exception as e:
             return Response({"status": "failed", "msg": str(e)})
