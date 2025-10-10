@@ -31,37 +31,43 @@ METADATA_FIELDS = {
 
 # Evita aplicar el parche dos veces
 if not getattr(DatasetViewSet, "_patched_by_monkey", False):
+
     def request_data_to_dict(data):
         if isinstance(data, MultiValueDict):
-            # print("🔄 custom_partial_update - MultiValueDict", {k: data.get(k) for k in data.keys()})
-            return {k: data.get(k) for k in data.keys()}
+            return { k: data.get(k) for k in data.keys() }
         
-        # print("🔄 custom_partial_update - dict", dict(data))    
         return dict(data)
 
-    # TODO: Hacer una función patch que permita la edición de los attribute set
-    def change_attribute_set(data):
-        data_dict = request_data_to_dict(data)
-        attributes = data_dict.get("attribute_set")
-        # print("🔄 custom_partial_update - attributes", attributes)
+    # Modifica los metadatos de los atributos existentes en la capa
+    def change_attribute_set(self, request_data):
+        request_data_dict = request_data_to_dict(request_data)
+        request_attributes = request_data_dict.get("attribute_set")
 
-        if attributes == None:
+        if request_attributes == None:
             return
         
-        attributes = eval(attributes)
-        # print("🔄 custom_partial_update - eval", attributes)
-        for pk_attribute in attributes.keys():
-            # print("🔄 custom_partial_update - pk", pk_attribute)
-            attribute = attributes.get(pk_attribute)
-            # print("🔄 custom_partial_update - attribute", attribute)
+        dataset = self.get_object()
+        print("🔄 custom_partial_update - dataset:", dataset)
+        # print("🔄 custom_partial_update - attribute_set:", dataset.get("attribute_set"))
+        
+        request_attributes_dic = eval(request_attributes)
+        for pk_attribute in request_attributes_dic.keys():
+            # TODO: validar que no se modifiquen atributos ue no pertenezcan a la capa
+            # if attribute.get(metadata_field) == None:
+            #     continue
 
-            attr = Attribute.objects.get(pk=pk_attribute)
-            # print("🔄 custom_partial_update - Attribute", attr)
-            attr.description = attribute.get("description")
-            attr.attribute_label = attribute.get("attribute_label")
-            attr.visible = attribute.get("visible")
-            attr.display_order = attribute.get("display_order")
+            request_attribute = request_attributes_dic.get(pk_attribute)
+            geonpode_attribute = Attribute.objects.get(pk=pk_attribute)
 
+            if request_attribute.get("attribute_label"):
+                geonpode_attribute.attribute_label = request_attribute.get("attribute_label")
+            if request_attribute.get("description"):
+                geonpode_attribute.description = request_attribute.get("description")
+            if request_attribute.get("display_order"):
+                geonpode_attribute.display_order = request_attribute.get("display_order")
+            if request_attribute.get("visible"):
+                geonpode_attribute.visible = request_attribute.get("visible")
+            
             # for metadata_field in METADATA_FIELDS:
             #     if attribute.get(metadata_field) == None:
             #         continue
@@ -69,33 +75,16 @@ if not getattr(DatasetViewSet, "_patched_by_monkey", False):
             #     print("🔄 custom_partial_update - metadata_field", metadata_field, attribute.get(metadata_field))
             #     attr[metadata_field] = attribute.get(metadata_field)
                 
-            attr.save()
+            geonpode_attribute.save()
     
     _orig_partial_update = DatasetViewSet.partial_update
     def custom_partial_update(self, request, *args, **kwargs):
         print("🔄 custom_partial_update - request", request.data)
-        change_attribute_set(request.data)
-        
-        # dataset = self.get_object()
-        # print("🔄 custom_partial_update - dataset:", dataset)
+        change_attribute_set(self, request.data)
 
         return _orig_partial_update(self, request, *args, **kwargs)
-
-        # return Response({
-        #     "status": "ok",
-        # })
-
-    _orig_list = DatasetViewSet.list
-    def custom_list(self, request, *args, **kwargs):
-        """
-        Sobrescribe el método list del DatasetViewSet
-        """
-
-        print("🧪 custom_list")
-        return _orig_list(self, request, *args, **kwargs)
-
+    
 
     # Inyectamos las funcionalidades a DatasetViewSet
     DatasetViewSet.partial_update = custom_partial_update
-    DatasetViewSet.list = custom_list
     DatasetViewSet._patched_by_monkey = True
