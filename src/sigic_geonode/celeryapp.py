@@ -32,7 +32,7 @@ from requests.auth import HTTPBasicAuth
 
 from sigic_geonode.sigic_georeference.utils import get_dataset, get_name_from_ds
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sigic_geonode.settings")
 
