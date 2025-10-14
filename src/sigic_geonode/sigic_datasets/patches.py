@@ -4,7 +4,6 @@ import json
 from django.utils.datastructures import MultiValueDict
 from geonode.layers.api.views import DatasetViewSet
 from geonode.layers.models import Attribute
-# from rest_framework.response import Response
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,6 @@ if not getattr(DatasetViewSet, "_patched_by_monkey", False):
         
         request_attributes_dic = json.loads(request_attributes)
         request_attributes_dic_keys = request_attributes_dic.keys()
-        # print("🔄 custom_partial_update - request_attributes_dic_keys:", request_attributes_dic_keys)
 
         for geonode_attribute in Attribute.objects.filter(dataset=self.get_object()):
             if (str(geonode_attribute.pk) not in request_attributes_dic_keys):
@@ -70,7 +68,6 @@ if not getattr(DatasetViewSet, "_patched_by_monkey", False):
 
             if request_attribute.get("visible") is not None:
                 request_attribute_visible = request_attribute.get("visible")
-                print("🔄 custom_partial_update - json.loads.visible", request_attribute_visible)
                 if isinstance(request_attribute_visible, bool):
                     geonode_attribute.visible = request_attribute_visible
                 elif isinstance(request_attribute_visible, str):
@@ -80,14 +77,12 @@ if not getattr(DatasetViewSet, "_patched_by_monkey", False):
             #     if attribute.get(metadata_field) is None:
             #         continue
 
-            #     print("🔄 custom_partial_update - metadata_field", metadata_field, attribute.get(metadata_field))
             #     attr[metadata_field] = attribute.get(metadata_field)
 
             geonode_attribute.save()
     
     _orig_partial_update = DatasetViewSet.partial_update
     def custom_partial_update(self, request, *args, **kwargs):
-        # print("🔄 custom_partial_update - request", request.data)
         change_attribute_set(self, request.data)
 
         return _orig_partial_update(self, request, *args, **kwargs)
