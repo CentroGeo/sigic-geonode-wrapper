@@ -26,5 +26,6 @@ urlpatterns = [
     path("sigic/whoami", whoami),
     path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
     path("sigic/ia/mediauploads/", include("sigic_geonode.sigic_ia_media_uploads.urls")),
+    path("sigic/request", include("sigic_geonode.sigic_request.urls")),
 ] + geonode_urlpatterns
 
