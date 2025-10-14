@@ -6,11 +6,46 @@ from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
+user = {
+    "pk": 1001,
+    "username": "psp.amartinez@centrogeo.edu.mx",
+    "first_name": "Andrés",
+    "last_name": "Martínez",
+    "avatar": "http://localhost/static/geonode/img/avatar.png",
+    "is_superuser": False,
+    "is_staff": False,
+    "email": "psp.amartinez@centrogeo.edu.mx",
+    "link": "http://localhost/api/v2/users/1001"
+}
+
 class Index(APIView):
+
     def get(self, request: Request):
+        logger.debug("🚀🚀 get Requests ejecutado")
+        print("💍 get Requests ejecutado")
+
+        requests = [
+            {
+                "pk": 1,
+                "resource": 1,
+                "type": "aproval",
+                "status": "",
+                "date": "2025-10-01T23:43:31.293198Z",
+                "last_updated": "2025-10-13T22:57:19.007939Z",
+                "owner": user,
+                "reviwer": user
+            }
+        ]
 
         return Response({
-            "status": "Index success",
+            "links": {
+                "next": None,
+                "previous": None,
+            },
+            "total": len(requests),
+            "page": 1,
+            "page_size": 10,
+            "requests": requests
         })
     
     def post(self, request: Request):
@@ -20,8 +55,8 @@ class Index(APIView):
         return Response({
             "status": "success",
             "user": request_data.get("user", ""),
-            "recurso": request_data.get("recurso", ""),
-            "msg": request_data.get("msg", ""),
+            "resource": request_data.get("resource", ""),
+            # "msg": request_data.get("msg", ""),
             "type": request_data.get("type", ""),
         })
 
