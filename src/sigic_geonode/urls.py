@@ -26,7 +26,9 @@ from sigic_geonode.sigic_auth.debug import whoami
 urlpatterns = [
     path("sigic/whoami", whoami),
     path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
-    path("sigic/ia/mediauploads/", include("sigic_geonode.sigic_ia_media_uploads.urls")),
+    path(
+        "sigic/ia/mediauploads/", include("sigic_geonode.sigic_ia_media_uploads.urls")
+    ),
     path("sigic/request", include("sigic_geonode.sigic_request.urls")),
     path("api/v2/", include("sigic_geonode.sigic_resources.urls")),
 ] + geonode_urlpatterns
