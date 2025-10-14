@@ -1,0 +1,1 @@
+import sigic_geonode.sigic_remote_services.patches
