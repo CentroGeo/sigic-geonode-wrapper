@@ -49,7 +49,6 @@ if not getattr(DatasetViewSet, "_patched_by_monkey", False):
         if request_attributes is None:
             return
         
-        # request_attributes_dic = eval(request_attributes)
         request_attributes_dic = json.loads(request_attributes)
         request_attributes_dic_keys = request_attributes_dic.keys()
         # print("🔄 custom_partial_update - request_attributes_dic_keys:", request_attributes_dic_keys)
