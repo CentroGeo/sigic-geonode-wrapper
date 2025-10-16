@@ -16,6 +16,9 @@ RUN sed -i -e 's/# C.UTF-8 UTF-8/C.UTF-8 UTF-8/' /etc/locale.gen && \
 ENV LC_ALL C.UTF-8
 ENV LANG C.UTF-8
 
+# este run es para eliminar el importer para que se obligue a clonar la ultima versión del repo, se podrá quitar o comentar cuando ya no haya movimientos en el repo del importer
+RUN rm -rf ../sigic-geonode-importer
+
 RUN git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/CentroGeo/sigic-geonode-mapstore-client.git -b 4.4.x.sigic ../sigic-geonode-mapstore-client && \
     git clone --depth 1 https://github.com/CentroGeo/sigic-geonode-importer.git -b 1.1.x.sigic ../sigic-geonode-importer && \
     git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/GeoNode/geonode.git -b 4.4.x ../geonode
