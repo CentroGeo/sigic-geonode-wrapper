@@ -1,6 +1,7 @@
 from geonode.base import enumerations
 from geonode.layers.models import Attribute, Dataset, Style
 from psycopg2.sql import SQL, Identifier
+from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,7 +29,8 @@ class JoinDataframes(APIView):
                 enumerations.STATE_INCOMPLETE,
             ]:
                 return Response(
-                    {"status": f"data not in valid state, currently {ds.state}"}
+                    {"status": f"data not in valid state, currently {ds.state}"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             ds.state = enumerations.STATE_RUNNING
             ds.save()
@@ -97,21 +99,30 @@ class JoinDataframes(APIView):
                 connection.rollback()
                 ds.state = enumerations.STATE_INCOMPLETE
                 ds.save()
-                return Response({"status": "failed running database changes"})
+                return Response(
+                    {"status": "failed running database changes"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         try:
             self.update_attributes(ds, geo_ds, columns)
         except Exception:
             connection.rollback()
             ds.state = enumerations.STATE_INCOMPLETE
             ds.save()
-            return Response({"status": "failed updating attributes"})
+            return Response(
+                {"status": "failed updating attributes"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             sync_geoserver.apply_async((ds.id,))
         except Exception as e:
             connection.rollback()
             ds.state = enumerations.STATE_INCOMPLETE
             ds.save()
-            return Response({"status": "failed syncing geoserver", "msg": str(e)})
+            return Response(
+                {"status": "failed syncing geoserver", "msg": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         connection.commit()
         ds.state = enumerations.STATE_WAITING
         ds.save()
@@ -153,5 +164,7 @@ class Reset(APIView):
             ds = get_dataset(request_data.get("layer", -1))
             sync_geoserver.apply_async((ds.id,))
         except Exception as e:
-            return Response({"status": "failed", "msg": str(e)})
+            return Response(
+                {"status": "failed", "msg": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
         return Response({"status": "success"})
