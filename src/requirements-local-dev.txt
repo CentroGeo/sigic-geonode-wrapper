@@ -1,0 +1,10 @@
+-e ../sigic-geonode-mapstore-client
+-e ../sigic-geonode-importer
+-e ../geonode
+
+setuptools<81
+openpyxl
+python-jose
+xlsxwriter
+xlrd
+pandas
