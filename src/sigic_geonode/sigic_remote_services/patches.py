@@ -32,6 +32,7 @@ if not getattr(BaseHarvesterWorker, "_patched_by_monkey", False):
                     f"Geonode resource {str(harvested_info.resource_descriptor.uuid)} not in valid state"
                 )
                 geonode_resource.state = enumerations.STATE_INVALID
+                geonode_resource.set_dirty_state()
                 geonode_resource.save()
             return _orig_finalize_resource_update(
                 self, geonode_resource, harvested_info, harvestable_resource
