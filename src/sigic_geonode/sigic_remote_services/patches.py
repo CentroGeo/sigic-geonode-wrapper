@@ -6,7 +6,7 @@ from geonode.harvesting.harvesters.base import (
     BaseHarvesterWorker,
     HarvestedResourceInfo,
 )
-from geonode.harvesting.models import HarvestedResource
+from geonode.harvesting.models import HarvestableResource
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ if not getattr(BaseHarvesterWorker, "_patched_by_monkey", False):
         self,
         geonode_resource: ResourceBase,
         harvested_info: HarvestedResourceInfo,
-        harvestable_resource: HarvestedResource,
+        harvestable_resource: HarvestableResource,
     ) -> ResourceBase:
         try:
             logger.debug("custom_finalize_resource_update")
