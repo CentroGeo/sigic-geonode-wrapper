@@ -29,7 +29,12 @@ class RequestViewSet(viewsets.ModelViewSet):
         # asignar el usuario que hace la solicitud como owner
         serializer.save(owner=self.request.user)
     
-    
+    def perform_update(self, serializer):
+        # no hacer si el usuario no es admin (o reviewer tambien luego)
+        if not self.request.user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No autorizado para modificar esta solicitud.")
+        serializer.save()
 
     def get_serializer_class(self):
         # si el usuario es admin o revisor usar el serializer para reviewer
