@@ -260,7 +260,7 @@ DEFAULT_ALLOWED_DOCUMENT_TYPES = (
     "avi", "avs", "fli", "mp2", "mp4", "mpg", "ogg", "webm", "3gp", "flv", "vdo", "glb", "pcd", "gltf", "ifc", "json"
 )
 
-# Leer variable de entorno y hacer split por coma
+# Leer la variable de entorno y dividirla por comas
 env_allowed_types = os.getenv("ALLOWED_DOCUMENT_TYPES")
 if env_allowed_types:
     ALLOWED_DOCUMENT_TYPES = [ext.strip() for ext in env_allowed_types.replace(" ", "").split(",") if ext.strip()]
