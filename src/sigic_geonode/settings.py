@@ -250,6 +250,19 @@ SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
 
-INSTALLED_APPS += (
-    "sigic_geonode.sigic_ia_media_uploads",
+INSTALLED_APPS += ("sigic_geonode.sigic_ia_media_uploads",)
+
+# Valor predeterminado si no existe la variable de entorno
+DEFAULT_ALLOWED_DOCUMENT_TYPES = (
+    "txt,csv,log,doc,docx,ods,odt,sld,qml,xls,xlsx,xml,bm,bmp,"
+    "dwg,dxf,fif,gif,jpg,jpe,jpeg,png,tif,tiff,pbm,odp,ppt,pptx,"
+    "pdf,tar,tgz,rar,gz,7z,zip,aif,aifc,aiff,au,mp3,mpga,wav,afl,"
+    "avi,avs,fli,mp2,mp4,mpg,ogg,webm,3gp,flv,vdo,glb,pcd,gltf,ifc,json"
+)
+
+# Leer variable de entorno y hacer split por coma
+ALLOWED_DOCUMENT_TYPES = (
+    os.getenv("ALLOWED_DOCUMENT_TYPES", DEFAULT_ALLOWED_DOCUMENT_TYPES)
+    .replace(" ", "")
+    .split(",")
 )
