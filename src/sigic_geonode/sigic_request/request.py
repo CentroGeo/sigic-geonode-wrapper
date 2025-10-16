@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from .models import Request as SigicRequest
+
 logger = logging.getLogger(__name__)
 
 user = {
@@ -49,15 +51,30 @@ class Index(APIView):
         })
     
     def post(self, request: Request):
+        print("💍 post Requests ejecutado")
+
+        print("💍 post Requests - user", request.user)
+
+        obj = SigicRequest.objects.create(
+            # resource_id=ser.validated_data["resource_id"],
+            resource=1,
+            # type="",
+            # message='este es un mensaje de prueba',
+            user=request.user,  # usa el user autenticado
+        )
+
+
+        print("💍 post Requests - obj", obj)
+
         # Requiere: user, recurso
         request_data: dict[str, str] = request.data
         
         return Response({
             "status": "success",
-            "user": request_data.get("user", ""),
-            "resource": request_data.get("resource", ""),
-            # "msg": request_data.get("msg", ""),
-            "type": request_data.get("type", ""),
+            # "user": request_data.get("user", ""),
+            # "resource": request_data.get("resource", ""),
+            # # "msg": request_data.get("msg", ""),
+            # "type": request_data.get("type", ""),
         })
 
 
