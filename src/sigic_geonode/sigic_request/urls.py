@@ -1,8 +1,8 @@
 from django.urls import path, re_path
 
-from sigic_geonode.sigic_request.request import Index, Request
+from sigic_geonode.sigic_request.request import RequestViewSet
 
 urlpatterns = [
-    path("/", Index.as_view(), name="requests"),
-    re_path(r"^/(?P<requestid>[^/]+)", Request.as_view(), name="request"),
+    path("/", RequestViewSet.as_view({"get": "list","post": "create"}), name="requests"),
+    path("/<int:pk>", RequestViewSet.as_view({"get": "retrieve"}), name="request"),
 ]
