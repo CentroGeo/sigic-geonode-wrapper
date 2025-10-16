@@ -27,7 +27,6 @@ import os
 import requests
 from celery import Celery
 from geonode.base import enumerations
-from geonode.layers.models import Dataset
 from requests.auth import HTTPBasicAuth
 
 from sigic_geonode.sigic_georeference.utils import get_dataset, get_name_from_ds
@@ -49,7 +48,8 @@ def debug_task(self):
     print("Request: {!r}".format(self.request))
 
 
-def set_dataset_failed(ds: Dataset):
+def set_dataset_failed(self, exc, task_id, args, kwargs, einfo):
+    ds = get_dataset(args["layer_id"])
     ds.state = enumerations.STATE_INVALID
     ds.save()
 
