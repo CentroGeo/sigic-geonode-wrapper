@@ -5,6 +5,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from .models import Request as SigicRequest
 from .serializers import RequestSerializer, RequestReviewerSerializer
+from geonode.base.models import ResourceBase
 from geonode.base.api.pagination import GeoNodeApiPagination
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,16 @@ class RequestViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_superuser:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No autorizado para modificar esta solicitud.")
+        id_recurso = serializer.instance.resource.id
+        status_recibido = serializer.validated_data.get('status')
+        print(f"Nuevo estado de la solicitud: {status_recibido}")
+        publicar = serializer.validated_data.get('status') == 'published'
+        print(f"Publicar recurso: {publicar}")
+
+        recurso = ResourceBase.objects.filter(id=id_recurso).first()
+        recurso.is_published = publicar
+        recurso.save()
+
         serializer.save()
 
     def get_serializer_class(self):
