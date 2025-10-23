@@ -168,6 +168,7 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 INSTALLED_APPS += (
     "sigic_geonode.sigic_auth",
     "sigic_geonode.sigic_resources",
+    "sigic_geonode.sigic_datasets",
 )
 
 MIDDLEWARE = [
@@ -249,6 +250,78 @@ SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
 
-INSTALLED_APPS += (
-    "sigic_geonode.sigic_ia_media_uploads",
+INSTALLED_APPS += ("sigic_geonode.sigic_ia_media_uploads",)
+
+# Valor predeterminado si no existe la variable de entorno
+DEFAULT_ALLOWED_DOCUMENT_TYPES = (
+    "txt",
+    "csv",
+    "log",
+    "doc",
+    "docx",
+    "ods",
+    "odt",
+    "sld",
+    "qml",
+    "xls",
+    "xlsx",
+    "xml",
+    "bm",
+    "bmp",
+    "dwg",
+    "dxf",
+    "fif",
+    "gif",
+    "jpg",
+    "jpe",
+    "jpeg",
+    "png",
+    "tif",
+    "tiff",
+    "pbm",
+    "odp",
+    "ppt",
+    "pptx",
+    "pdf",
+    "tar",
+    "tgz",
+    "rar",
+    "gz",
+    "7z",
+    "zip",
+    "aif",
+    "aifc",
+    "aiff",
+    "au",
+    "mp3",
+    "mpga",
+    "wav",
+    "afl",
+    "avi",
+    "avs",
+    "fli",
+    "mp2",
+    "mp4",
+    "mpg",
+    "ogg",
+    "webm",
+    "3gp",
+    "flv",
+    "vdo",
+    "glb",
+    "pcd",
+    "gltf",
+    "ifc",
+    "json",
 )
+
+# Leer la variable de entorno y dividirla por comas
+env_allowed_types = os.getenv("ALLOWED_DOCUMENT_TYPES")
+if env_allowed_types:
+    ALLOWED_DOCUMENT_TYPES = [
+        ext.strip()
+        for ext in env_allowed_types.replace(" ", "").split(",")
+        if ext.strip()
+    ]
+else:
+    ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
