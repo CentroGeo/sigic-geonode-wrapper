@@ -1,6 +1,6 @@
 # Common Django template for GeoNode and Celery services below
 x-common-django: &default-common-django
-  image: ghcr.io/centrogeo/sigic-geonode-wrapper:develop
+  image: ${COMPOSE_PROJECT_NAME}/geonode:${GEONODE_BASE_IMAGE_VERSION}
   restart: unless-stopped
   env_file:
     - .env
@@ -33,6 +33,8 @@ services:
       - IS_CELERY=False
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "uwsgi --ini /usr/src/sigic_geonode/uwsgi.ini"
+    networks:
+      - sigicnetwork
 
   # Celery worker that executes celery tasks created by Django.
   celery:
@@ -45,11 +47,13 @@ services:
       - IS_CELERY=True
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "celery-cmd"
+    networks:
+      - sigicnetwork
 
   # Nginx is serving django static and media files and proxies to django and geonode
   geonode:
     platform: linux/amd64
-    image: ghcr.io/centrogeo/sigic-nginx:${NGINX_BASE_IMAGE_VERSION}
+    image: ${COMPOSE_PROJECT_NAME}/nginx:${NGINX_BASE_IMAGE_VERSION}
     build:
       context: ./docker/nginx
       dockerfile: Dockerfile
@@ -68,6 +72,8 @@ services:
       - nginx-certificates:/geonode-certificates
       - statics:/mnt/volumes/statics
     restart: unless-stopped
+    networks:
+      - sigicnetwork
 
   # memcached service
   memcached:
@@ -81,6 +87,8 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+    networks:
+      - sigicnetwork
 
   # Gets and installs letsencrypt certificates
   letsencrypt:
@@ -97,11 +105,13 @@ services:
     volumes:
       - nginx-certificates:/geonode-certificates
     restart: unless-stopped
+    networks:
+      - sigicnetwork
 
   # Geoserver backend
   geoserver:
     platform: linux/amd64
-    image: ghcr.io/centrogeo/sigic-geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
+    image: ${COMPOSE_PROJECT_NAME}/geoserver:${GEOSERVER_BASE_IMAGE_VERSION}
     build:
       context: ./docker/geoserver
       dockerfile: Dockerfile
@@ -130,6 +140,8 @@ services:
         condition: service_healthy
       django:
         condition: service_healthy
+    networks:
+      - sigicnetwork
 
   data-dir-conf:
     image: ${COMPOSE_PROJECT_NAME}/geoserver_data:${GEOSERVER_DATA_BASE_IMAGE_VERSION}
@@ -146,6 +158,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: "ls -A '/geoserver_data/data' | wc -l"
+    networks:
+      - sigicnetwork
 
   # PostGIS database.
   db:
@@ -168,6 +182,8 @@ services:
       test: "pg_isready -d postgres -U postgres"
     ports:
       - "5432:5432"
+    networks:
+      - sigicnetwork
 
   # Vanilla RabbitMQ service. This is needed by celery
   rabbitmq:
@@ -176,6 +192,8 @@ services:
     volumes:
       - rabbitmq:/var/lib/rabbitmq
     restart: unless-stopped
+    networks:
+      - sigicnetwork
 
 volumes:
   statics:
@@ -200,3 +218,9 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
   modulo-ia:
     name: ${COMPOSE_PROJECT_NAME}-modulo-ia
+
+networks:
+  sigicnetwork:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1360"
