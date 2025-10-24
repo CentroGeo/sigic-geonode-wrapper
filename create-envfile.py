@@ -89,6 +89,8 @@ def generate_env_file(args):
             else "http"
         )
 
+        _vals_to_replace["http_scheme"] = tcp
+
         _vals_to_replace["http_host"] = (
             _jsfile.get("hostname", args.hostname) if tcp == "http" else ""
         )
@@ -125,7 +127,6 @@ def generate_env_file(args):
         force_script_name_prefix = f"/{force_script_name}" if force_script_name else ""
 
         _vals_to_replace["FORCE_SCRIPT_NAME"] = force_script_name_prefix
-        _vals_to_replace["GEONODE_BASE_URL"] = force_script_name_prefix
         _vals_to_replace["STATIC_URL"] = (
             f"{force_script_name_prefix}/static/"
             if force_script_name_prefix
