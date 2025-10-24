@@ -219,7 +219,7 @@ if __name__ == "__main__":
         default="prod",
     )
     parser.add_argument(
-        "--force-script-name",
+        "--force_script_name",
         dest="force_script_name",
         help="Subpath (e.g., geonode) if GeoNode runs under a subpath. Leave empty for root.",
         default="",
