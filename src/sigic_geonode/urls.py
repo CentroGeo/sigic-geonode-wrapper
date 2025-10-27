@@ -18,12 +18,16 @@
 #
 #########################################################################
 
-from django.urls import include, path
+from django.conf.urls.i18n import i18n_patterns
+from django.contrib import admin
+from django.urls import include, path, re_path
+from django.views.generic.base import RedirectView
 from geonode.urls import urlpatterns as geonode_urlpatterns
 
 from sigic_geonode.sigic_auth.debug import whoami
 
 urlpatterns = [
+    re_path(r"^$", RedirectView.as_view(url="/admin/", permanent=False)),
     path("sigic/whoami", whoami),
     path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
     path(
@@ -32,3 +36,7 @@ urlpatterns = [
     path("sigic/request", include("sigic_geonode.sigic_request.urls")),
     path("api/v2/", include("sigic_geonode.sigic_resources.urls")),
 ] + geonode_urlpatterns
+
+urlpatterns += i18n_patterns(
+    re_path(r"^geonode-admin/", admin.site.urls, name="admin"),
+)
