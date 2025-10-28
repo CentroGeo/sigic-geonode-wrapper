@@ -27,7 +27,7 @@ from geonode.urls import urlpatterns as geonode_urlpatterns
 from sigic_geonode.sigic_auth.debug import whoami
 
 urlpatterns = [
-    re_path(r"^$", RedirectView.as_view(url="/admin/", permanent=False)),
+    re_path(r"^$", RedirectView.as_view(url="/pub/", permanent=False)),
     path("sigic/whoami", whoami),
     path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
     path(
