@@ -1,30 +1,22 @@
-import json
-import os
-
-import requests
+from geonode.base import enumerations
 from geonode.layers.models import Attribute, Dataset, Style
 from psycopg2.sql import SQL, Identifier
-from requests.auth import HTTPBasicAuth
+from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from sigic_geonode.celeryapp import sync_geoserver
 from sigic_geonode.sigic_helper.geodata_conn import connection
+
+from .utils import get_dataset, get_name_from_ds
 
 
 class JoinDataframes(APIView):
     def post(self, request: Request):
         request_data: dict[str, str] = request.data
-        ds: Dataset = Dataset.objects.filter(id=request_data.get("layer", -1)).first()
-        geo_ds: Dataset = Dataset.objects.filter(
-            id=request_data.get("geo_layer", -1)
-        ).first()
-        if ds is None:
-            raise Exception(f"Dataset {request_data.get('layer', -1)} does not exist")
-        if geo_ds is None:
-            raise Exception(
-                f"Dataset {request_data.get('geo_layer', -1)} does not exist"
-            )
+        ds = get_dataset(request_data.get("layer", -1))
+        geo_ds = get_dataset(request_data.get("geo_layer", -1))
         layer_name: str = get_name_from_ds(ds)
         geo_name: str = get_name_from_ds(geo_ds)
         layer_pivot: str = request_data.get("layer_pivot", "")
@@ -32,6 +24,16 @@ class JoinDataframes(APIView):
         columns: list[str] = request_data.getlist("columns", [])
 
         with connection.cursor() as cur:
+            if ds.state not in [
+                enumerations.STATE_PROCESSED,
+                enumerations.STATE_INCOMPLETE,
+            ]:
+                return Response(
+                    {"status": f"data not in valid state, currently {ds.state}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            ds.state = enumerations.STATE_RUNNING
+            ds.save()
             try:
                 cur.execute(
                     SQL("ALTER TABLE {layer_table} ADD {columns}VARCHAR;").format(
@@ -95,13 +97,35 @@ class JoinDataframes(APIView):
                 )
             except Exception:
                 connection.rollback()
-                return Response({"status": "failed running database changes"})
+                ds.state = enumerations.STATE_INCOMPLETE
+                ds.save()
+                return Response(
+                    {"status": "failed running database changes"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         try:
             self.update_attributes(ds, geo_ds, columns)
         except Exception:
             connection.rollback()
-            return Response({"status": "failed updating attributes"})
+            ds.state = enumerations.STATE_INCOMPLETE
+            ds.save()
+            return Response(
+                {"status": "failed updating attributes"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            sync_geoserver.apply_async((ds.id,))
+        except Exception as e:
+            connection.rollback()
+            ds.state = enumerations.STATE_INCOMPLETE
+            ds.save()
+            return Response(
+                {"status": "failed syncing geoserver", "msg": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         connection.commit()
+        ds.state = enumerations.STATE_WAITING
+        ds.save()
         return Response({"status": "success"})
 
     def update_attributes(self, ds: Dataset, geo_ds: Dataset, columns):
@@ -127,47 +151,20 @@ class JoinDataframes(APIView):
         ds.save()
 
 
+class Status(APIView):
+    def get(self, _request, layer: int):
+        ds = get_dataset(layer)
+        return Response({"status": str(ds.state)})
+
+
 class Reset(APIView):
     def post(self, request):
-        gs_server = os.getenv("GEOSERVER_LOCATION", "")
-        url = f"{gs_server}rest/workspaces/geonode/datastores/sigic_geonode_data/featuretypes"
-
-        ds: Dataset = Dataset.objects.filter(id=request.data.get("layer", -1)).first()
-        layer = get_name_from_ds(ds)
-
-        # Obtener los datos actuales para sobrescribir
-        response = requests.get(
-            f"{url}/{layer}.json",
-            auth=HTTPBasicAuth(
-                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
-                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
-            ),
-            timeout=15,
-        )
-
-        # Enviar nuevos datos con commando de recalcular nativebbox/latlogbbox
-        feature_types = response.json()
-        feature_types["featureType"]["srs"] = ds.srid
-
-        response = requests.put(
-            f"{url}/{layer}.json?recalculate=nativebbox,latlonbbox",
-            data=json.dumps(feature_types),
-            auth=HTTPBasicAuth(
-                username=os.getenv("GEOSERVER_ADMIN_USER", ""),
-                password=os.getenv("GEOSERVER_ADMIN_PASSWORD", ""),
-            ),
-            headers={"Content-Type": "application/json"},
-            timeout=15,
-        )
-
-        if response.status_code != 200:
-            return Response({"status": "failed"})
+        try:
+            request_data: dict[str, str] = request.data
+            ds = get_dataset(request_data.get("layer", -1))
+            sync_geoserver.apply_async((ds.id,))
+        except Exception as e:
+            return Response(
+                {"status": "failed", "msg": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
         return Response({"status": "success"})
-
-
-def get_name_from_ds(ds: Dataset):
-    alt = ds.alternate
-    alt_split = alt.split(":")
-    if len(alt_split) != 2 or alt_split[0] != "geonode":
-        raise Exception("Not a valid geonode database")
-    return alt_split[1]

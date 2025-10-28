@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-NETWORK_NAME="sigic-network"
+NETWORK_NAME="sigicnetwork"
 TARGET_MTU=1360
 
 echo "🔍 Verificando red Docker: $NETWORK_NAME..."
