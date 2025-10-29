@@ -1,5 +1,6 @@
-ARG BASE_IMAGE_VERSION
-FROM geonode/nginx:${BASE_IMAGE_VERSION}
+# ARG BASE_IMAGE_VERSION
+# FROM geonode/nginx:${BASE_IMAGE_VERSION}
+FROM openresty/openresty:1.25.3.1-2-alpine
 
 COPY nginx.conf.envsubst nginx.https.available.conf.envsubst /etc/nginx/
 COPY geonode.conf.envsubst /etc/nginx/sites-enabled/
