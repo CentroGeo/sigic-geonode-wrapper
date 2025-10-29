@@ -5,20 +5,6 @@
 
 # inspired/copied from https://github.com/kubernetes/kubernetes/blob/master/examples/https-nginx/auto-reload-nginx.sh
 
-# --- Fix NGINX modules path for OpenResty or NGINX ---
-if [ ! -d /etc/nginx/modules ]; then
-  if [ -d /usr/local/openresty/nginx/modules ]; then
-    ln -sf /usr/local/openresty/nginx/modules /etc/nginx/modules
-    echo "🔗 Linked /etc/nginx/modules → /usr/local/openresty/nginx/modules"
-  elif [ -d /usr/lib/nginx/modules ]; then
-    ln -sf /usr/lib/nginx/modules /etc/nginx/modules
-    echo "🔗 Linked /etc/nginx/modules → /usr/lib/nginx/modules"
-  else
-    mkdir -p /etc/nginx/modules
-    echo "⚠️ Created empty /etc/nginx/modules (no modules found)"
-  fi
-fi
-
 while true
 do
         inotifywait -e create -e modify -e delete -e move -r --exclude "\\.certbot\\.lock|\\.well-known" "/geonode-certificates/$LETSENCRYPT_MODE"
