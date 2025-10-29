@@ -47,4 +47,9 @@ http {
       ''      close;
     }
 
+    map $http_x_from_reverse_proxy $forwarded_proto_override {
+      "1"       "https";
+      default   $http_x_forwarded_proto;
+    }
+
 }
