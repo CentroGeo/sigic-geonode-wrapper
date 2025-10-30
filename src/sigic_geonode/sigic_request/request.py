@@ -7,16 +7,14 @@ from .models import Request as SigicRequest
 from .serializers import RequestSerializer, RequestReviewerSerializer
 from geonode.base.models import ResourceBase
 from geonode.base.api.pagination import GeoNodeApiPagination
+from dynamic_rest.viewsets import DynamicModelViewSet
 
 logger = logging.getLogger(__name__)
 
 
-
-class RequestViewSet(viewsets.ModelViewSet):
-    
-    
+class RequestViewSet(DynamicModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
-    #pagination_class = GeoNodeApiPagination
+    pagination_class = GeoNodeApiPagination
 
     # que solo el usuario admin pueda ver todas las solicitudes
     # y los usuarios normales solo las suyas
@@ -56,4 +54,3 @@ class RequestViewSet(viewsets.ModelViewSet):
             # por ahora si no es admin no puede actualizar la solicitud
             
         return RequestSerializer
-
