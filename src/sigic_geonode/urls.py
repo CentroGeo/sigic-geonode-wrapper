@@ -23,11 +23,23 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic.base import RedirectView
 from geonode.urls import urlpatterns as geonode_urlpatterns
-
+from django.conf import settings
 from sigic_geonode.sigic_auth.debug import whoami
 
-urlpatterns = [
-    re_path(r"^$", RedirectView.as_view(url="/pub/", permanent=False)),
+urlpatterns = []
+
+if settings.DEFAULT_HOME_PATH and settings.DEFAULT_HOME_PATH != "":
+    urlpatterns += [
+        re_path(
+            r"^$",
+            RedirectView.as_view(
+                url=f"/{settings.DEFAULT_HOME_PATH}/",
+                permanent=False
+            ),
+        )
+    ]
+
+urlpatterns += [
     path("sigic/whoami", whoami),
     path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
     path(

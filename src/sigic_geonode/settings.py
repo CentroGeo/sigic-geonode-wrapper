@@ -332,3 +332,5 @@ if env_allowed_types:
     ]
 else:
     ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
+
+DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
