@@ -35,6 +35,7 @@ http {
         server_name     _;
         return          403;
     }
+}
 
     map $http_authorization $http_authorization_upstream {
         default $http_authorization;
@@ -46,10 +47,3 @@ http {
       default upgrade;
       ''      close;
     }
-
-    map $http_x_from_reverse_proxy $forwarded_proto_override {
-      "1"       "https";
-      default   $http_x_forwarded_proto;
-    }
-
-}
