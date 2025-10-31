@@ -1,8 +1,6 @@
 import logging
 
-from rest_framework import viewsets, permissions
-from rest_framework.request import Request
-from rest_framework.response import Response
+from rest_framework import permissions
 from .models import Request as SigicRequest
 from .serializers import RequestSerializer, RequestReviewerSerializer
 from geonode.base.models import ResourceBase
@@ -12,10 +10,7 @@ from dynamic_rest.viewsets import DynamicModelViewSet
 logger = logging.getLogger(__name__)
 
 
-
 class RequestViewSet(DynamicModelViewSet):
-    
-    
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = GeoNodeApiPagination
 
@@ -57,4 +52,3 @@ class RequestViewSet(DynamicModelViewSet):
             # por ahora si no es admin no puede actualizar la solicitud
             
         return RequestSerializer
-

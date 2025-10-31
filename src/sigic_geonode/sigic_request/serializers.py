@@ -3,8 +3,9 @@ from .models import Request as SigicRequest
 from dynamic_rest.serializers import DynamicModelSerializer
 from django.conf import settings
 from geonode.base.models import ResourceBase
-
+from geonode.base.api.serializers import SimpleTopicCategorySerializer
 from django.apps import apps
+
 
 def get_users_model():
     model_string = settings.AUTH_USER_MODEL
@@ -16,6 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ( 'pk', 'username', 'email')
 
 class ResourceSerializer(serializers.ModelSerializer):
+    # category = ComplexDynamicRelationField(SimpleTopicCategorySerializer, embed=True)
+    category = SimpleTopicCategorySerializer(read_only=True, default=None)
     class Meta:
         model = ResourceBase
         fields = ('pk', 'title', 'category', 'resource_type', 'is_published')
@@ -24,9 +27,8 @@ class ResourceSerializer(serializers.ModelSerializer):
 #serializer para el modelo Request, para listar y crear elementos
 # metodos: POST, GET (list, retrieve)
 class RequestSerializer(DynamicModelSerializer):
-
     resource = ResourceSerializer(read_only=True)
-    resource_pk =serializers.PrimaryKeyRelatedField(
+    resource_pk = serializers.PrimaryKeyRelatedField(
         queryset=ResourceBase.objects.all(),
         source='resource',
         write_only=True
@@ -34,8 +36,8 @@ class RequestSerializer(DynamicModelSerializer):
     owner = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True, default=None)
     class Meta:
-        model= SigicRequest
-        name="request"
+        model = SigicRequest
+        name = "request"
         #solo esta permitido modificar el resource , por eso solo ese campo en  falta en read_only_fields y tambien se agrega resource_pk para asignarlo al crear
         fields = (
             "pk",
@@ -48,9 +50,7 @@ class RequestSerializer(DynamicModelSerializer):
             "updated_at",
         )
         read_only_fields = (
-            
             "owner",
-            
             "reviewer", 
             "status",
             "created_at",
@@ -61,11 +61,10 @@ class RequestSerializer(DynamicModelSerializer):
 # metodos: PUT, PATCH
 # en el viewset debe ajustarse para que solo los usuarios admin (o quien va a revisar ) puedan usar este serializer
 class RequestReviewerSerializer(DynamicModelSerializer):
-    
     resource = ResourceSerializer(read_only=True)
     owner = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True, default=None)
-    reviewer_pk =serializers.PrimaryKeyRelatedField(
+    reviewer_pk = serializers.PrimaryKeyRelatedField(
         queryset=get_users_model().objects.all(),
         source='reviewer',
         write_only=True,
@@ -73,15 +72,13 @@ class RequestReviewerSerializer(DynamicModelSerializer):
         allow_null=True,
     )
     class Meta:
-        model= SigicRequest
-        name="request"
+        model = SigicRequest
+        name = "request"
         #aca el admin-revisor solo  puede modificar el status y el revisor
         fields = (
             "pk",
             "resource",
-            
             "owner",
-            
             "reviewer",
             "reviewer_pk",
             "status",
@@ -91,10 +88,6 @@ class RequestReviewerSerializer(DynamicModelSerializer):
         read_only_fields = (
             "resource",
             "owner",
-            
             "created_at",
             "updated_at"
         )
-
-        
-        
