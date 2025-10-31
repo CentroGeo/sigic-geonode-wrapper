@@ -12,7 +12,10 @@ from dynamic_rest.viewsets import DynamicModelViewSet
 logger = logging.getLogger(__name__)
 
 
+
 class RequestViewSet(DynamicModelViewSet):
+    
+    
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = GeoNodeApiPagination
 
@@ -54,3 +57,4 @@ class RequestViewSet(DynamicModelViewSet):
             # por ahora si no es admin no puede actualizar la solicitud
             
         return RequestSerializer
+

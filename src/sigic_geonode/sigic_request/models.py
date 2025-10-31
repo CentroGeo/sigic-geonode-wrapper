@@ -11,6 +11,7 @@ STATUS = [
 ]
 
 class Request(models.Model):
+
     # class STATUS(models.TextChoices):
     #     ON_REVIEW = 'on_review', 'On review'
     #     PENDING = 'pending', 'Pending'
@@ -23,6 +24,7 @@ class Request(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='reviewer', null=True, blank=True,default=None)
     # todo hacer reviewer
+
 
     status = models.CharField(max_length=50, choices=STATUS, default=STATUS_DEFAULT)
 
