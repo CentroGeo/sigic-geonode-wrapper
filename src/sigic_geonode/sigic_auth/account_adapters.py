@@ -14,7 +14,8 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
         if sociallogin:
             try:
                 account = user.socialaccount_set.first()
-                preferred_username = account.extra_data.get("preferred_username")
+
+                preferred_username = account.get("preferred_username")
                 if preferred_username:
                     user_username(user, preferred_username)
                     return
@@ -37,7 +38,7 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
 class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
-        preferred_username = login.account.extra_data.get("preferred_username")
+        preferred_username = login.account.get("preferred_username")
         if preferred_username:
             login.user.username = preferred_username
             login.account.user = login.user
