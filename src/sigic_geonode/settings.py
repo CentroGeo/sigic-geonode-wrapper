@@ -190,7 +190,7 @@ SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
 )
 SOCIALACCOUNT_ADAPTER = os.environ.get(
     "SOCIALACCOUNT_ADAPTER",
-    "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter",
+    "sigic_geonode.sigic_auth.account_adapters.SigicSocialAccountAdapter",
 )
 SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
