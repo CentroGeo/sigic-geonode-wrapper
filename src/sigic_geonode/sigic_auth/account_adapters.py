@@ -38,7 +38,21 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
         preferred_username = login.account.extra_data.get("preferred_username")
+        email = login.account.extra_data.get("email")
+
         if preferred_username:
             login.user.username = preferred_username
-            login.account.user = login.user
+        if email:
+            login.user.email = email
+
+        login.account.user = login.user
         return login
+
+    def save_user(self, request, sociallogin, form=None):
+        user = super().save_user(request, sociallogin, form=form)
+        # Aseguramos persistencia explícita del email
+        extra = sociallogin.account.extra_data
+        if extra.get("email") and user.email != extra["email"]:
+            user.email = extra["email"]
+            user.save(update_fields=["email"])
+        return user
