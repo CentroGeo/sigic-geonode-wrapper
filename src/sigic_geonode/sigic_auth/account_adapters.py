@@ -14,14 +14,10 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
         if sociallogin:
             try:
                 account = user.socialaccount_set.first()
-
                 preferred_username = account.extra_data.get("preferred_username")
-                email = account.extra_data.get("email")
                 if preferred_username:
                     user_username(user, preferred_username)
-                if email:
-                    user.email = email
-                return
+                    return
             except Exception as e:
                 logger.error("Error al recuperar preferred_username: %s", e)
         try:
@@ -42,10 +38,7 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
         preferred_username = login.account.extra_data.get("preferred_username")
-        email = login.account.extra_data.get("email")
         if preferred_username:
             login.user.username = preferred_username
-            login.user.email = email
             login.account.user = login.user
-            login.user.save(update_fields=["username", "email"])
         return login
