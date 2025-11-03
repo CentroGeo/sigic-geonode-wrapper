@@ -38,7 +38,7 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
 class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
-        preferred_username = login.account.extra_dataget("preferred_username")
+        preferred_username = login.account.extra_data.get("preferred_username")
         if preferred_username:
             login.user.username = preferred_username
             login.account.user = login.user
