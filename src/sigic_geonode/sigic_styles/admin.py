@@ -2,16 +2,15 @@ from django.contrib import admin, messages
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
-from geonode.layers.admin import LayerStyleAdmin
 from geonode.layers.models import Dataset, LayerStyle
 
 from .utils import set_default_style
 
 
 @admin.register(LayerStyle)
-class CustomLayerStyleAdmin(LayerStyleAdmin):
+class CustomLayerStyleAdmin(admin.ModelAdmin):
     """
-    Extiende el admin original de GeoNode para gestionar estilos SLD.
+    Admin personalizado para gestionar estilos SLD directamente.
     """
 
     list_display = (
@@ -30,9 +29,6 @@ class CustomLayerStyleAdmin(LayerStyleAdmin):
 
     @admin.action(description="Marcar como estilo predeterminado")
     def set_as_default(self, request, queryset):
-        """
-        Acción admin para marcar uno o varios estilos como default.
-        """
         from .utils import set_default_style
 
         for style in queryset:
@@ -44,7 +40,9 @@ class CustomLayerStyleAdmin(LayerStyleAdmin):
                 )
             except Exception as e:
                 self.message_user(
-                    request, f"Error al actualizar '{style.name}': {e}", level="error"
+                    request,
+                    f"Error al actualizar '{style.name}': {e}",
+                    level="error",
                 )
 
 
