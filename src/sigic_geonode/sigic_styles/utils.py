@@ -1,6 +1,6 @@
 import requests
 from django.conf import settings
-from geonode.layers.models import Dataset, LayerStyle
+from geonode.layers.models import Dataset, Style
 
 
 def upload_sld_to_geoserver(
@@ -84,7 +84,7 @@ def sync_sld_with_geonode(
         dataset.styles.update(is_default=False)
         dataset.default_style = None
 
-    style, _ = LayerStyle.objects.get_or_create(
+    style, _ = Style.objects.get_or_create(
         dataset=dataset,
         name=sld_name,
         defaults={"sld_url": sld_url, "is_default": is_default},
@@ -132,7 +132,7 @@ def delete_style(dataset_name: str, style_name: str):
 
     # 2️⃣ Eliminar de la base de datos de GeoNode
     dataset = Dataset.objects.get(alternate=dataset_name)
-    LayerStyle.objects.filter(dataset=dataset, name=style_name).delete()
+    Style.objects.filter(dataset=dataset, name=style_name).delete()
 
     return True
 
@@ -177,7 +177,7 @@ def set_default_style(dataset_name: str, style_name: str):
         new_style.save()
         dataset.default_style = new_style
         dataset.save(update_fields=["default_style"])
-    except LayerStyle.DoesNotExist:
+    except Style.DoesNotExist:
         raise Exception(
             f"El estilo '{style_name}' no está registrado en GeoNode para el dataset '{dataset_name}'."
         )

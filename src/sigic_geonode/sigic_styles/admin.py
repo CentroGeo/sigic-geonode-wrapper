@@ -2,12 +2,12 @@ from django.contrib import admin, messages
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
-from geonode.layers.models import Dataset, LayerStyle
+from geonode.layers.models import Dataset, Style
 
 from .utils import set_default_style
 
 
-@admin.register(LayerStyle)
+@admin.register(Style)
 class CustomLayerStyleAdmin(admin.ModelAdmin):
     """
     Admin personalizado para gestionar estilos SLD directamente.
@@ -51,7 +51,7 @@ class LayerStyleInline(admin.TabularInline):
     Inline dentro del Dataset admin para gestionar los estilos SLD.
     """
 
-    model = LayerStyle
+    model = Style
     extra = 0
     readonly_fields = ("sld_url", "is_default", "preview_link", "set_default_button")
     fields = ("name", "is_default", "sld_url", "preview_link", "set_default_button")
@@ -114,7 +114,7 @@ class CustomDatasetAdmin(admin.ModelAdmin):
         """
         try:
             dataset = Dataset.objects.get(pk=dataset_id)
-            style = LayerStyle.objects.get(pk=style_id, dataset=dataset)
+            style = Style.objects.get(pk=style_id, dataset=dataset)
             set_default_style(dataset.alternate, style.name)
             messages.success(
                 request,
