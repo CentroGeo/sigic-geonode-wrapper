@@ -18,12 +18,13 @@
 #
 #########################################################################
 
+from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic.base import RedirectView
 from geonode.urls import urlpatterns as geonode_urlpatterns
-from django.conf import settings
+
 from sigic_geonode.sigic_auth.debug import whoami
 
 urlpatterns = []
@@ -33,8 +34,7 @@ if settings.DEFAULT_HOME_PATH and settings.DEFAULT_HOME_PATH != "":
         re_path(
             r"^$",
             RedirectView.as_view(
-                url=f"/{settings.DEFAULT_HOME_PATH}/",
-                permanent=False
+                url=f"/{settings.DEFAULT_HOME_PATH}/", permanent=False
             ),
         )
     ]
@@ -47,6 +47,7 @@ urlpatterns += [
     ),
     path("sigic/request", include("sigic_geonode.sigic_request.urls")),
     path("api/v2/", include("sigic_geonode.sigic_resources.urls")),
+    path("api/v2/", include("sigic_geonode.sigic_styles.urls")),
 ] + geonode_urlpatterns
 
 urlpatterns += i18n_patterns(
