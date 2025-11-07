@@ -1,20 +1,11 @@
-# from .lookups import UnaccentIContains
-# from . import lookups  # importa para registrar los lookups al arrancar
-# import html
 import logging
 
-# import re
-from typing import Iterable
-
 from django.contrib.gis.geos import Polygon
-from django.db.models import Exists, F, OuterRef, Q
-from django.db.models.expressions import Func
+from django.db.models import Case, CharField, Exists, F, Q, Value, When
+from django.db.models.expressions import Func, OrderBy, OuterRef
 from django.db.models.functions import Lower
 from geonode.base.models import Link
 from rest_framework.filters import BaseFilterBackend, SearchFilter
-
-# import unicodedata
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +19,9 @@ class SigicFilters(BaseFilterBackend):
             years = request.query_params.pop("filter{year}", [])
             has_geometry = request.query_params.pop("filter{has_geometry}", [None])[0]
             extensions = request.query_params.pop("filter{extension}", [])
+            complete_metadata = request.query_params.pop(
+                "filter{complete_metadata}", [None]
+            )[0]
 
             # Diccionario para filtros simples (ej. year,has_ext)
             filters = {}
@@ -59,6 +53,24 @@ class SigicFilters(BaseFilterBackend):
                         bbox_polygon=WORLD_BBOX,
                         ll_bbox_polygon=WORLD_BBOX,
                     )
+            # Se valida la completitud de metadatos
+            if complete_metadata is not None:
+                if complete_metadata.lower() == "true":
+                    queryset = queryset.filter(
+                        ~Q(abstract__isnull=True),
+                        ~Q(abstract__exact=""),
+                        ~Q(abstract__icontains="no abstract provided"),
+                        ~Q(category__isnull=True),
+                        ~Q(keywords__isnull=True),
+                    )
+                elif complete_metadata.lower() == "false":
+                    queryset = queryset.filter(
+                        Q(abstract__isnull=True)
+                        | Q(abstract__exact="")
+                        | Q(abstract__icontains="no abstract provided")
+                        | Q(category__isnull=True)
+                        | Q(keywords__isnull=True)
+                    )
 
             return queryset
 
@@ -76,144 +88,159 @@ class Unaccent(Func):
     template = "%(function)s(%(expressions)s)"
 
 
-# _HTML_ENTITY_MAP = {
-#     "á": "&aacute;",  "é": "&eacute;",  "í": "&iacute;",
-#     "ó": "&oacute;",  "ú": "&uacute;",  "ñ": "&ntilde;",
-#     "Á": "&Aacute;",  "É": "&Eacute;",  "Í": "&Iacute;",
-#     "Ó": "&Oacute;",  "Ú": "&Uacute;",  "Ñ": "&Ntilde;",
-#     "ü": "&uuml;",    "Ü": "&Uuml;",
-# }
-
-
-# def to_html_entities(s: str) -> str:
-#     """Convierte letras acentuadas y ñ/ü a entidades HTML (&oacute;, &ntilde;, etc.)."""
-#     r = s
-#     for ch, ent in _HTML_ENTITY_MAP.items():
-#         r = r.replace(ch, ent)
-#     return r
-
-
-# def normalize_term(term: str) -> str:
-#     """Recorta/minúsculas y decodifica entidades HTML si el usuario las mandó (&oacute;)."""
-#     t = term.strip().lower()
-#     if "&" in t and ";" in t:
-#         t = html.unescape(t)
-#     return t
-
-
-# def strip_accents_py(s: str) -> str:
-#     """Quita acentos en Python (útil para comparar contra variantes des–entidadizadas)."""
-#     return "".join(
-#         c for c in unicodedata.normalize("NFD", s)
-#         if unicodedata.category(c) != "Mn"
-#     )
-
-
-# class MultiWordSearchFilter(SearchFilter):
-#     """
-#     Búsqueda multi-palabra (OR), insensible a mayúsculas y acentos,
-#     y compatible con contenidos guardados con entidades HTML (&oacute;, &ntilde;, …).
-#     Soporta múltiples ?search=… y múltiples ?search_fields=…
-#     """
-
-#     def filter_queryset(self, request, queryset, view):
-#         raw = request._request.GET.copy()
-
-#         # Lee todas las ocurrencias
-#         raw_terms: Iterable[str] = raw.getlist(self.search_param)
-#         raw_fields: Iterable[str] = raw.getlist("search_fields")
-
-#         # Si no mandan search_fields, usa los de la vista
-#         search_fields = [f.strip() for f in (raw_fields or getattr(view, "search_fields", [])
-#  or []) if f and f.strip()]
-#         search_terms = [t for t in (raw_terms or []) if t and t.strip()]
-
-#         # Evita reproceso por otros backends
-#         for k in (self.search_param, "search_fields"):
-#             if k in raw:
-#                 raw.pop(k)
-#         request._request.GET = raw
-
-#         if not search_terms or not search_fields:
-#             return queryset
-
-#         # --- Anotaciones por campo ---
-#         annotations = {}
-#         for f in search_fields:
-#             annotations[f"{f}_u"] = Unaccent(Lower(F(f)))
-
-#             # Construimos una cadena de Replace para convertir entidades a letras sin acento
-#             expr = F(f)
-#             ent2plain = {
-#                 "&aacute;": "a", "&eacute;": "e", "&iacute;": "i",
-#                 "&oacute;": "o", "&uacute;": "u", "&ntilde;": "n",
-#                 "&uuml;": "u",
-#                 "&Aacute;": "a", "&Eacute;": "e", "&Iacute;": "i",
-#                 "&Oacute;": "o", "&Uacute;": "u", "&Ntilde;": "n",
-#                 "&Uuml;": "u",
-#             }
-#             for ent, plain in ent2plain.items():
-#                 expr = Replace(expr, Value(ent), Value(plain), output_field=TextField())
-#             annotations[f"{f}_de"] = Lower(expr)
-
-#         queryset = queryset.annotate(**annotations)
-
-#         # --- Construir el OR global ---
-#         q = Q()
-#         for raw_term in search_terms:
-#             t_unicode = normalize_term(raw_term)         # "investigación" o "investigacion"
-#             if not t_unicode:
-#                 continue
-#             t_noaccent = strip_accents_py(t_unicode)     # "investigacion"
-#             t_entities = to_html_entities(t_unicode)     # "investigaci&oacute;n"
-
-#             for f in search_fields:
-#                 # 1) Texto unicode en BD -> comparar contra término SIN acento
-#                 q |= Q(**{f"{f}_u__icontains": t_noaccent})
-
-#                 # 2) Texto con entidades y usuario escribe CON acento -> busca la entidad
-#                 q |= Q(**{f"{f}__icontains": t_entities})
-
-#                 # 3) Texto con entidades y usuario escribe SIN acento -> compara en *_de
-#                 q |= Q(**{f"{f}_de__icontains": t_noaccent})
-
-#         return queryset.filter(q).distinct()
-
-# =========================================================
 class MultiWordSearchFilter(SearchFilter):
     """
     Búsqueda multi-palabra (modo OR), insensible a mayúsculas y acentos.
-    No considera entidades HTML porque los textos están guardados correctamente.
+    No considera entidades HTML porque los textos están guardados correctamente, ya que
+    la edición de metadatos se hace desde la interfaz de SIGIC.
     """
 
     def filter_queryset(self, request, queryset, view):
+        # se copian y depuran parámetros de request, pues al parecer el objeto origonal no se puede
+        # modificar
         raw = request._request.GET.copy()
-
-        # Ejemplo: ?search=agua&search=infraestructura
-        search_terms: Iterable[str] = raw.pop(self.search_param, [])
-        # Ejemplo: ?search_fields=title&search_fields=abstract
-        search_fields: Iterable[str] = raw.pop("search_fields", []) or getattr(
+        search_terms = raw.pop(self.search_param, [])
+        search_fields = raw.pop("search_fields", []) or getattr(
             view, "search_fields", []
         )
 
-        # Evitar reprocesamiento por otros backends
+        # Evitamos doble reprocesamiento por otros backends
         request._request.GET = raw
 
         if not search_terms or not search_fields:
             return queryset
 
-        # Crear anotaciones normalizadas (minúsculas y sin acentos)
+        # Creamos anotaciones normalizadas (minúsculas y sin acentos)
         annotations = {f"{f}_u": Unaccent(Lower(F(f))) for f in search_fields}
         queryset = queryset.annotate(**annotations)
 
+        # En esta parte se construye el filtro or
         q = Q()
         for raw_term in search_terms:
             term = raw_term.strip().lower()
             if not term:
                 continue
 
-            # Comparar contra cada campo anotado
+            # se hace la comparación contra cada campo anotado
             for f in search_fields:
                 q |= Q(**{f"{f}_u__icontains": term})
 
         return queryset.filter(q).distinct()
+
+
+class SigicOrderingFilter(BaseFilterBackend):
+    """
+    Filtro de ordenamiento SIGIC.
+    Solo acepta el parámetro `sort[]` (como en la interfaz de GeoNode).
+
+    Ejemplo:
+        ?sort[]=title
+        ?sort[]=-title
+        ?sort[]=category
+        ?sort[]=-category
+
+     Extensión:
+        - Soporte de ordenamiento alfabético por categoría en español,
+          usando un diccionario de traducciones equivalentes
+          al catálogo del frontend de SIGIC.
+    """
+
+    # Diccionario estático inglés → español adoh con la UI
+    CATEGORY_TRANSLATIONS = {
+        "biota": "Biota",
+        "boundaries": "Fronteras",
+        "climatologyMeteorologyAtmosphere": "Climatología, meteorología y atmósfera",
+        "economy": "Economía",
+        "elevation": "Elevación",
+        "environment": "Medio ambiente",
+        "farming": "Agricultura",
+        "geoscientificInformation": "Información geocientífica",
+        "health": "Salud",
+        "imageryBaseMapsEarthCover": "Mapas Base y Cobertura Terrestre",
+        "inlandWaters": "Aguas continentales",
+        "intelligenceMilitary": "Inteligencia Militar",
+        "location": "Ubicación",
+        "oceans": "Océanos",
+        "planningCadastre": "Planeación Catastral",
+        "population": "Población",
+        "society": "Sociedad",
+        "structure": "Estructura",
+        "transportation": "Transporte",
+        "utilitiesCommunication": "Servicios Públicos y Comunicación",
+    }
+
+    def _norm(self, expr):
+        """Normaliza: minúsculas y sin acentos (para orden alfabético natural)."""
+        return Lower(Unaccent(expr))
+
+    def filter_queryset(self, request, queryset, view):
+        try:
+            raw = request._request.GET.copy()
+            sort_params = raw.pop("sort[]", [])
+            request._request.GET = raw  # Evita reprocesamiento
+
+            if not sort_params:
+                logger.debug("SigicOrderingFilter: sin sort[].")
+                return queryset
+
+            logger.debug(f"SigicOrderingFilter: sort_params={sort_params}")
+
+            annotations = {}
+            ordering = []
+
+            for idx, raw_field in enumerate(sort_params):
+                desc = raw_field.startswith("-")
+                field = raw_field.lstrip("-")
+
+                # Ordenamiento alfabético (title)
+                if field == "title":
+                    alias = f"__ord_title_{idx}"
+                    annotations[alias] = self._norm(F("title"))
+                    ordering.append(OrderBy(F(alias), descending=desc))
+
+                # Ordenamiento semántico en español (category)
+                elif field == "category":
+                    alias = f"__ord_category_{idx}"
+
+                    # Construimos casos con traducciones
+                    whens = [
+                        When(category__identifier=k, then=Value(v))
+                        for k, v in self.CATEGORY_TRANSLATIONS.items()
+                    ]
+
+                    # Anotamos campo temporal con traducción normalizada
+                    queryset = queryset.annotate(
+                        **{
+                            alias: Unaccent(
+                                Lower(
+                                    Case(
+                                        *whens,
+                                        default=F("category__identifier"),
+                                        output_field=CharField(),
+                                    )
+                                )
+                            )
+                        }
+                    )
+
+                    ordering.append(OrderBy(F(alias), descending=desc))
+                    logger.debug(
+                        f"SigicOrderingFilter: aplicado sort por categoría (español, alias={alias})."
+                    )
+
+                else:
+                    logger.debug(
+                        f"SigicOrderingFilter: campo '{field}' no soportado, ignorado."
+                    )
+                    continue
+
+            # Aplicamos anotaciones globales (solo si las hay)
+            if annotations:
+                queryset = queryset.annotate(**annotations)
+
+            # 🔚 Orden final
+            return queryset.order_by(*ordering)
+
+        except Exception as e:
+            logger.warning(f"⚠️ Error en SigicOrderingFilter: {e}")
+            return queryset

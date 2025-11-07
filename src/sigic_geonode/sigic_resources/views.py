@@ -1,6 +1,6 @@
 from geonode.base.api.views import ResourceBaseViewSet
 
-from .filters import MultiWordSearchFilter, SigicFilters
+from .filters import MultiWordSearchFilter, SigicFilters, SigicOrderingFilter
 from .serializers import SigicResourceShortSerializer
 
 
@@ -20,6 +20,7 @@ class SigicResourceBaseViewSet(ResourceBaseViewSet):
     filter_backends = [
         SigicFilters,
         MultiWordSearchFilter,
+        SigicOrderingFilter,
     ] + ResourceBaseViewSet.filter_backends
 
 
