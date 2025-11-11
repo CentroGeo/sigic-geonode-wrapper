@@ -131,21 +131,12 @@ class MultiWordSearchFilter(SearchFilter):
 class SigicOrderingFilter(BaseFilterBackend):
     """
     Filtro de ordenamiento SIGIC.
-    Solo acepta el parámetro `sort[]` (como en la interfaz de GeoNode).
-
-    Ejemplo:
-        ?sort[]=title
-        ?sort[]=-title
-        ?sort[]=category
-        ?sort[]=-category
-
-     Extensión:
-        - Soporte de ordenamiento alfabético por categoría en español,
-          usando un diccionario de traducciones equivalentes
-          al catálogo del frontend de SIGIC.
+    Extiende el ordenamiento nativo de GeoNode para permitir:
+    - Orden por título (insensible a acentos)
+    - Orden por categoría (alfabético en español)
+    Sin romper el soporte original de GeoNode (ej. sort[]=last_updated).
     """
 
-    # Diccionario estático inglés → español adoh con la UI
     CATEGORY_TRANSLATIONS = {
         "biota": "Biota",
         "boundaries": "Fronteras",
@@ -170,45 +161,41 @@ class SigicOrderingFilter(BaseFilterBackend):
     }
 
     def _norm(self, expr):
-        """Normaliza: minúsculas y sin acentos (para orden alfabético natural)."""
+        """Normaliza texto para comparación insensible a acentos."""
         return Lower(Unaccent(expr))
 
     def filter_queryset(self, request, queryset, view):
         try:
             raw = request._request.GET.copy()
-            sort_params = raw.pop("sort[]", [])
-            request._request.GET = raw  # Evita reprocesamiento
+            sort_params = raw.getlist(
+                "sort[]"
+            )  # obtenemos los params sort sin eliminarlos aún
 
             if not sort_params:
-                logger.debug("SigicOrderingFilter: sin sort[].")
                 return queryset
-
-            logger.debug(f"SigicOrderingFilter: sort_params={sort_params}")
 
             annotations = {}
             ordering = []
+            handled = set()  # campos personalizados que  manejamos en esta clase
 
             for idx, raw_field in enumerate(sort_params):
                 desc = raw_field.startswith("-")
                 field = raw_field.lstrip("-")
 
-                # Ordenamiento alfabético (title)
+                # Ordenamiento especial para title
                 if field == "title":
                     alias = f"__ord_title_{idx}"
                     annotations[alias] = self._norm(F("title"))
                     ordering.append(OrderBy(F(alias), descending=desc))
+                    handled.add(raw_field)
 
-                # Ordenamiento semántico en español (category)
+                # Ordenamiento especial para categoría (en español)
                 elif field == "category":
                     alias = f"__ord_category_{idx}"
-
-                    # Construimos casos con traducciones
                     whens = [
                         When(category__identifier=k, then=Value(v))
                         for k, v in self.CATEGORY_TRANSLATIONS.items()
                     ]
-
-                    # Anotamos campo temporal con traducción normalizada
                     queryset = queryset.annotate(
                         **{
                             alias: Unaccent(
@@ -222,24 +209,22 @@ class SigicOrderingFilter(BaseFilterBackend):
                             )
                         }
                     )
-
                     ordering.append(OrderBy(F(alias), descending=desc))
-                    logger.debug(
-                        f"SigicOrderingFilter: aplicado sort por categoría (español, alias={alias})."
-                    )
+                    handled.add(raw_field)
 
-                else:
-                    logger.debug(
-                        f"SigicOrderingFilter: campo '{field}' no soportado, ignorado."
-                    )
-                    continue
-
-            # Aplicamos anotaciones globales (solo si las hay)
+            # Se aplican anotaciones si las hay
             if annotations:
                 queryset = queryset.annotate(**annotations)
 
-            # 🔚 Orden final
-            return queryset.order_by(*ordering)
+            # reinyectamos los sort no manejados al request
+            remaining = [p for p in sort_params if p not in handled]
+            raw.setlist("sort[]", remaining)
+            request._request.GET = raw  # aquí se permite que GeoNode los procese
+
+            if ordering:
+                queryset = queryset.order_by(*ordering)
+
+            return queryset
 
         except Exception as e:
             logger.warning(f"⚠️ Error en SigicOrderingFilter: {e}")
