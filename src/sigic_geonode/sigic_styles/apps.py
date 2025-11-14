@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 from django.contrib import admin
-from django.core.exceptions import NotRegistered
+from django.contrib.admin.sites import NotRegistered
 from geonode.layers.models import Dataset, Style
 
 
