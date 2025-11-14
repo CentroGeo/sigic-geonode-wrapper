@@ -47,6 +47,7 @@ class RequestSerializer(DynamicModelSerializer):
             "owner",
             "reviewer",
             "status",
+            "rejection_reason",
             "created_at",
             "updated_at",
         )
@@ -54,6 +55,7 @@ class RequestSerializer(DynamicModelSerializer):
             "owner",
             "reviewer", 
             "status",
+            "rejection_reason",
             "created_at",
             "updated_at"
         )
@@ -83,6 +85,7 @@ class RequestReviewerSerializer(DynamicModelSerializer):
             "reviewer",
             # "reviewer_pk",
             "status",
+            "rejection_reason",
             "created_at",
             "updated_at",
         )

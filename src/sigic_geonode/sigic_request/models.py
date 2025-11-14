@@ -21,10 +21,18 @@ class Request(models.Model):
 
     #owner
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='reviewer', null=True, blank=True,default=None)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='reviewer',
+        null=True,
+        blank=True,
+        default=None
+    )
     # todo hacer reviewer
 
     status = models.CharField(max_length=50, choices=STATUS, default=STATUS_DEFAULT)
+    rejection_reason = models.TextField(null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
