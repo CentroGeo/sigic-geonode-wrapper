@@ -6,8 +6,8 @@ from geonode.layers.models import Dataset, Style
 
 from .utils import set_default_style
 
-admin.site.unregister(Dataset)
-admin.site.unregister(Style)
+# admin.site.unregister(Dataset)
+# admin.site.unregister(Style)
 
 
 @admin.register(Style)
