@@ -14,7 +14,6 @@ ENV LANG C.UTF-8
 COPY src/requirements.txt /usr/src/sigic_geonode/requirements.txt
 
 RUN yes w | pip install --src /usr/src -r requirements.txt && \
-    yes w | pip install -e .
 
 # Cleanup apt update lists
 RUN apt-get autoremove --purge && \
@@ -22,7 +21,6 @@ RUN apt-get autoremove --purge && \
     rm -rf /var/lib/apt/lists/*
 
 COPY src /usr/src/sigic_geonode/
-
 
 COPY src/wait-for-databases.sh /usr/bin/wait-for-databases
 RUN chmod +x /usr/bin/wait-for-databases
@@ -34,6 +32,8 @@ RUN chmod +x /usr/bin/celery-commands
 
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
+
+RUN yes w | pip install -e .
 
 # Export ports
 EXPOSE 8000
