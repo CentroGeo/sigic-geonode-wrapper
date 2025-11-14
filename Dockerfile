@@ -1,6 +1,8 @@
 FROM geonode/geonode-base:latest-ubuntu-22.04
 LABEL GeoNode development team
 
+WORKDIR /usr/src/sigic_geonode
+
 RUN mkdir -p /usr/src/sigic_geonode
 RUN apt-get update -y && apt-get install curl wget unzip gnupg2 locales -y
 
@@ -20,7 +22,7 @@ RUN apt-get autoremove --purge && \
     rm -rf /var/lib/apt/lists/*
 
 COPY src /usr/src/sigic_geonode/
-WORKDIR /usr/src/sigic_geonode
+
 
 COPY src/wait-for-databases.sh /usr/bin/wait-for-databases
 RUN chmod +x /usr/bin/wait-for-databases
