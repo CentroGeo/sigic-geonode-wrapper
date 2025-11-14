@@ -65,13 +65,13 @@ class RequestReviewerSerializer(DynamicModelSerializer):
     resource = ResourceSerializer(read_only=True)
     owner = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True, default=None)
-    reviewer_pk = serializers.PrimaryKeyRelatedField(
-        queryset=get_users_model().objects.all(),
-        source='reviewer',
-        write_only=True,
-        required=False,
-        allow_null=True,
-    )
+    # reviewer_pk = serializers.PrimaryKeyRelatedField(
+    #     queryset=get_users_model().objects.all(),
+    #     source='reviewer',
+    #     write_only=True,
+    #     required=False,
+    #     allow_null=True,
+    # )
     class Meta:
         model = SigicRequest
         name = "request"
@@ -81,7 +81,7 @@ class RequestReviewerSerializer(DynamicModelSerializer):
             "resource",
             "owner",
             "reviewer",
-            "reviewer_pk",
+            # "reviewer_pk",
             "status",
             "created_at",
             "updated_at",

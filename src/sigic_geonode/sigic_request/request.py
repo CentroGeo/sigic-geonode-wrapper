@@ -41,7 +41,7 @@ class RequestViewSet(DynamicModelViewSet):
         recurso.is_published = publicar
         recurso.save()
 
-        serializer.save()
+        serializer.save(reviewer=self.request.user)
 
     def get_serializer_class(self):
         # si el usuario es admin o revisor usar el serializer para reviewer
