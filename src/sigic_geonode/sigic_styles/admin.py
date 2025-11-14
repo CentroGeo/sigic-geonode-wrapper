@@ -1,4 +1,6 @@
 from django.contrib import admin, messages
+
+# from django.core.exceptions import NotRegistered
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -8,52 +10,9 @@ from .utils import set_default_style
 
 try:
     admin.site.unregister(Dataset)
-except NotRegistered:
+except Exception as e:
+    print(f"Dataset model not unregistered: {e}")
     pass
-
-try:
-    admin.site.unregister(Style)
-except NotRegistered:
-    pass
-
-
-@admin.register(Style)
-class CustomLayerStyleAdmin(admin.ModelAdmin):
-    """
-    Admin personalizado para gestionar estilos SLD directamente.
-    """
-
-    list_display = (
-        "name",
-        "dataset",
-        "is_default",
-        "sld_url",
-        "created",
-        "last_modified",
-    )
-    list_filter = ("is_default", "dataset")
-    search_fields = ("name", "dataset__alternate", "sld_url")
-    readonly_fields = ("sld_url",)
-
-    actions = ["set_as_default"]
-
-    @admin.action(description="Marcar como estilo predeterminado")
-    def set_as_default(self, request, queryset):
-        from .utils import set_default_style
-
-        for style in queryset:
-            try:
-                set_default_style(style.dataset.alternate, style.name)
-                self.message_user(
-                    request,
-                    f"El estilo '{style.name}' se estableció como predeterminado para '{style.dataset.alternate}'.",
-                )
-            except Exception as e:
-                self.message_user(
-                    request,
-                    f"Error al actualizar '{style.name}': {e}",
-                    level="error",
-                )
 
 
 class LayerStyleInline(admin.TabularInline):
