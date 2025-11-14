@@ -55,8 +55,8 @@ class SLDViewSet(viewsets.ViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=["get"], url_path="list")
-    def list(self, request, pk=None):
+    @action(detail=True, methods=["get"], url_path="style_list")
+    def style_list(self, request, pk=None):
         """
         Lista todos los estilos registrados para un dataset.
         El parámetro <pk> es el nombre del dataset.
