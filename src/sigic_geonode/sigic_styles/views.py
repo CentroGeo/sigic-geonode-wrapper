@@ -51,108 +51,75 @@ class SigicDatasetViewSet(DatasetViewSet):
             "styles": associated_styles,
         })
 
-    @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>[^/]+)")
+    @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>.+)")
     def get_style(self, request, pk=None, style_name=None):
-        """
-        Devuelve el contenido SLD de un estilo asociado a este dataset.
-        - /styles/<style> → inline (text/xml)
-        - /styles/<style>.sld → descarga
-        - Solo estilos asociados → si no, 404
-        - Respeta workspace del estilo (ej. geonode)
-        """
-
         dataset = self.get_object()
-        layer_name = dataset.alternate  # ej. "geonode:mexreg1"
-        workspace = layer_name.split(":")[0]  # ej. "geonode"
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
 
-        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
-        auth = (
-            settings.OGC_SERVER["default"]["USER"],
-            settings.OGC_SERVER["default"]["PASSWORD"],
-        )
+        gs = settings.OGC_SERVER["default"]
+        gs_url = gs["LOCATION"].rstrip("/")
+        auth = (gs["USER"], gs["PASSWORD"])
 
-        # ----------------------------------------------------------------------
-        # 1) Obtener estilos asociados a la capa
-        # ----------------------------------------------------------------------
-        url_styles = f"{gs_url}/rest/layers/{layer_name}/styles.json"
-        r_styles = requests.get(url_styles, auth=auth)
-        r_styles.raise_for_status()
+        # 1) Obtener estilos asociados reales
+        r_styles = requests.get(f"{gs_url}/rest/layers/{layer_name}/styles.json", auth=auth)
+        if r_styles.status_code != 200:
+            return Response({"detail": "GeoServer error fetching styles"}, status=500)
 
-        styles_data = r_styles.json()
-        associated_styles = [s["name"] for s in styles_data.get("styles", {}).get("style", [])]
+        styles = r_styles.json().get("styles", {}).get("style", [])
+        associated_names = []
+        for s in styles:
+            name = s.get("name")
+            if not name:
+                continue
+            associated_names.append(name)  # geonode:foo
+            if ":" in name:
+                associated_names.append(name.split(":")[1])  # foo
 
-        # Obtener estilo por defecto
-        url_layer = f"{gs_url}/rest/layers/{layer_name}.json"
-        r_layer = requests.get(url_layer, auth=auth)
-        r_layer.raise_for_status()
+        # Default style también cuenta
+        r_layer = requests.get(f"{gs_url}/rest/layers/{layer_name}.json", auth=auth)
+        if r_layer.status_code == 200:
+            default_name = (
+                r_layer.json()
+                .get("layer", {})
+                .get("defaultStyle", {})
+                .get("name")
+            )
+            if default_name:
+                associated_names.append(default_name)
+                if ":" in default_name:
+                    associated_names.append(default_name.split(":")[1])
 
-        default_style = (
-            r_layer.json().get("layer", {}).get("defaultStyle", {}).get("name")
-        )
+        # 2) Normalizar el estilo solicitado
+        download = style_name.endswith(".sld")
+        clean = style_name[:-4] if download else style_name
 
-        # ----------------------------------------------------------------------
-        # 2) Normalizar el nombre del estilo
-        # ----------------------------------------------------------------------
-        is_download = False
-        clean_name = style_name
-
-        if style_name.endswith(".sld"):
-            clean_name = style_name[:-4]
-            is_download = True
-        else:
-            clean_name = style_name
-
-        # Para efectos de comparación con GS, los estilos se listan así:
-        # - "geonode:custommex"
-        # - "custommex"
-        # Así que normalizamos AMBOS formatos
-        normalized_associated = set()
-        for s in associated_styles + ([default_style] if default_style else []):
-            if ":" in s:
-                normalized_associated.add(s.split(":")[1])
-            normalized_associated.add(s)
-
-        # ----------------------------------------------------------------------
-        # 3) Validar que el estilo esté asociado
-        # ----------------------------------------------------------------------
-        if clean_name not in normalized_associated and f"{workspace}:{clean_name}" not in normalized_associated:
+        # 3) Validar asociación REAL
+        if clean not in associated_names:
             return Response(
-                {"detail": f"Style '{clean_name}' is not associated with this dataset"},
-                status=404,
+                {"detail": f"Style '{clean}' is not associated with this dataset"},
+                status=404
             )
 
-        # ----------------------------------------------------------------------
-        # 4) Construir URLs posibles del estilo
-        # ----------------------------------------------------------------------
-        # A) URL EN WORKSPACE (ej. /rest/workspaces/geonode/styles/custommex.sld)
-        ws_url = (
-            f"{gs_url}/rest/workspaces/{workspace}/styles/{clean_name}.sld"
-        )
+        # 4) Obtener SLD desde workspace o global
+        ws_url = f"{gs_url}/rest/workspaces/{workspace}/styles/{clean}.sld"
+        global_url = f"{gs_url}/rest/styles/{clean}.sld"
 
-        # B) URL GLOBAL (ej. /rest/styles/custommex.sld)
-        global_url = f"{gs_url}/rest/styles/{clean_name}.sld"
-
-        # ----------------------------------------------------------------------
-        # 5) Intentar primero en workspace y luego global
-        # ----------------------------------------------------------------------
         r = requests.get(ws_url, auth=auth)
-
         if r.status_code == 404:
             r = requests.get(global_url, auth=auth)
 
         if r.status_code == 404:
-            raise NotFound(f"Style '{clean_name}' not found in GeoServer")
+            return Response({"detail": f"Style '{clean}' not found on GeoServer"}, status=404)
 
-        r.raise_for_status()
-        sld_content = r.text
+        if r.status_code != 200:
+            return Response({"detail": "GeoServer style fetch error"}, status=500)
 
-        # ----------------------------------------------------------------------
-        # 6) Responder
-        # ----------------------------------------------------------------------
-        if is_download:
-            response = HttpResponse(sld_content, content_type="application/xml")
-            response["Content-Disposition"] = f'attachment; filename="{clean_name}.sld"'
-            return response
+        # 5) Respuesta final
+        sld = r.text
+        if download:
+            resp = HttpResponse(sld, content_type="application/xml")
+            resp["Content-Disposition"] = f'attachment; filename="{clean}.sld"'
+            return resp
 
-        return HttpResponse(sld_content, content_type="application/xml")
-
+        return HttpResponse(sld, content_type="application/xml")
