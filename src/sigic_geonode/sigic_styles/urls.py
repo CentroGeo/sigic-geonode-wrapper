@@ -1,10 +1,3 @@
-from rest_framework.routers import DefaultRouter
+# urls.py
 
-from .views import SLDViewSet
-
-router = DefaultRouter()
-
-
-router.register(r"sigic/sld", SLDViewSet, basename="sigic-sld")
-
-urlpatterns = router.urls
+urlpatterns = []
