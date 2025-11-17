@@ -12,6 +12,7 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 from geonode.layers.models import Dataset
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework import status as drf_status
+from geonode.base.api.permissions import UserHasPerms
 
 
 class SigicDatasetViewSet(DatasetViewSet):
@@ -409,8 +410,6 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                 status=drf_status.HTTP_400_BAD_REQUEST
             )
 
-        layer_name = dataset.alternate
-
         gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
         auth = (
             settings.OGC_SERVER["default"]["USER"],
@@ -418,24 +417,49 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         )
 
         # ---------------------------------------------
-        # Seleccionar contenido SLD
+        # 1) Crear entrada del estilo (POST)
+        # ---------------------------------------------
+        url_create = f"{gs_url}/rest/workspaces/{workspace}/styles"
+
+        wrapper = f"""
+        <style>
+            <name>{name}</name>
+            <filename>{name}.sld</filename>
+        </style>
+        """
+
+        r_post = requests.post(
+            url_create,
+            data=wrapper,
+            auth=auth,
+            headers={"Content-Type": "text/xml"},
+        )
+
+        if r_post.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer rechazó la creación del estilo",
+                    "gs_status": r_post.status_code,
+                    "gs_response": r_post.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # ---------------------------------------------
+        # 2) Subir SLD (PUT)
         # ---------------------------------------------
         if sld_file:
             sld_body = sld_file.read()
         else:
-            sld_body = sld_body.encode("utf-8")  # convertir a bytes
+            sld_body = sld_body.encode("utf-8")
 
-        # ---------------------------------------------
-        # 1. Crear/actualizar estilo en GeoServer
-        # ---------------------------------------------
-        url_style = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
-        headers = {"Content-Type": "application/vnd.ogc.sld+xml"}
+        url_upload = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
 
         r_put = requests.put(
-            url_style,
+            url_upload,
             data=sld_body,
             auth=auth,
-            headers=headers,
+            headers={"Content-Type": "application/vnd.ogc.sld+xml"},
         )
 
         if r_put.status_code not in (200, 201):
@@ -449,33 +473,32 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             )
 
         # ---------------------------------------------
-        # 2. Asociar estilo a la capa
+        # 3) Asociar estilo a la capa (POST)
         # ---------------------------------------------
         url_layer_styles = f"{gs_url}/rest/layers/{layer_name}/styles"
 
-        xml_body = f"""
-        <style>
-            <name>{name}</name>
-        </style>
-        """
+        xml_body = f"<style><name>{name}</name></style>"
 
-        r_post = requests.post(
+        r_post_layer = requests.post(
             url_layer_styles,
             data=xml_body,
             auth=auth,
             headers={"Content-Type": "application/xml"},
         )
 
-        if r_post.status_code not in (200, 201):
+        if r_post_layer.status_code not in (200, 201):
             return Response(
                 {
                     "error": "No se pudo asociar el estilo a la capa",
-                    "gs_status": r_post.status_code,
-                    "gs_response": r_post.text,
+                    "gs_status": r_post_layer.status_code,
+                    "gs_response": r_post_layer.text,
                 },
                 status=drf_status.HTTP_502_BAD_GATEWAY,
             )
 
+        # ---------------------------------------------
+        # Final exitoso
+        # ---------------------------------------------
         return Response(
             {
                 "message": "Estilo creado y asociado correctamente",
