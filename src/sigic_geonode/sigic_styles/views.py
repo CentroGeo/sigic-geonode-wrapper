@@ -13,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 from geonode.layers.models import Dataset
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework import status as drf_status
+import xml.etree.ElementTree as ET
 
 
 class SigicDatasetViewSet(DatasetViewSet):
@@ -374,9 +375,104 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     # GET /api/v2/datasets/<id>/sldstyles/<style_name>
     def retrieve(self, request, dataset_pk=None, pk=None):
+        """
+        Devuelve el SLD de un estilo asociado al dataset.
+        - Si pk termina en '.sld', lo descarga como archivo.
+        - Valida que el estilo esté realmente asociado.
+        - Soporta nombres extendidos 'workspace:style' y locales 'style'.
+        """
         dataset = self._get_dataset_or_404(dataset_pk)
-        self._check_view_perm(dataset, request.user)
-        return Response({"status": "ok", "scope": "retrieve", "style": pk})
+        layer_name = dataset.alternate  # ej: geonode:immziszen_colonias
+        workspace = layer_name.split(":")[0]  # ej: geonode
+
+        gs = settings.OGC_SERVER["default"]
+        gs_url = gs["LOCATION"].rstrip("/")
+        auth = (gs["USER"], gs["PASSWORD"])
+
+        # -------------------------------------------
+        # 1. Normalizar nombre solicitado
+        # -------------------------------------------
+        requested = pk  # pk viene de la URL
+        is_download = request.query_params.get("download") in ("1", "true", "yes") or requested.endswith(".sld")
+        clean_name = requested[:-4] if is_download else requested  # "acatic3"
+
+        # -------------------------------------------
+        # 2. Obtener estilos asociados del layer
+        # -------------------------------------------
+        r_styles = requests.get(
+            f"{gs_url}/rest/layers/{layer_name}/styles.json",
+            auth=auth
+        )
+        if r_styles.status_code != 200:
+            return Response({"detail": "Error consultando estilos en GeoServer"}, status=500)
+
+        styles = r_styles.json().get("styles", {}).get("style", [])
+        associated = set()
+
+        for s in styles:
+            name = s.get("name")  # ej: "geonode:acatic3"
+            if not name:
+                continue
+            associated.add(name)  # forma extendida
+            if ":" in name:
+                associated.add(name.split(":", 1)[1])  # forma local "acatic3"
+
+        # También incluir defaultStyle
+        r_layer = requests.get(
+            f"{gs_url}/rest/layers/{layer_name}.json",
+            auth=auth
+        )
+        if r_layer.status_code == 200:
+            default_name = (
+                r_layer.json()
+                .get("layer", {})
+                .get("defaultStyle", {})
+                .get("name")
+            )
+            if default_name:
+                associated.add(default_name)
+                if ":" in default_name:
+                    associated.add(default_name.split(":", 1)[1])
+
+        # -------------------------------------------
+        # 3. Validar que el estilo esté asociado
+        # -------------------------------------------
+        if clean_name not in associated:
+            return Response(
+                {"detail": f"El estilo '{clean_name}' no está asociado a este dataset"},
+                status=404
+            )
+
+        # -------------------------------------------
+        # 4. Intentar obtener el SLD desde workspace (primero)
+        # -------------------------------------------
+        ws_url = f"{gs_url}/rest/workspaces/{workspace}/styles/{clean_name}.sld"
+        global_url = f"{gs_url}/rest/styles/{clean_name}.sld"
+
+        r = requests.get(ws_url, auth=auth)
+        if r.status_code == 404:
+            r = requests.get(global_url, auth=auth)
+
+        if r.status_code == 404:
+            return Response({"detail": f"El estilo '{clean_name}' no existe en GeoServer"}, status=404)
+
+        if r.status_code != 200:
+            return Response({"detail": "Error obteniendo SLD de GeoServer"}, status=500)
+
+        sld = r.text
+
+        # -------------------------------------------
+        # 5. Si pidió descarga (*.sld)
+        # -------------------------------------------
+        if is_download:
+            resp = HttpResponse(sld, content_type="application/xml")
+            resp["Content-Disposition"] = f'attachment; filename="{clean_name}.sld"'
+            return resp
+
+        # -------------------------------------------
+        # 6. Visualización normal del SLD
+        # -------------------------------------------
+        return HttpResponse(sld, content_type="application/xml")
 
     # POST /api/v2/datasets/<id>/sldstyles/
     def create(self, request, dataset_pk=None):
@@ -613,6 +709,8 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         layer_name = dataset.alternate  # ej: geonode:immziszen_colonias
         workspace = layer_name.split(":")[0]  # ej: geonode
 
+        self._check_edit_perm(dataset, request.user)
+
         # Nombre REAL del estilo en GeoServer
         full_style_name = f"{workspace}:{name}"
 
@@ -634,7 +732,6 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                 status=drf_status.HTTP_502_BAD_GATEWAY
             )
 
-        import xml.etree.ElementTree as ET
         tree = ET.fromstring(r_get.text)
 
         # 2. Validar default
@@ -711,4 +808,118 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                 "style": full_style_name,
             },
             status=drf_status.HTTP_200_OK,
+        )
+
+    # POST /api/v2/datasets/<id>/sldstyles/set-default/
+    @action(detail=False, methods=["post"], url_path="set-default")
+    def set_default_style(self, request, dataset_pk=None):
+        """
+        Cambia el estilo por defecto del layer.
+        Endpoint: POST /datasets/<id>/sldstyles/set-default/
+        Body: { "style": "custommex" }
+        """
+        style_name = request.data.get("style")
+        if not style_name:
+            return Response({"error": "Debe incluir 'style' en el body."}, status=400)
+
+        dataset = self._get_dataset_or_404(dataset_pk)
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
+
+        self._check_edit_perm(dataset, request.user)
+
+        gs = settings.OGC_SERVER["default"]
+        gs_url = gs["LOCATION"].rstrip("/")
+        auth = (gs["USER"], gs["PASSWORD"])
+
+        # nombre extendido
+        new_default_full = f"{workspace}:{style_name}"
+
+        # 1) Obtener XML completo del layer
+        url_layer = f"{gs_url}/rest/layers/{layer_name}.xml"
+
+        r_get = requests.get(url_layer, auth=auth)
+        if r_get.status_code != 200:
+            return Response({"error": "GeoServer no devolvió el layer"}, status=500)
+
+        tree = ET.fromstring(r_get.text)
+
+        # default actual
+        current_default = tree.find("./defaultStyle/name")
+        current_default_name = current_default.text if current_default is not None else None
+
+        # styles asociados
+        styles_node = tree.find("./styles")
+        associated = set()
+
+        for s in styles_node.findall("style"):
+            nm = s.find("name")
+            if nm is not None:
+                associated.add(nm.text)
+
+        # incluir también default actual
+        if current_default_name:
+            associated.add(current_default_name)
+
+        # validar que el estilo exista
+        if new_default_full not in associated:
+            return Response(
+                {"error": f"El estilo '{style_name}' no está asociado al dataset."},
+                status=400,
+            )
+
+        # 2) mover default actual a <styles> si no está
+        if current_default_name and current_default_name != new_default_full:
+            found = False
+            for s in styles_node.findall("style"):
+                nm = s.find("name")
+                if nm is not None and nm.text == current_default_name:
+                    found = True
+                    break
+            if not found:
+                st = ET.Element("style")
+                nm = ET.SubElement(st, "name")
+                nm.text = current_default_name
+                ws_el = ET.SubElement(st, "workspace")
+                ws_el.text = workspace
+                styles_node.append(st)
+
+        # 3) quitar nuevo default de <styles> si está ahí
+        for s in list(styles_node.findall("style")):
+            nm = s.find("name")
+            if nm is not None and nm.text == new_default_full:
+                styles_node.remove(s)
+                break
+
+        # 4) actualizar defaultStyle
+        default_style_node = tree.find("./defaultStyle")
+        if default_style_node is None:
+            default_style_node = ET.SubElement(tree, "defaultStyle")
+
+        # limpiar contenido
+        for ch in list(default_style_node):
+            default_style_node.remove(ch)
+
+        nm = ET.SubElement(default_style_node, "name")
+        nm.text = new_default_full
+        ws_el = ET.SubElement(default_style_node, "workspace")
+        ws_el.text = workspace
+
+        # 5) PUT del XML actualizado
+        updated_xml = ET.tostring(tree, encoding="utf-8")
+        r_put = requests.put(
+            url_layer,
+            data=updated_xml,
+            auth=auth,
+            headers={"Content-Type": "application/xml"},
+        )
+
+        if r_put.status_code not in (200, 201):
+            return Response({"error": "GeoServer rechazó el update"}, status=500)
+
+        return Response(
+            {
+                "message": "Estilo por defecto actualizado correctamente",
+                "default": style_name,
+            }
         )
