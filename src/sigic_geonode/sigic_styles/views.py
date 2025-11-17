@@ -12,12 +12,7 @@ from rest_framework.exceptions import PermissionDenied
 
 class SigicDatasetViewSet(DatasetViewSet):
 
-    @action(detail=True, methods=["get"], url_path="ping")
-    def ping(self, request, pk=None):
-        return Response({"status": "ok"})
-
-    @action(detail=True, methods=["get"], url_path="styles")
-    def list_styles(self, request, pk=None):
+    def _list_styles(self, request, pk=None):
         """
         Lista los estilos de GeoServer para esta capa usando REST en JSON.
         """
@@ -52,6 +47,156 @@ class SigicDatasetViewSet(DatasetViewSet):
             "default_style": default_style.split(":")[-1] if default_style else None,
             "styles": associated_styles,
         })
+
+    def _create_style(self, request, pk=None):
+        dataset = self.get_object()
+        self.check_object_permissions(request, dataset)
+
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
+
+        gs = settings.OGC_SERVER["default"]
+        gs_url = gs["LOCATION"].rstrip("/")
+        auth = (gs["USER"], gs["PASSWORD"])
+
+        # -----------------------------
+        # 1) Entrada
+        # -----------------------------
+        name = request.data.get("name")
+        sld_text = request.data.get("sld")
+        sld_file = request.FILES.get("sld_file")
+
+        if not name:
+            return Response({"detail": "`name` is required"}, status=400)
+
+        # Exclusividad
+        if sld_text and sld_file:
+            return Response(
+                {"detail": "Send either `sld` or `sld_file`, but not both"},
+                status=400
+            )
+
+        if not sld_text and not sld_file:
+            return Response(
+                {"detail": "You must send either `sld` (text) or `sld_file` (file)"},
+                status=400
+            )
+
+        # Archivo → texto
+        if sld_file:
+            try:
+                sld_text = sld_file.read().decode("utf-8")
+            except Exception:
+                return Response(
+                    {"detail": "SLD file could not be read as UTF-8 text"},
+                    status=400
+                )
+
+        if name.lower().endswith(".sld"):
+            return Response(
+                {"detail": "Do not include .sld extension"}, status=400
+            )
+
+        # -----------------------------
+        # 2) Validar SLD usando GeoServer
+        # -----------------------------
+        is_valid, error_msg = self._validate_sld_with_geoserver(sld_text, gs_url, auth)
+        if not is_valid:
+            return Response(
+                {"detail": "Invalid SLD", "error": error_msg},
+                status=400
+            )
+
+        # -----------------------------
+        # 3) Verificar existencia previa
+        # -----------------------------
+        check_url = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}.sld"
+        r_check = requests.get(check_url, auth=auth)
+        if r_check.status_code == 200:
+            return Response(
+                {"detail": f"Style '{name}' already exists"},
+                status=409
+            )
+
+        # -----------------------------
+        # 4) Crear estilo en GeoServer
+        # -----------------------------
+        create_url = f"{gs_url}/rest/workspaces/{workspace}/styles?name={name}"
+        headers_xml = {"Content-Type": "application/vnd.ogc.sld+xml"}
+
+        r_create = requests.post(
+            create_url, data=sld_text, auth=auth, headers=headers_xml
+        )
+
+        if r_create.status_code not in (200, 201):
+            return Response(
+                {"detail": "GeoServer error creating style",
+                 "geoserver_response": r_create.text},
+                status=500
+            )
+
+        # -----------------------------
+        # 5) Asociar estilo a la capa
+        # -----------------------------
+        assoc_url = f"{gs_url}/rest/layers/{layer_name}/styles"
+        payload = {"style": {"name": f"{workspace}:{name}"}}
+
+        r_assoc = requests.post(
+            assoc_url,
+            json=payload,
+            auth=auth,
+            headers={"Content-Type": "application/json"}
+        )
+
+        if r_assoc.status_code not in (200, 201):
+            return Response(
+                {"detail": "Style created but not associated with layer",
+                 "geoserver_response": r_assoc.text},
+                status=500
+            )
+
+        # -----------------------------
+        # 6) Respuesta OK
+        # -----------------------------
+        return Response(
+            {
+                "status": "created",
+                "style": name,
+                "workspace": workspace,
+                "layer": layer_name
+            },
+            status=201
+        )
+
+    def _validate_sld_with_geoserver(self, sld_text, gs_url, auth):
+        """
+        Valida un SLD usando GeoServer:
+        POST /rest/styles?validate=true
+        """
+        validate_url = f"{gs_url}/rest/styles?validate=true"
+
+        headers = {"Content-Type": "application/vnd.ogc.sld+xml"}
+
+        r = requests.post(validate_url, data=sld_text, headers=headers, auth=auth)
+
+        if r.status_code in (200, 201):
+            return True, None
+
+        error_msg = r.text.strip() or "GeoServer validation failed"
+        return False, error_msg
+
+    @action(detail=True, methods=["get"], url_path="ping")
+    def ping(self, request, pk=None):
+        return Response({"status": "ok"})
+
+    @action(detail=True, methods=["get", "post"], url_path="styles")
+    def styles(self, request, pk=None):
+        if request.method == "GET":
+            return self._list_styles(request, pk)
+        elif request.method == "POST":
+            return self._create_style(request, pk)
+        else:
+            return Response({"detail": "Method not allowed"}, status=405)
 
     @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>.+)")
     def get_style(self, request, pk=None, style_name=None):
@@ -125,149 +270,3 @@ class SigicDatasetViewSet(DatasetViewSet):
             return resp
 
         return HttpResponse(sld, content_type="application/xml")
-
-    @action(detail=True, methods=["post"], url_path="styles")
-    def create_style(self, request, pk=None):
-        """
-        Crea un nuevo estilo SLD en GeoServer y lo asocia a la capa.
-        - Valida permisos del usuario (GeoNode)
-        - Acepta SLD como texto o archivo
-        - Exclusividad (sólo uno permitido)
-        - Valida el SLD con GeoNode
-        - Crea estilo en workspace del dataset
-        - Lo asocia a la capa
-        """
-
-        # -------------------------------------------------------------
-        # 0) Permisos del dataset (GeoNode)
-        # -------------------------------------------------------------
-        dataset = self.get_object()
-        self.check_object_permissions(request, dataset)  # 🔥 permisos reales de GeoNode
-
-        layer_name = dataset.alternate                # ej. geonode:mexreg1
-        workspace = layer_name.split(":")[0]          # ej. geonode
-
-        gs = settings.OGC_SERVER["default"]
-        gs_url = gs["LOCATION"].rstrip("/")
-        auth = (gs["USER"], gs["PASSWORD"])
-
-        # -------------------------------------------------------------
-        # 1) Entrada: name + (sld ó sld_file)
-        # -------------------------------------------------------------
-        name = request.data.get("name")
-        sld_text = request.data.get("sld")
-        sld_file = request.FILES.get("sld_file")
-
-        if not name:
-            return Response({"detail": "`name` is required"}, status=400)
-
-        # Exclusividad
-        if sld_text and sld_file:
-            return Response(
-                {"detail": "Send either `sld` or `sld_file`, but not both"},
-                status=400
-            )
-
-        if not sld_text and not sld_file:
-            return Response(
-                {"detail": "You must send either `sld` (text) or `sld_file` (file)"},
-                status=400
-            )
-
-        # Archivo → convertir a texto
-        if sld_file:
-            try:
-                sld_text = sld_file.read().decode("utf-8")
-            except Exception:
-                return Response(
-                    {"detail": "SLD file could not be read as UTF-8 text"},
-                    status=400
-                )
-
-        # No permitir nombres con ".sld"
-        if name.lower().endswith(".sld"):
-            return Response(
-                {"detail": "Do not include .sld extension in the name"},
-                status=400
-            )
-
-        # -------------------------------------------------------------
-               # 2) Validación del SLD usando GeoNode (XML + XSD)
-        # -------------------------------------------------------------
-        is_valid, error_msg = validate_sld(sld_text)
-        if not is_valid:
-            return Response(
-                {"detail": "Invalid SLD", "error": error_msg},
-                status=400
-            )
-
-        # -------------------------------------------------------------
-        # 3) Evitar estilos duplicados
-        # -------------------------------------------------------------
-        check_url = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}.sld"
-        check = requests.get(check_url, auth=auth)
-
-        if check.status_code == 200:
-            return Response(
-                {"detail": f"Style '{name}' already exists"},
-                status=409
-            )
-
-        # -------------------------------------------------------------
-        # 4) Crear estilo en GeoServer (workspace)
-        # -------------------------------------------------------------
-        create_url = f"{gs_url}/rest/workspaces/{workspace}/styles?name={name}"
-
-        headers_xml = {"Content-Type": "application/vnd.ogc.sld+xml"}
-
-        r_create = requests.post(
-            create_url,
-            data=sld_text,
-            auth=auth,
-            headers=headers_xml
-        )
-
-        if r_create.status_code not in (200, 201):
-            return Response(
-                {
-                    "detail": "GeoServer error creating style",
-                    "geoserver_response": r_create.text
-                },
-                status=500
-            )
-
-        # -------------------------------------------------------------
-        # 5) Asociar estilo a la capa
-        # -------------------------------------------------------------
-        assoc_url = f"{gs_url}/rest/layers/{layer_name}/styles"
-
-        payload = {"style": {"name": f"{workspace}:{name}"}}
-
-        r_assoc = requests.post(
-            assoc_url,
-            json=payload,
-            auth=auth,
-            headers={"Content-Type": "application/json"}
-        )
-
-        if r_assoc.status_code not in (200, 201):
-            return Response(
-                {
-                    "detail": "Style created but not associated with layer",
-                    "geoserver_response": r_assoc.text
-                },
-                status=500
-            )
-
-        # -------------------------------------------------------------
-        # 6) Respuesta final
-        # -------------------------------------------------------------
-        return Response(
-            {
-                "status": "created",
-                "style": name,
-                "workspace": workspace,
-                "layer": layer_name
-            },
-            status=201
-        )
