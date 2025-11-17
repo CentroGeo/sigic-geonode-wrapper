@@ -188,8 +188,8 @@ class SigicDatasetViewSet(DatasetViewSet):
     def ping(self, request, pk=None):
         return Response({"status": "ok"})
 
-    @action(detail=True, methods=["get", "post"], url_path="styles")
-    def styles(self, request, pk=None):
+    @action(detail=True, methods=["get", "post"], url_path="sldstyles")
+    def sldstyles(self, request, pk=None):
         print("Request method:", request.method)
         if request.method == "GET":
             return self._list_styles(request, pk)
@@ -198,8 +198,9 @@ class SigicDatasetViewSet(DatasetViewSet):
         else:
             return Response({"detail": "Method not allowed"}, status=405)
 
-    @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>[^/]+)$")
-    def get_style(self, request, pk=None, style_name=None):
+    @action(detail=True, methods=["get"], url_path=r"sldstyles/(?P<style_name>[^/]+)$")
+    def get_sldstyle(self, request, pk=None, style_name=None):
+        print(">>> ENTRO A get_style() CON", request.method, "style_name=", style_name)
         dataset = self.get_object()
         layer_name = dataset.alternate
         workspace = layer_name.split(":")[0]
