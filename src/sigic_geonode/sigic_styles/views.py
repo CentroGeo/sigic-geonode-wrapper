@@ -198,7 +198,7 @@ class SigicDatasetViewSet(DatasetViewSet):
         else:
             return Response({"detail": "Method not allowed"}, status=405)
 
-    @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>.+)")
+    @action(detail=True, methods=["get"], url_path=r"styles/(?P<style_name>[^/]+)")
     def get_style(self, request, pk=None, style_name=None):
         dataset = self.get_object()
         layer_name = dataset.alternate
