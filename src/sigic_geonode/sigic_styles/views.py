@@ -15,8 +15,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 class SigicDatasetViewSet(DatasetViewSet):
 
-    @action(detail=True, methods=["get", "post"], url_path="sldstyles")
-    def list_styles(self, request, pk=None):
+    def _list_styles(self, request, pk=None):
         """
         Lista los estilos de GeoServer para esta capa usando REST en JSON.
         """
