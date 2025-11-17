@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import PermissionDenied, NotFound
 from geonode.layers.models import Dataset
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework import status as drf_status
 
 
 class SigicDatasetViewSet(DatasetViewSet):
@@ -124,7 +125,7 @@ class SigicDatasetViewSet(DatasetViewSet):
         # -----------------------------
         # 4) Crear estilo en GeoServer
         # -----------------------------
-        create_url = f"{gs_url}/rest/workspaces/{workspace}/styles?name={name}"
+        create_url = f"{gs_url}/rest/workspaces/{workspace}/styles?name={name}&raw=true"
         headers_xml = {"Content-Type": "application/vnd.ogc.sld+xml"}
 
         r_create = requests.post(
@@ -379,8 +380,110 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     # POST /api/v2/datasets/<id>/sldstyles/
     def create(self, request, dataset_pk=None):
         dataset = self._get_dataset_or_404(dataset_pk)
-        self._check_change_perm(dataset, request.user)
-        return Response({"status": "ok", "scope": "create"})
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
+        self._check_edit_perm(dataset, request.user)
+
+        name = request.data.get("name")
+        sld_file = request.FILES.get("sld_file")
+        sld_body = request.data.get("sld_body")
+
+        # ---------------------------------------------
+        # Validación: solo uno de los dos
+        # ---------------------------------------------
+        if sld_file and sld_body:
+            return Response(
+                {"error": "Debes enviar *solo uno* de: 'sld_file' o 'sld_body'."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        if not sld_file and not sld_body:
+            return Response(
+                {"error": "Debes enviar 'sld_file' (SLD) o 'sld_body' (cuerpo XML)."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        if not name:
+            return Response(
+                {"error": "Falta el parámetro obligatorio 'name'."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        layer_name = dataset.alternate
+
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        # ---------------------------------------------
+        # Seleccionar contenido SLD
+        # ---------------------------------------------
+        if sld_file:
+            sld_body = sld_file.read()
+        else:
+            sld_body = sld_body.encode("utf-8")  # convertir a bytes
+
+        # ---------------------------------------------
+        # 1. Crear/actualizar estilo en GeoServer
+        # ---------------------------------------------
+        url_style = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
+        headers = {"Content-Type": "application/vnd.ogc.sld+xml"}
+
+        r_put = requests.put(
+            url_style,
+            data=sld_body,
+            auth=auth,
+            headers=headers,
+        )
+
+        if r_put.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer rechazó el SLD",
+                    "gs_status": r_put.status_code,
+                    "gs_response": r_put.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # ---------------------------------------------
+        # 2. Asociar estilo a la capa
+        # ---------------------------------------------
+        url_layer_styles = f"{gs_url}/rest/layers/{layer_name}/styles"
+
+        xml_body = f"""
+        <style>
+            <name>{name}</name>
+        </style>
+        """
+
+        r_post = requests.post(
+            url_layer_styles,
+            data=xml_body,
+            auth=auth,
+            headers={"Content-Type": "application/xml"},
+        )
+
+        if r_post.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "No se pudo asociar el estilo a la capa",
+                    "gs_status": r_post.status_code,
+                    "gs_response": r_post.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(
+            {
+                "message": "Estilo creado y asociado correctamente",
+                "style": name,
+                "layer": layer_name,
+            },
+            status=drf_status.HTTP_201_CREATED,
+        )
 
     # PUT /api/v2/datasets/<id>/sldstyles/<style_name>
     def update(self, request, dataset_pk=None, pk=None):
