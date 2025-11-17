@@ -190,6 +190,7 @@ class SigicDatasetViewSet(DatasetViewSet):
 
     @action(detail=True, methods=["get", "post"], url_path="styles")
     def styles(self, request, pk=None):
+        print("Request method:", request.method)
         if request.method == "GET":
             return self._list_styles(request, pk)
         elif request.method == "POST":
