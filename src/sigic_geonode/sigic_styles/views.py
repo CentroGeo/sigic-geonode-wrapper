@@ -1,4 +1,5 @@
 from geonode.layers.api.views import DatasetViewSet
+from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import HttpResponse
@@ -271,3 +272,65 @@ class SigicDatasetViewSet(DatasetViewSet):
             return resp
 
         return HttpResponse(sld, content_type="application/xml")
+
+
+class SigicDatasetSLDStyleViewSet(ViewSet):
+
+    # -----------------------------
+    # Helpers de permisos
+    # -----------------------------
+    def _get_dataset_or_404(self, dataset_pk):
+        try:
+            return Dataset.objects.get(pk=dataset_pk)
+        except Dataset.DoesNotExist:
+            raise NotFound("Dataset not found")
+
+    def _check_view_perm(self, dataset, user):
+        """
+        Permite ver si:
+        - La capa es pública
+        - O el usuario tiene permiso de vista
+        """
+        if dataset.has_view_permission(user):
+            return
+        raise PermissionDenied("You do not have permission to view this dataset")
+
+    def _check_change_perm(self, dataset, user):
+        """
+        Permite modificar si:
+        - El usuario tiene permiso de cambio
+        """
+        if dataset.has_change_permission(user):
+            return
+        raise PermissionDenied("You do not have permission to edit this dataset")
+
+
+    # GET /api/v2/datasets/<id>/sldstyles/
+    def list(self, request, dataset_pk=None):
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_view_perm(dataset, request.user)
+        return Response({"status": "ok", "scope": "list"})
+
+    # GET /api/v2/datasets/<id>/sldstyles/<style_name>
+    def retrieve(self, request, dataset_pk=None, pk=None):
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_view_perm(dataset, request.user)
+        return Response({"status": "ok", "scope": "retrieve", "style": pk})
+
+    # POST /api/v2/datasets/<id>/sldstyles/
+    def create(self, request, dataset_pk=None):
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_change_perm(dataset, request.user)
+        return Response({"status": "ok", "scope": "create"})
+
+    # PUT /api/v2/datasets/<id>/sldstyles/<style_name>
+    def update(self, request, dataset_pk=None, pk=None):
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_change_perm(dataset, request.user)
+        return Response({"status": "ok", "scope": "update", "style": pk})
+
+    # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>
+    def destroy(self, request, dataset_pk=None, pk=None):
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_change_perm(dataset, request.user)
+        return Response({"status": "ok", "scope": "delete", "style": pk})
