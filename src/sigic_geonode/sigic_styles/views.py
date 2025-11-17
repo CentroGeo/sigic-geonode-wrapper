@@ -1,3 +1,4 @@
+import os
 from geonode.layers.api.views import DatasetViewSet
 from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import action
@@ -12,7 +13,6 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 from geonode.layers.models import Dataset
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework import status as drf_status
-from geonode.base.api.permissions import UserHasPerms
 
 
 class SigicDatasetViewSet(DatasetViewSet):
@@ -510,12 +510,205 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     # PUT /api/v2/datasets/<id>/sldstyles/<style_name>
     def update(self, request, dataset_pk=None, pk=None):
+        """
+        Actualiza el contenido de un estilo SLD existente en GeoServer.
+        `pk` es el nombre del estilo.
+        """
         dataset = self._get_dataset_or_404(dataset_pk)
-        self._check_change_perm(dataset, request.user)
-        return Response({"status": "ok", "scope": "update", "style": pk})
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
+
+        self._check_edit_perm(dataset, request.user)
+
+        name = pk  # nombre del estilo
+        sld_file = request.FILES.get("sld_file")
+        sld_body = request.data.get("sld_body")
+
+        # ---------------------------------------------
+        # Validación: solo uno de los dos
+        # ---------------------------------------------
+        if sld_file and sld_body:
+            return Response(
+                {"error": "Debes enviar *solo uno* de: 'sld_file' o 'sld_body'."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        if not sld_file and not sld_body:
+            return Response(
+                {"error": "Debes enviar 'sld_file' (SLD) o 'sld_body' (cuerpo XML)."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        # ---------------------------------------------
+        # Seleccionar cuerpo SLD
+        # ---------------------------------------------
+        if sld_file:
+            sld_body = sld_file.read()
+        else:
+            sld_body = sld_body.encode("utf-8")
+
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        # ---------------------------------------------
+        # 1. Verificar que el estilo exista (opcional pero útil)
+        # ---------------------------------------------
+        url_check = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}.xml"
+        r_check = requests.get(url_check, auth=auth)
+
+        if r_check.status_code != 200:
+            return Response(
+                {
+                    "error": "El estilo no existe en GeoServer",
+                    "style": name,
+                    "gs_status": r_check.status_code,
+                    "gs_response": r_check.text,
+                },
+                status=drf_status.HTTP_404_NOT_FOUND,
+            )
+
+        # ---------------------------------------------
+        # 2. Actualizar el SLD (PUT) — DOCUMENTACIÓN OFICIAL
+        # ---------------------------------------------
+        url_update = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
+
+        r_put = requests.put(
+            url_update,
+            data=sld_body,
+            auth=auth,
+            headers={"Content-Type": "application/vnd.ogc.sld+xml"},
+        )
+
+        if r_put.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer rechazó la actualización del SLD",
+                    "gs_status": r_put.status_code,
+                    "gs_response": r_put.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # ---------------------------------------------
+        # Final exitoso
+        # ---------------------------------------------
+        return Response(
+            {
+                "message": "Estilo actualizado correctamente",
+                "style": name,
+                "layer": layer_name,
+            },
+            status=drf_status.HTTP_200_OK,
+        )
 
     # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>
     def destroy(self, request, dataset_pk=None, pk=None):
+        # pk es el nombre del estilo en la URL
+        name = pk
+
         dataset = self._get_dataset_or_404(dataset_pk)
-        self._check_change_perm(dataset, request.user)
-        return Response({"status": "ok", "scope": "delete", "style": pk})
+        layer_name = dataset.alternate  # ej: geonode:immziszen_colonias
+        workspace = layer_name.split(":")[0]  # ej: geonode
+
+        # Nombre REAL del estilo en GeoServer
+        full_style_name = f"{workspace}:{name}"
+
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        # 1. GET del layer
+        url_layer = f"{gs_url}/rest/layers/{layer_name}.xml"
+        r_get = requests.get(url_layer, auth=auth)
+
+        if r_get.status_code != 200:
+            return Response(
+                {"error": "No se pudo obtener el layer para actualizar estilos",
+                 "gs_status": r_get.status_code,
+                 "gs_response": r_get.text},
+                status=drf_status.HTTP_502_BAD_GATEWAY
+            )
+
+        import xml.etree.ElementTree as ET
+        tree = ET.fromstring(r_get.text)
+
+        # 2. Validar default
+        default_style = tree.find("./defaultStyle/name")
+        if default_style is not None and default_style.text == full_style_name:
+            return Response(
+                {"error": "No se puede eliminar un estilo que es el estilo por defecto."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Extraer estilos existentes
+        styles_node = tree.find("./styles")
+        if styles_node is None:
+            return Response(
+                {"error": "El nodo <styles> no existe en el layer."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4. Quitar el estilo (extended mode)
+        removed = False
+        for style in list(styles_node.findall("style")):
+            name_node = style.find("name")
+            if name_node is not None and name_node.text == full_style_name:
+                styles_node.remove(style)
+                removed = True
+                break
+
+        if not removed:
+            return Response(
+                {"error": f"El estilo '{full_style_name}' no está asociado a la capa."},
+                status=drf_status.HTTP_400_BAD_REQUEST
+            )
+
+        # 5. PUT del layer actualizado
+        final_xml = ET.tostring(tree, encoding="utf-8")
+        r_put = requests.put(
+            url_layer,
+            data=final_xml,
+            auth=auth,
+            headers={"Content-Type": "application/xml"}
+        )
+
+        if r_put.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "No se pudo actualizar la lista de estilos en el layer",
+                    "gs_status": r_put.status_code,
+                    "gs_response": r_put.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # 6. DELETE del estilo del workspace usando su nombre completo
+        url_delete_style = (
+            f"{gs_url}/rest/workspaces/{workspace}/styles/{name}?purge=true"
+        )
+
+        r_del = requests.delete(url_delete_style, auth=auth)
+
+        if r_del.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer no pudo eliminar el estilo",
+                    "style": full_style_name,
+                    "gs_status": r_del.status_code,
+                    "gs_response": r_del.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(
+            {
+                "message": "Estilo eliminado correctamente",
+                "style": full_style_name,
+            },
+            status=drf_status.HTTP_200_OK,
+        )
