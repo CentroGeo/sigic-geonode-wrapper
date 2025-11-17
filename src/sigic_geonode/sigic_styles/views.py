@@ -8,6 +8,9 @@ from rest_framework.exceptions import NotFound
 import requests
 import json
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
+from geonode.layers.models import Dataset
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 class SigicDatasetViewSet(DatasetViewSet):
@@ -275,6 +278,7 @@ class SigicDatasetViewSet(DatasetViewSet):
 
 
 class SigicDatasetSLDStyleViewSet(ViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     # -----------------------------
     # Helpers de permisos
@@ -287,23 +291,39 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     def _check_view_perm(self, dataset, user):
         """
-        Permite ver si:
-        - La capa es pública
-        - O el usuario tiene permiso de vista
+        Permite ver el dataset si:
+        - Es público, o
+        - El usuario tiene permiso view_resourcebase en el ResourceBase asociado
         """
-        if dataset.has_view_permission(user):
-            return
-        raise PermissionDenied("You do not have permission to view this dataset")
 
-    def _check_change_perm(self, dataset, user):
-        """
-        Permite modificar si:
-        - El usuario tiene permiso de cambio
-        """
-        if dataset.has_change_permission(user):
+        # Caso 1: acceso público
+        if dataset.is_published and dataset.is_approved:
             return
-        raise PermissionDenied("You do not have permission to edit this dataset")
 
+        # Caso 2: usuario autenticado con permiso de lectura
+        if user and user.is_authenticated:
+            if user.has_perm("base.view_resourcebase", dataset.resourcebase_ptr):
+                return
+
+        raise PermissionDenied("You do not have permission to view this dataset.")
+
+    def _check_edit_perm(self, dataset, user):
+        """
+        Permite modificar estilos si:
+        - Usuario autenticado con permiso change_layer_style
+        - o superuser
+        """
+        if not (user and user.is_authenticated):
+            raise PermissionDenied("Authentication required.")
+
+        # superuser → acceso total
+        if user.is_superuser:
+            return
+
+        if user.has_perm("base.change_layer_style", dataset.resourcebase_ptr):
+            return
+
+        raise PermissionDenied("You do not have permission to modify styles.")
 
     # GET /api/v2/datasets/<id>/sldstyles/
     def list(self, request, dataset_pk=None):
