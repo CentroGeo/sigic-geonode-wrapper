@@ -15,7 +15,8 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 class SigicDatasetViewSet(DatasetViewSet):
 
-    def _list_styles(self, request, pk=None):
+    @action(detail=True, methods=["get", "post"], url_path="sldstyles")
+    def list_styles(self, request, pk=None):
         """
         Lista los estilos de GeoServer para esta capa usando REST en JSON.
         """
@@ -329,7 +330,46 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     def list(self, request, dataset_pk=None):
         dataset = self._get_dataset_or_404(dataset_pk)
         self._check_view_perm(dataset, request.user)
-        return Response({"status": "ok", "scope": "list"})
+
+        layer_name = dataset.alternate
+
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        # --- 1. Estilos asociados (lista completa de estilos configurados en la capa) ---
+        url_styles = f"{gs_url}/rest/layers/{layer_name}/styles.json"
+        r_styles = requests.get(url_styles, auth=auth)
+        r_styles.raise_for_status()
+        styles_data = r_styles.json()
+
+        associated_styles = [
+            s["name"] for s in styles_data.get("styles", {}).get("style", [])
+        ]
+
+        # --- 2. Estilo por defecto ---
+        url_layer = f"{gs_url}/rest/layers/{layer_name}.json"
+        r_layer = requests.get(url_layer, auth=auth)
+        r_layer.raise_for_status()
+        layer_data = r_layer.json()
+
+        default_style = (
+            layer_data.get("layer", {})
+            .get("defaultStyle", {})
+            .get("name")
+        )
+
+        # Normalizar workspace:name → name
+        if default_style and ":" in default_style:
+            default_style = default_style.split(":")[-1]
+
+        return Response({
+            "layer": layer_name,
+            "default_style": default_style,
+            "styles": associated_styles,
+        })
 
     # GET /api/v2/datasets/<id>/sldstyles/<style_name>
     def retrieve(self, request, dataset_pk=None, pk=None):
