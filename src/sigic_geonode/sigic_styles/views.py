@@ -6,7 +6,6 @@ from django.conf import settings
 from rest_framework.exceptions import NotFound
 import requests
 import json
-from geonode.layers.utils import validate_sld
 from rest_framework.exceptions import PermissionDenied
 
 
