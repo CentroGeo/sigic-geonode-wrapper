@@ -1,5 +1,18 @@
-import logging
+# ==============================================================================
+#  SIGIC – Sistema Integral de Gestión e Información Científica
+#
+#  Autor: César Benjamín (cesarbenjamin.net)
+#  Derechos patrimoniales: CentroGeo (2025)
+#
+#  Nota:
+#    Este código fue desarrollado para el proyecto SIGIC de
+#    CentroGeo. Se mantiene crédito de autoría, pero la titularidad del código
+#    pertenece a CentroGeo conforme a obra por encargo.
+#
+#  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
+# ==============================================================================
 
+import logging
 from allauth.account.utils import user_username
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.core.exceptions import ValidationError
