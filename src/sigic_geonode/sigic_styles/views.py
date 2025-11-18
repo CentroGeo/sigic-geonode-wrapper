@@ -199,7 +199,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             "styles": associated_styles,
         })
 
-    # GET /api/v2/datasets/<id>/sldstyles/<style_name>
+    # GET /api/v2/datasets/<id>/sldstyles/<style_name>/
     def retrieve(self, request, dataset_pk=None, pk=None):
         """
         Devuelve el SLD de un estilo asociado al dataset.
@@ -430,7 +430,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             status=drf_status.HTTP_201_CREATED,
         )
 
-    # PUT /api/v2/datasets/<id>/sldstyles/<style_name>
+    # PUT /api/v2/datasets/<id>/sldstyles/<style_name>/
     def update(self, request, dataset_pk=None, pk=None):
         """
         Actualiza el contenido de un estilo SLD existente en GeoServer.
@@ -526,7 +526,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             status=drf_status.HTTP_200_OK,
         )
 
-    # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>
+    # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>/
     def destroy(self, request, dataset_pk=None, pk=None):
         # pk es el nombre del estilo en la URL
         name = pk
