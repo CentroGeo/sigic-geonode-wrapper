@@ -106,12 +106,59 @@ CreateUpdateStyleRequest = inline_serializer(
     ),
 )
 class SigicDatasetSLDStyleViewSet(ViewSet):
+    """
+    API especializada para gestionar estilos SLD (Styled Layer Descriptor)
+    de un dataset dentro de GeoServer.
+
+    Este ViewSet permite:
+    - Listar estilos asociados a una capa (GeoServer REST)
+    - Descargar o visualizar un estilo SLD específico
+    - Crear nuevos estilos y asociarlos al layer
+    - Actualizar el contenido XML de un estilo existente
+    - Eliminar estilos asociados (con purga automática)
+    - Cambiar el estilo por defecto del layer
+
+    Toda la gestión se realiza contra el endpoint REST nativo de GeoServer,
+    manipulando tanto la configuración del estilo como la del layer
+    (modo extendido), asegurando consistencia y seguridad.
+
+    NOTA:
+    - Los permisos se basan en los permisos propios de GeoNode.
+    - Se respeta el comportamiento de `defaultStyle`: no puede eliminarse.
+    - Los estilos siempre se interpretan dentro del workspace derivado
+      del dataset (p.ej. “geonode”).
+    """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     # -----------------------------
     # Helpers de permisos
     # -----------------------------
     def _get_dataset_or_404(self, dataset_pk):
+        """
+        Obtiene el objeto Dataset correspondiente al `dataset_pk`.
+        Si no existe, lanza una excepción `NotFound` estándar de DRF.
+
+        Parámetros
+        ----------
+        dataset_pk : int or str
+            ID del dataset recibido desde la URL del ViewSet.
+
+        Retorna
+        -------
+        Dataset
+            El dataset solicitado si existe.
+
+        Excepciones
+        -----------
+        NotFound
+            Si el dataset no existe en la base de datos.
+
+        Notas
+        -----
+        Este método se utiliza como helper interno en todos los endpoints
+        del ViewSet que requieren validar la existencia del dataset antes
+        de cualquier operación.
+        """
         try:
             return Dataset.objects.get(pk=dataset_pk)
         except Dataset.DoesNotExist:
@@ -119,9 +166,36 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     def _check_view_perm(self, dataset, user):
         """
-        Permite ver el dataset si:
-        - Es público, o
-        - El usuario tiene permiso view_resourcebase en el ResourceBase asociado
+        Verifica si un usuario tiene permiso para *ver* el dataset.
+
+        Reglas aplicadas
+        ----------------
+        1. Si el dataset está publicado **y** aprobado (`is_published` + `is_approved`),
+           el acceso es público y se permite a cualquier usuario, autenticado o no.
+
+        2. Si el usuario está autenticado, se le permite el acceso únicamente si
+           posee el permiso `base.view_resourcebase` sobre el `resourcebase_ptr`
+           del dataset.
+
+        3. Si ninguna condición se cumple, se lanza `PermissionDenied`.
+
+        Parámetros
+        ----------
+        dataset : Dataset
+            El dataset cuyo acceso se está validando.
+
+        user : User
+            Usuario que realiza la solicitud.
+
+        Excepciones
+        -----------
+        PermissionDenied
+            Cuando el usuario no tiene permiso para acceder al recurso.
+
+        Notas
+        -----
+        Este método centraliza la lógica de lectura, alineándola con la forma en que
+        GeoNode maneja la visibilidad de los recursos.
         """
 
         # Caso 1: acceso público
@@ -137,10 +211,40 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     def _check_edit_perm(self, dataset, user):
         """
-        Permite modificar estilos si:
-        - Usuario autenticado con permiso change_layer_style
-        - o superuser
+        Verifica si un usuario tiene permisos para modificar estilos del dataset.
+
+        Reglas aplicadas
+        ----------------
+        1. El usuario debe estar autenticado.
+           Si no lo está, se lanza inmediatamente `PermissionDenied`.
+
+        2. Si el usuario es `superuser`, se permite la edición sin más validaciones.
+
+        3. Para usuarios normales, solo se permite continuar si tienen el permiso
+           `base.change_layer_style` sobre el `resourcebase_ptr` del dataset.
+
+        Si ninguna condición se cumple, se lanza `PermissionDenied`.
+
+        Parámetros
+        ----------
+        dataset : Dataset
+            El dataset cuyo permiso de edición se está evaluando.
+
+        user : User
+            Usuario autenticado que realiza la solicitud.
+
+        Excepciones
+        -----------
+        PermissionDenied
+            Cuando el usuario no posee los permisos requeridos.
+
+        Notas
+        -----
+        - Este método define *quién puede modificar estilos SLD*, de forma coherente
+          con los permisos de GeoNode.
+        - Se usa en `create`, `update` y `destroy` de estilos SLD.
         """
+
         if not (user and user.is_authenticated):
             raise PermissionDenied("Authentication required.")
 
@@ -155,6 +259,59 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     # GET /api/v2/datasets/<id>/sldstyles/
     def list(self, request, dataset_pk=None):
+        """
+        Lista todos los estilos SLD asociados al dataset, incluyendo el estilo por
+        defecto y los estilos adicionales configurados en GeoServer.
+
+        Descripción
+        -----------
+        Este endpoint consulta GeoServer usando la API REST y devuelve:
+
+        - El nombre completo del layer (workspace:name)
+        - El estilo por defecto del layer (en forma simple: "estilo")
+        - La lista de estilos asociados al layer (formato "estilo" sin workspace)
+
+        Flujo interno
+        -------------
+        1. Verifica permisos de lectura mediante `_check_view_perm`.
+        2. Obtiene desde GeoServer:
+           - `/rest/layers/<layer>/styles.json`
+             → estilos adicionales asociados
+           - `/rest/layers/<layer>.json`
+             → estilo por defecto
+        3. Normaliza los nombres removiendo el prefijo `<workspace>:` cuando existe.
+        4. Retorna los datos en formato JSON.
+
+        Parámetros
+        ----------
+        request : Request
+            La solicitud HTTP recibida.
+
+        dataset_pk : int
+            ID del dataset cuyos estilos serán listados.
+
+        Respuesta
+        ---------
+        HTTP 200
+            Un diccionario con:
+            - ``layer`` : nombre del layer
+            - ``default_style`` : estilo por defecto
+            - ``styles`` : lista de estilos asociados (no incluye el default)
+
+        Excepciones
+        -----------
+        PermissionDenied
+            Si el usuario no tiene permiso para ver el dataset.
+
+        NotFound
+            Si el dataset no existe.
+
+        Notas
+        -----
+        - Este método **no** devuelve el contenido de los estilos, solo los nombres.
+        - El contenido del SLD se obtiene mediante `retrieve()`.
+        """
+
         dataset = self._get_dataset_or_404(dataset_pk)
         self._check_view_perm(dataset, request.user)
 
@@ -201,11 +358,68 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     # GET /api/v2/datasets/<id>/sldstyles/<style_name>/
     def retrieve(self, request, dataset_pk=None, pk=None):
         """
-        Devuelve el SLD de un estilo asociado al dataset.
-        - Si pk termina en '.sld', lo descarga como archivo.
-        - Valida que el estilo esté realmente asociado.
-        - Soporta nombres extendidos 'workspace:style' y locales 'style'.
+        Obtiene el contenido SLD de un estilo asociado al dataset.
+
+        Este método sirve tanto para:
+          - **Visualizar** el SLD directamente (XML en la respuesta)
+          - **Descargar** el SLD como archivo `.sld` (si `?download=true` o si el nombre termina en `.sld` (esta última forma aun funciona correctamente))
+
+        Descripción detallada
+        ---------------------
+        1. Valida que el dataset exista.
+        2. Construye el nombre simple del estilo removiendo la extensión `.sld` en caso de descarga.
+        3. Consulta GeoServer para obtener la lista real de estilos asociados al layer:
+             - `/rest/layers/<layer>/styles.json`
+             - Incluye estilos adicionales y también el `defaultStyle`.
+        4. Verifica que el estilo solicitado esté realmente asociado al dataset.
+        5. Intenta obtener el SLD desde:
+             a. `/rest/workspaces/<workspace>/styles/<name>.sld`
+             b. `/rest/styles/<name>.sld` (fallback)
+        6. Retorna:
+             - XML directo (visualización)
+             - O bien un archivo descargable (`Content-Disposition: attachment`) si se pidió descarga.
+
+        Parámetros
+        ----------
+        request : Request
+            La solicitud HTTP, usada también para leer el query param `download`.
+
+        dataset_pk : int
+            ID del dataset desde el cual se obtiene el estilo.
+
+        pk : str
+            Nombre del estilo solicitado. Puede venir como:
+            - `nombre`
+            - `nombre.sld` (modo descarga)
+
+        Respuestas
+        ----------
+        HTTP 200
+            - XML con el SLD (visualización)
+            - Archivo `.sld` si se solicitó descarga
+
+        HTTP 404
+            Si el estilo existe en GeoServer pero **no está asociado al dataset**.
+
+        HTTP 500
+            Si ocurre algún error inesperado al consultar GeoServer.
+
+        Ejemplos
+        --------
+        Obtener estilo:
+            GET /api/v2/datasets/12/sldstyles/estilo1/
+
+        Descargar estilo:
+            GET /api/v2/datasets/12/sldstyles/estilo1.sld
+
+            GET /api/v2/datasets/12/sldstyles/estilo1/?download=true
+
+        Notas
+        -----
+        - El método reconoce formas extendidas (`workspace:style`) y locales (`style`).
+        - Esta es la única operación que devuelve contenido SLD directamente.
         """
+
         dataset = self._get_dataset_or_404(dataset_pk)
         layer_name = dataset.alternate  # ej: geonode:immziszen_colonias
         workspace = layer_name.split(":")[0]  # ej: geonode
@@ -301,6 +515,62 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     # POST /api/v2/datasets/<id>/sldstyles/
     def create(self, request, dataset_pk=None):
+        """
+        Crea un nuevo estilo SLD en GeoServer y lo asocia al dataset.
+
+        Funcionalidad
+        -------------
+        Este endpoint permite subir un nuevo estilo SLD ya sea como:
+          - `sld_file` (archivo real)
+          - `sld_body` (cadena XML enviada en el body)
+
+        El nombre del estilo (`name`) es obligatorio.
+
+        Flujo interno
+        -------------
+        1. Verifica que el usuario tenga permisos de edición (`_check_edit_perm`).
+        2. Valida que se haya enviado **solo uno** de:
+             - `sld_file`
+             - `sld_body`
+        3. Crea la entrada del estilo en GeoServer mediante:
+             POST /rest/workspaces/<workspace>/styles
+        4. Sube el contenido SLD con:
+             PUT /rest/workspaces/<workspace>/styles/<name>
+        5. Asocia el estilo a la capa:
+             POST /rest/layers/<layer>/styles
+        6. Retorna un 201 si todo fue exitoso.
+
+        Parámetros
+        ----------
+        request : Request
+            Contiene:
+            - `name`: nombre del estilo (string, requerido)
+            - `sld_file`: archivo SLD (opcional)
+            - `sld_body`: contenido XML del SLD (opcional)
+
+        dataset_pk : int
+            ID del dataset cuyo layer recibirá el estilo.
+
+        Respuestas
+        ----------
+        HTTP 201
+            El estilo fue creado y asociado correctamente.
+
+        HTTP 400
+            - Falta `name`
+            - No se envió `sld_file` ni `sld_body`
+            - Se enviaron ambos al mismo tiempo (exclusión obligatoria)
+
+        HTTP 502
+            Si GeoServer rechaza la creación o asociación del estilo.
+
+        Notas
+        -----
+        - Este método no valida el contenido del SLD más allá de lo que GeoServer responde.
+        - Los estilos se crean siempre dentro del workspace del dataset.
+        - El nombre no debe llevar extensión `.sld`.
+        """
+
         dataset = self._get_dataset_or_404(dataset_pk)
         layer_name = dataset.alternate
         workspace = layer_name.split(":")[0]
@@ -432,9 +702,70 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     # PUT /api/v2/datasets/<id>/sldstyles/<style_name>/
     def update(self, request, dataset_pk=None, pk=None):
         """
-        Actualiza el contenido de un estilo SLD existente en GeoServer.
-        `pk` es el nombre del estilo.
+        Actualiza el contenido SLD de un estilo existente en GeoServer.
+
+        Funcionalidad
+        -------------
+        Este método reemplaza completamente el contenido del SLD asociado a un estilo.
+        Permite enviar el nuevo contenido de dos formas exclusivas:
+
+        - `sld_file`: archivo SLD real
+        - `sld_body`: contenido XML en texto plano
+
+        El nombre del estilo a actualizar se obtiene del parámetro `pk`.
+
+        Flujo interno
+        -------------
+        1. Verifica que el usuario tenga permisos para modificar estilos
+           mediante `_check_edit_perm`.
+
+        2. Asegura que se envíe **solo uno** de:
+             - `sld_file`
+             - `sld_body`
+
+        3. Comprueba que el estilo exista en GeoServer:
+             GET /rest/workspaces/<workspace>/styles/<name>.xml
+
+        4. Si existe, sube el nuevo contenido del SLD con:
+             PUT /rest/workspaces/<workspace>/styles/<name>
+
+        5. Responde con éxito o con el error devuelto por GeoServer.
+
+        Parámetros
+        ----------
+        request : Request
+            Contiene uno de:
+            - `sld_file` : archivo SLD
+            - `sld_body` : string XML
+
+        dataset_pk : int
+            ID del dataset al que pertenece el estilo.
+
+        pk : str
+            Nombre del estilo a actualizar (sin `.sld`).
+
+        Respuestas
+        ----------
+        HTTP 200
+            Estilo actualizado correctamente.
+
+        HTTP 400
+            - No se envió ningún contenido
+            - Se enviaron ambos (`sld_file` y `sld_body`)
+
+        HTTP 404
+            El estilo no existe en GeoServer.
+
+        HTTP 502
+            GeoServer rechazó el PUT del SLD.
+
+        Notas
+        -----
+        - No modifica la lista de estilos asociados ni el estilo por defecto.
+        - Solo reemplaza el archivo SLD.
+        - Debe usarse únicamente sobre estilos que ya existen.
         """
+
         dataset = self._get_dataset_or_404(dataset_pk)
         layer_name = dataset.alternate
         workspace = layer_name.split(":")[0]
@@ -527,6 +858,68 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
     # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>/
     def destroy(self, request, dataset_pk=None, pk=None):
+        """
+        Elimina un estilo SLD del dataset y de GeoServer de forma segura.
+
+        Este método realiza dos operaciones:
+        1. **Quita el estilo de la lista de estilos asociados al layer**
+           (modificando el `<styles>` del layer en modo extendido).
+        2. **Elimina el estilo en GeoServer** usando `purge=true`
+           para borrar también el archivo `.sld`.
+
+        Reglas importantes
+        ------------------
+        - **No permite eliminar el estilo por defecto del layer.**
+          Si el estilo solicitado es el default, la operación se cancela con error 400.
+
+        Flujo interno
+        -------------
+        1. Verifica que el usuario tenga permisos mediante `_check_edit_perm`.
+        2. Obtiene el XML del layer:
+             GET /rest/layers/<layer>.xml
+        3. Determina si el estilo solicitado:
+             - Está asociado
+             - Es estilo por defecto
+        4. Si está asociado y no es default:
+             - Se remueve del nodo `<styles>`
+             - PUT del layer actualizado
+        5. Finalmente elimina el estilo:
+             DELETE /rest/workspaces/<workspace>/styles/<name>?purge=true
+
+        Parámetros
+        ----------
+        request : Request
+            Solicitud HTTP.
+
+        dataset_pk : int
+            ID del dataset cuyo estilo se desea eliminar.
+
+        pk : str
+            Nombre del estilo (sin `workspace:`).
+
+        Respuestas
+        ----------
+        HTTP 200
+            Estilo eliminado correctamente.
+
+        HTTP 400
+            - Se intentó eliminar el estilo por defecto.
+            - El estilo no estaba asociado al layer.
+
+        HTTP 404
+            El estilo no existe en GeoServer (caso raro dado que primero se consulta el layer).
+
+        HTTP 502
+            - No se pudo actualizar el XML del layer.
+            - GeoServer rechazó el DELETE.
+
+        Notas
+        -----
+        - El método siempre elimina usando `purge=true`.
+        - Usa el formato extendido del layer, modificando explícitamente el XML.
+        - Esta operación no afecta estilos globales de otros workspaces.
+        """
+
         # pk es el nombre del estilo en la URL
         name = pk
 
@@ -657,10 +1050,69 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     @action(detail=False, methods=["post"], url_path="set-default")
     def set_default_style(self, request, dataset_pk=None):
         """
-        Cambia el estilo por defecto del layer.
-        Endpoint: POST /datasets/<id>/sldstyles/set-default/
-        Body: { "style": "custommex" }
+        Cambia el estilo por defecto del layer asociado al dataset.
+
+        Funcionalidad
+        -------------
+        Este endpoint establece un nuevo estilo SLD como estilo por defecto
+        (defaultStyle) del layer en GeoServer.
+
+        Reglas y validaciones
+        ---------------------
+        1. El estilo solicitado **debe estar asociado al layer**, ya sea como:
+             - estilo listado en `<styles>`
+             - o el actual estilo por defecto
+
+        2. Si el estilo solicitado no está asociado, se responde con error 400.
+
+        3. El método ajusta correctamente el XML del layer:
+             - Mueve el default anterior a `<styles>` si no estaba ahí
+             - Remueve el nuevo default de `<styles>` si estaba ahí
+             - Actualiza el nodo `<defaultStyle>`
+
+        Flujo interno
+        -------------
+        1. Verifica permisos con `_check_edit_perm`.
+        2. Obtiene el XML del layer:
+             GET /rest/layers/<layer>.xml
+        3. Construye el nombre extendido: `<workspace>:<estilo>`
+        4. Verifica que el estilo exista dentro del conjunto de estilos asociados.
+        5. Actualiza:
+             - `<styles>`
+             - `<defaultStyle>`
+        6. Envía el update por:
+             PUT /rest/layers/<layer>.xml
+
+        Parámetros
+        ----------
+        request : Request
+            Debe incluir:
+            {
+                "style": "<nombre_estilo>"
+            }
+
+        dataset_pk : int
+            ID del dataset cuyo estilo por defecto se modificará.
+
+        Respuestas
+        ----------
+        HTTP 200
+            Estilo por defecto actualizado correctamente.
+
+        HTTP 400
+            - No se envió `style` en el body.
+            - El estilo no está asociado al dataset.
+
+        HTTP 500
+            Error inesperado de GeoServer al actualizar el XML.
+
+        Notas
+        -----
+        - Esta operación **no crea ni elimina** estilos; solo cambia el default.
+        - El estilo solicitado debe existir previamente y estar asociado.
+        - Mantiene la estructura correcta del modo extendido de GeoServer.
         """
+
         style_name = request.data.get("style")
         if not style_name:
             return Response({"error": "Debe incluir 'style' en el body."}, status=400)
