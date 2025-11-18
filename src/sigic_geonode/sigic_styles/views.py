@@ -68,7 +68,6 @@ CreateUpdateStyleRequest = inline_serializer(
         responses={
             200: OpenApiResponse(
                 description="SLD obtenido correctamente",
-                content={"application/xml": {}}
             ),
             404: OpenApiResponse(description="Estilo no encontrado"),
         },
