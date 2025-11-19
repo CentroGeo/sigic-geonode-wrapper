@@ -12,21 +12,15 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-from django.urls import path
+
+from sigic_geonode.router import router
 
 from .views import DatasetKeywordsViewSet
 
-urlpatterns = [
-    path(
-        "api/v2/datasets/<int:dataset_pk>/keyword-tags/",
-        DatasetKeywordsViewSet.as_view(
-            {
-                "get": "list",
-                "post": "create",
-                "put": "update",
-                "delete": "destroy",
-            }
-        ),
-        name="dataset-keywords",
-    ),
-]
+urlpatterns = []
+
+router.register(
+    r"api/v2/datasets/(?P<dataset_pk>[^/.]+)/keywordtags",
+    DatasetKeywordsViewSet,
+    basename="datasets-keywords",
+)
