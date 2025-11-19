@@ -23,7 +23,7 @@ http {
     # TODO : do not use unencrypted connection even on LAN, but is it possible to have browser not complaining about unknown authority ?
     server {
         listen              80;
-        server_name         $HTTP_HOST 127.0.0.1;
+        server_name         $HTTP_HOST;
 
         include sites-enabled/*.conf;
     }
@@ -33,12 +33,18 @@ http {
         listen          80 default_server;
         listen          443;
         server_name     _;
-        return          444;
+        return          403;
     }
 
     map $http_authorization $http_authorization_upstream {
         default $http_authorization;
         ""      "";
+    }
+
+    # Manejo global del encabezado Connection según Upgrade
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      ''      close;
     }
 
 }

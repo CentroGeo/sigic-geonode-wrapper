@@ -165,10 +165,17 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # Add your specific LDAP configuration after this comment:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
+# Apps que deben cargarse ANTES (para monkeypatches)
+INSTALLED_APPS = (
+    "sigic_geonode.sigic_styles",  # ✔ SE EJECUTA ANTES QUE geonode.layers
+) + INSTALLED_APPS
+
+# Apps que no necesitan ejecutarse antes
 INSTALLED_APPS += (
     "sigic_geonode.sigic_auth",
     "sigic_geonode.sigic_resources",
     "sigic_geonode.sigic_datasets",
+    "sigic_geonode.sigic_ia_media_uploads",
 )
 
 MIDDLEWARE = [
@@ -190,7 +197,7 @@ SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
 )
 SOCIALACCOUNT_ADAPTER = os.environ.get(
     "SOCIALACCOUNT_ADAPTER",
-    "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter",
+    "sigic_geonode.sigic_auth.account_adapters.SigicSocialAccountAdapter",
 )
 SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
@@ -249,8 +256,6 @@ HARVESTER_TYPES = {
 SERVICES_TYPE_MODULES = [
     "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
-
-INSTALLED_APPS += ("sigic_geonode.sigic_ia_media_uploads",)
 
 CELERY_TASK_QUEUES += (
     Queue(
@@ -332,3 +337,5 @@ if env_allowed_types:
     ]
 else:
     ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
+
+DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")

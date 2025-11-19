@@ -52,20 +52,43 @@ if [ -z "${HTTP_SCHEME}" ]; then
 else
     # HTTP_SCHEME was defined externally
     if [ "$HTTP_SCHEME" = "https" ]; then
-        if [ -z "${HTTPS_HOST}" ]; then
-            if [ "$HTTPS_PORT" = "443" ]; then
-                PUBLIC_HOST="${HTTP_HOST}"
-            else
-                PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
-            fi
-        fi
-    else
-        if [ "$HTTP_PORT" = "80" ]; then
-            PUBLIC_HOST="${HTTP_HOST}"
+      if [ -n "${HTTPS_HOST}" ]; then
+        if [ -z "${HTTPS_PORT}" ] || [ "$HTTPS_PORT" = "443" ]; then
+          PUBLIC_HOST="${HTTPS_HOST}"
         else
-            PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT:-80}"
+          PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT}"
         fi
+      else
+        # fallback si no hay HTTPS_HOST
+        if [ -z "${HTTP_HOST}" ]; then
+          echo "ERROR: neither HTTPS_HOST nor HTTP_HOST is set"; exit 1
+        fi
+        if [ -z "${HTTP_PORT}" ] || [ "$HTTP_PORT" = "80" ]; then
+          PUBLIC_HOST="${HTTP_HOST}"
+        else
+          PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT}"
+        fi
+      fi
+    else
+      # http
+      if [ -z "${HTTP_HOST}" ]; then
+        echo "ERROR: HTTP_HOST is not set"; exit 1
+      fi
+      if [ -z "${HTTP_PORT}" ] || [ "$HTTP_PORT" = "80" ]; then
+        PUBLIC_HOST="${HTTP_HOST}"
+      else
+        PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT}"
+      fi
     fi
+fi
+
+# Default final si por alguna razón aún no quedó seteado
+if [ -z "${PUBLIC_HOST}" ]; then
+  if [ -n "${HTTPS_HOST}" ]; then
+    PUBLIC_HOST="${HTTPS_HOST}${HTTPS_PORT:+:${HTTPS_PORT}}"
+  else
+    PUBLIC_HOST="${HTTP_HOST}${HTTP_PORT:+:${HTTP_PORT}}"
+  fi
 fi
 
 export HTTP_SCHEME=${HTTP_SCHEME:-http}
