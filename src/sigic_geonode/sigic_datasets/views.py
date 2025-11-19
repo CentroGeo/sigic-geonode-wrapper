@@ -13,6 +13,7 @@
 # ==============================================================================
 
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, extend_schema
 from geonode.layers.models import Dataset
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
@@ -75,7 +76,7 @@ class DatasetKeywordsViewSet(ViewSet):
 
     @extend_schema(
         summary="Obtiene los keywords del dataset",
-        responses={200: list[str]},
+        responses={200: OpenApiTypes.ARRAY},
         description="Devuelve la lista de keywords asociados al dataset.",
     )
     def list(self, request, dataset_pk=None):
@@ -90,8 +91,8 @@ class DatasetKeywordsViewSet(ViewSet):
 
     @extend_schema(
         summary="Agrega keywords al dataset",
-        request=list[str],
-        responses={200: list[str]},
+        request={"type": "array", "items": {"type": "string"}},
+        responses={200: OpenApiTypes.ARRAY},
         examples=[OpenApiExample("Agregar etiquetas", value=["bosque", "eudr"])],
     )
     def create(self, request, dataset_pk=None):
@@ -114,8 +115,8 @@ class DatasetKeywordsViewSet(ViewSet):
     @extend_schema(
         summary="Reemplaza todos los keywords del dataset",
         description="Sobrescribe completamente el conjunto de keywords.",
-        request=list[str],
-        responses={200: list[str]},
+        request={"type": "array", "items": {"type": "string"}},
+        responses={200: OpenApiTypes.ARRAY},
     )
     def update(self, request, dataset_pk=None):
         """
@@ -134,8 +135,8 @@ class DatasetKeywordsViewSet(ViewSet):
     @extend_schema(
         summary="Elimina la asociación con keywords del dataset",
         description="No elimina los keywords globales, solo la relación.",
-        request=list[str],
-        responses={200: list[str]},
+        request={"type": "array", "items": {"type": "string"}},
+        responses={200: OpenApiTypes.ARRAY},
     )
     def destroy(self, request, dataset_pk=None):
         """
