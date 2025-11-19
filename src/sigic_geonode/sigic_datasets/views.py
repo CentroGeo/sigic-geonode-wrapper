@@ -76,7 +76,8 @@ class DatasetKeywordsViewSet(ViewSet):
 
     @extend_schema(
         summary="Obtiene los keywords del dataset",
-        responses={200: OpenApiTypes.ARRAY},
+        responses={200: OpenApiTypes.STR},
+        many=True,
         description="Devuelve la lista de keywords asociados al dataset.",
     )
     def list(self, request, dataset_pk=None):
@@ -92,7 +93,8 @@ class DatasetKeywordsViewSet(ViewSet):
     @extend_schema(
         summary="Agrega keywords al dataset",
         request={"type": "array", "items": {"type": "string"}},
-        responses={200: OpenApiTypes.ARRAY},
+        responses={200: OpenApiTypes.STR},
+        many=True,
         examples=[OpenApiExample("Agregar etiquetas", value=["bosque", "eudr"])],
     )
     def create(self, request, dataset_pk=None):
@@ -116,7 +118,8 @@ class DatasetKeywordsViewSet(ViewSet):
         summary="Reemplaza todos los keywords del dataset",
         description="Sobrescribe completamente el conjunto de keywords.",
         request={"type": "array", "items": {"type": "string"}},
-        responses={200: OpenApiTypes.ARRAY},
+        responses={200: OpenApiTypes.STR},
+        many=True,
     )
     def update(self, request, dataset_pk=None):
         """
@@ -136,7 +139,8 @@ class DatasetKeywordsViewSet(ViewSet):
         summary="Elimina la asociación con keywords del dataset",
         description="No elimina los keywords globales, solo la relación.",
         request={"type": "array", "items": {"type": "string"}},
-        responses={200: OpenApiTypes.ARRAY},
+        responses={200: OpenApiTypes.STR},
+        many=True,
     )
     def destroy(self, request, dataset_pk=None):
         """
