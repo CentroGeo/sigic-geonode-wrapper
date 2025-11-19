@@ -18,7 +18,7 @@ from .views import DatasetKeywordsViewSet
 
 urlpatterns = [
     path(
-        "api/v2/datasets/<int:dataset_pk>/keywords/",
+        "api/v2/datasets/<int:dataset_pk>/keyword-tags/",
         DatasetKeywordsViewSet.as_view(
             {
                 "get": "list",
