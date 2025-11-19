@@ -9,5 +9,4 @@ RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git \
     && make \
     && make install \
     && cd .. \
-    && rm -rf pgvector \
-    && sh -c
+    && rm -rf pgvector
