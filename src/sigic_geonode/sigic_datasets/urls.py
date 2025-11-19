@@ -12,13 +12,21 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-from sigic_geonode.router import router
-from sigic_geonode.sigic_styles.views import SigicDatasetSLDStyleViewSet
+from django.urls import path
 
-urlpatterns = []
+from .views import DatasetKeywordsViewSet
 
-router.register(
-    r"api/v2/datasets/(?P<dataset_pk>[^/.]+)/sldstyles",
-    SigicDatasetSLDStyleViewSet,
-    basename="datasets-sldstyles",
-)
+urlpatterns = [
+    path(
+        "api/v2/datasets/<int:dataset_pk>/keywords/",
+        DatasetKeywordsViewSet.as_view(
+            {
+                "get": "list",
+                "post": "create",
+                "put": "update",
+                "delete": "destroy",
+            }
+        ),
+        name="dataset-keywords",
+    ),
+]
