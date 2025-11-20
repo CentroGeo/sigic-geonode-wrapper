@@ -209,38 +209,10 @@ class DatasetKeywordsViewSet(ViewSet):
 
         return Response(list(ds.keywords.names()))
 
-    @extend_schema(
-        summary="Reemplaza todos los keywords del dataset",
-        description="Sobrescribe completamente el conjunto de keywords. "
-        "Recibe una lista JSON de cadenas, igual que POST.",
-        request={"application/json": {"type": "array", "items": {"type": "string"}}},
-        responses={
-            200: {"application/json": {"type": "array", "items": {"type": "string"}}}
-        },
-    )
-    def update(self, request, dataset_pk=None):
-        """
-        Reemplaza TODOS los keywords del dataset por los proporcionados en el cuerpo.
-        El cuerpo debe ser una lista JSON de cadenas.
-        """
-        ds = self._get_dataset(dataset_pk)
-        self._check_edit_perm(ds, request.user)
-
-        data = request.data
-
-        if not isinstance(data, list):
-            return Response(
-                {"error": "El cuerpo debe ser una lista JSON de cadenas."}, status=400
-            )
-
-        ds.keywords.set(data)
-
-        return Response(list(ds.keywords.names()))
-
     @action(
-        detail=True,
+        detail=False,
         methods=["delete"],
-        url_path=r"(?P<keyword>[^/]+)",
+        url_path=r"(?P<keyword>[^/]+)/delete",
     )
     @extend_schema(
         summary="Elimina un keyword específico del dataset",
