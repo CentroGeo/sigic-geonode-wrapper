@@ -145,5 +145,4 @@ Esto permite:
 ✔ Un NGINX / Traefik / OpenResty pueda hacer authz solo con claims
 ✔ Tu IA pueda tomar decisiones basadas en roles
 ✔ No tocar la BD en cada request
-
 */
