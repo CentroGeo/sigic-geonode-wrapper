@@ -10,7 +10,8 @@
 #    pertenece a CentroGeo conforme a obra por encargo.
 #
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
-# ==============================================================================
+# =============================================================================
+
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiExample, extend_schema

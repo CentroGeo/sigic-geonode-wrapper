@@ -12,7 +12,6 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-
 from sigic_geonode.router import router
 
 from .views import DatasetKeywordsViewSet
