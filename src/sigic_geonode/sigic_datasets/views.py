@@ -27,7 +27,7 @@ class DatasetKeywordsViewSet(ViewSet):
     Gestiona los *keywords* (etiquetas) asociados a un Dataset de GeoNode.
 
     Este ViewSet proporciona un endpoint estable y desacoplado del
-    serializador interno de GeoNode. Permite consultar, agregar, reemplazar
+    serializer interno de GeoNode. Permite consultar, agregar, reemplazar
     o eliminar *keywords* sin pasar por DynamicRest ni por el
     ResourceBaseSerializer, evitando errores de parseo y problemas en PATCH.
 
