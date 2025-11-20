@@ -213,7 +213,7 @@ class DatasetKeywordsViewSet(ViewSet):
     @action(
         detail=False,
         methods=["delete"],
-        url_path=r"(?P<keyword>[^/]+)/delete",
+        url_path=r"(?P<keyword>[^/]+)",
     )
     @extend_schema(
         summary="Elimina un keyword específico del dataset",
