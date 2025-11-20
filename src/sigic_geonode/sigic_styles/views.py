@@ -12,31 +12,30 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-import os
-from geonode.layers.api.views import DatasetViewSet
-from rest_framework.viewsets import ViewSet
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.http import HttpResponse
-from django.conf import settings
-from rest_framework.exceptions import NotFound
-import requests
-import json
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.exceptions import PermissionDenied, NotFound
-from geonode.layers.models import Dataset
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework import status as drf_status
+# import json
+# import os
 import xml.etree.ElementTree as ET
-from drf_spectacular.utils import (
+
+import requests
+from django.conf import settings
+from django.http import HttpResponse
+from drf_spectacular.utils import (  # OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
     extend_schema,
     extend_schema_view,
-    OpenApiResponse,
-    OpenApiExample,
-    OpenApiParameter,
     inline_serializer,
 )
+
+# from geonode.layers.api.views import DatasetViewSet
+from geonode.layers.models import Dataset
 from rest_framework import serializers
+from rest_framework import status as drf_status
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
+from rest_framework.viewsets import ViewSet
 
 ListStylesResponse = inline_serializer(
     name="ListSLDStylesResponse",
@@ -44,12 +43,11 @@ ListStylesResponse = inline_serializer(
         "layer": serializers.CharField(),
         "default_style": serializers.CharField(allow_null=True),
         "styles": serializers.ListField(child=serializers.CharField()),
-    }
+    },
 )
 
 SetDefaultRequest = inline_serializer(
-    name="SetDefaultSLDRequest",
-    fields={"style": serializers.CharField()}
+    name="SetDefaultSLDRequest", fields={"style": serializers.CharField()}
 )
 
 CreateUpdateStyleRequest = inline_serializer(
@@ -58,7 +56,7 @@ CreateUpdateStyleRequest = inline_serializer(
         "name": serializers.CharField(required=False),
         "sld_file": serializers.FileField(required=False),
         "sld_body": serializers.CharField(required=False),
-    }
+    },
 )
 
 
@@ -68,7 +66,6 @@ CreateUpdateStyleRequest = inline_serializer(
         responses={200: ListStylesResponse},
         tags=["SLD Styles"],
     ),
-
     retrieve=extend_schema(
         summary="Obtiene el SLD de un estilo asociado",
         parameters=[
@@ -87,7 +84,6 @@ CreateUpdateStyleRequest = inline_serializer(
         },
         tags=["SLD Styles"],
     ),
-
     create=extend_schema(
         summary="Crea un nuevo estilo y lo asocia al dataset",
         request=CreateUpdateStyleRequest,
@@ -98,7 +94,6 @@ CreateUpdateStyleRequest = inline_serializer(
         },
         tags=["SLD Styles"],
     ),
-
     update=extend_schema(
         summary="Actualiza el contenido (SLD) de un estilo existente",
         request=CreateUpdateStyleRequest,
@@ -108,7 +103,6 @@ CreateUpdateStyleRequest = inline_serializer(
         },
         tags=["SLD Styles"],
     ),
-
     destroy=extend_schema(
         summary="Elimina un estilo asociado al dataset",
         responses={
@@ -142,6 +136,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
     - Los estilos siempre se interpretan dentro del workspace derivado
       del dataset (p.ej. “geonode”).
     """
+
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     # -----------------------------
@@ -343,9 +338,18 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         r_styles.raise_for_status()
         styles_data = r_styles.json()
 
-        associated_styles = [
-            s["name"] for s in styles_data.get("styles", {}).get("style", [])
-        ]
+        styles = styles_data.get("styles", {})
+        if not isinstance(styles, dict):
+            styles = {}
+
+        style_items = styles.get("style", [])
+        if isinstance(style_items, dict):
+            style_items = [style_items]  # cuando viene un solo elemento
+
+        elif not isinstance(style_items, list):
+            style_items = []
+
+        associated_styles = [s.get("name") for s in style_items if isinstance(s, dict)]
 
         # --- 2. Estilo por defecto ---
         url_layer = f"{gs_url}/rest/layers/{layer_name}.json"
@@ -353,21 +357,19 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         r_layer.raise_for_status()
         layer_data = r_layer.json()
 
-        default_style = (
-            layer_data.get("layer", {})
-            .get("defaultStyle", {})
-            .get("name")
-        )
+        default_style = layer_data.get("layer", {}).get("defaultStyle", {}).get("name")
 
         # Normalizar workspace:name → name
         if default_style and ":" in default_style:
             default_style = default_style.split(":")[-1]
 
-        return Response({
-            "layer": layer_name,
-            "default_style": default_style,
-            "styles": associated_styles,
-        })
+        return Response(
+            {
+                "layer": layer_name,
+                "default_style": default_style,
+                "styles": associated_styles,
+            }
+        )
 
     # GET /api/v2/datasets/<id>/sldstyles/<style_name>/
     def retrieve(self, request, dataset_pk=None, pk=None):
@@ -376,7 +378,8 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
         Este método sirve tanto para:
           - **Visualizar** el SLD directamente (XML en la respuesta)
-          - **Descargar** el SLD como archivo `.sld` (si `?download=true` o si el nombre termina en `.sld` (esta última forma aun funciona correctamente))
+          - **Descargar** el SLD como archivo `.sld` (si `?download=true` o si el nombre termina en `.sld`
+          (esta última forma aun funciona correctamente))
 
         Descripción detallada
         ---------------------
@@ -446,18 +449,23 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         # 1. Normalizar nombre solicitado
         # -------------------------------------------
         requested = pk  # pk viene de la URL
-        is_download = request.query_params.get("download") in ("1", "true", "yes") or requested.endswith(".sld")
+        is_download = request.query_params.get("download") in (
+            "1",
+            "true",
+            "yes",
+        ) or requested.endswith(".sld")
         clean_name = requested[:-4] if is_download else requested  # "acatic3"
 
         # -------------------------------------------
         # 2. Obtener estilos asociados del layer
         # -------------------------------------------
         r_styles = requests.get(
-            f"{gs_url}/rest/layers/{layer_name}/styles.json",
-            auth=auth
+            f"{gs_url}/rest/layers/{layer_name}/styles.json", auth=auth
         )
         if r_styles.status_code != 200:
-            return Response({"detail": "Error consultando estilos en GeoServer"}, status=500)
+            return Response(
+                {"detail": "Error consultando estilos en GeoServer"}, status=500
+            )
 
         styles = r_styles.json().get("styles", {}).get("style", [])
         associated = set()
@@ -471,16 +479,10 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                 associated.add(name.split(":", 1)[1])  # forma local "acatic3"
 
         # También incluir defaultStyle
-        r_layer = requests.get(
-            f"{gs_url}/rest/layers/{layer_name}.json",
-            auth=auth
-        )
+        r_layer = requests.get(f"{gs_url}/rest/layers/{layer_name}.json", auth=auth)
         if r_layer.status_code == 200:
             default_name = (
-                r_layer.json()
-                .get("layer", {})
-                .get("defaultStyle", {})
-                .get("name")
+                r_layer.json().get("layer", {}).get("defaultStyle", {}).get("name")
             )
             if default_name:
                 associated.add(default_name)
@@ -493,7 +495,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if clean_name not in associated:
             return Response(
                 {"detail": f"El estilo '{clean_name}' no está asociado a este dataset"},
-                status=404
+                status=404,
             )
 
         # -------------------------------------------
@@ -507,7 +509,10 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             r = requests.get(global_url, auth=auth)
 
         if r.status_code == 404:
-            return Response({"detail": f"El estilo '{clean_name}' no existe en GeoServer"}, status=404)
+            return Response(
+                {"detail": f"El estilo '{clean_name}' no existe en GeoServer"},
+                status=404,
+            )
 
         if r.status_code != 200:
             return Response({"detail": "Error obteniendo SLD de GeoServer"}, status=500)
@@ -600,19 +605,19 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if sld_file and sld_body:
             return Response(
                 {"error": "Debes enviar *solo uno* de: 'sld_file' o 'sld_body'."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         if not sld_file and not sld_body:
             return Response(
                 {"error": "Debes enviar 'sld_file' (SLD) o 'sld_body' (cuerpo XML)."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         if not name:
             return Response(
                 {"error": "Falta el parámetro obligatorio 'name'."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
@@ -796,13 +801,13 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if sld_file and sld_body:
             return Response(
                 {"error": "Debes enviar *solo uno* de: 'sld_file' o 'sld_body'."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         if not sld_file and not sld_body:
             return Response(
                 {"error": "Debes enviar 'sld_file' (SLD) o 'sld_body' (cuerpo XML)."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         # ---------------------------------------------
@@ -958,10 +963,12 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
         if r_get.status_code != 200:
             return Response(
-                {"error": "No se pudo obtener el layer para actualizar estilos",
-                 "gs_status": r_get.status_code,
-                 "gs_response": r_get.text},
-                status=drf_status.HTTP_502_BAD_GATEWAY
+                {
+                    "error": "No se pudo obtener el layer para actualizar estilos",
+                    "gs_status": r_get.status_code,
+                    "gs_response": r_get.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
             )
 
         tree = ET.fromstring(r_get.text)
@@ -970,8 +977,10 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         default_style = tree.find("./defaultStyle/name")
         if default_style is not None and default_style.text == full_style_name:
             return Response(
-                {"error": "No se puede eliminar un estilo que es el estilo por defecto."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                {
+                    "error": "No se puede eliminar un estilo que es el estilo por defecto."
+                },
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         # 3. Extraer estilos existentes
@@ -979,7 +988,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if styles_node is None:
             return Response(
                 {"error": "El nodo <styles> no existe en el layer."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         # 4. Quitar el estilo (extended mode)
@@ -994,7 +1003,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if not removed:
             return Response(
                 {"error": f"El estilo '{full_style_name}' no está asociado a la capa."},
-                status=drf_status.HTTP_400_BAD_REQUEST
+                status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         # 5. PUT del layer actualizado
@@ -1003,7 +1012,7 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             url_layer,
             data=final_xml,
             auth=auth,
-            headers={"Content-Type": "application/xml"}
+            headers={"Content-Type": "application/xml"},
         )
 
         if r_put.status_code not in (200, 201):
@@ -1054,8 +1063,8 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                     fields={
                         "message": serializers.CharField(),
                         "default": serializers.CharField(),
-                    }
-                )
+                    },
+                ),
             ),
             400: OpenApiResponse(description="El estilo no está asociado"),
         },
@@ -1155,7 +1164,9 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
         # default actual
         current_default = tree.find("./defaultStyle/name")
-        current_default_name = current_default.text if current_default is not None else None
+        current_default_name = (
+            current_default.text if current_default is not None else None
+        )
 
         # styles asociados
         styles_node = tree.find("./styles")
