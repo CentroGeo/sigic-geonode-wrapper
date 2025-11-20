@@ -1,19 +1,37 @@
-# src/sigic_geonode/sigic_auth/views.py
-
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
-from rest_framework.response import Response
+# ==============================================================================
+#  SIGIC – Sistema Integral de Gestión e Información Científica
+#
+#  Autor: César Benjamín (cesarbenjamin.net)
+#  Derechos patrimoniales: CentroGeo (2025)
+#
+#  Nota:
+#    Este código fue desarrollado para el proyecto SIGIC de
+#    CentroGeo. Se mantiene crédito de autoría, pero la titularidad del código
+#    pertenece a CentroGeo conforme a obra por encargo.
+#
+#  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
+# ==============================================================================
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.shortcuts import redirect
+from django.utils import timezone
+from rest_framework import generics, permissions, views, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from .models import SigicGroup, SigicRole, UserGroupRole
-from .serializers import (
+from .emails import send_invitation_email
+from .models import SigicGroup, SigicRole, UserGroupRole, UserInvitation
+from .permissions import IsGroupAdmin
+from .serializers import (  # UserGroupRoleNestedSerializer,
     SigicGroupSerializer,
     SigicRoleSerializer,
     UserGroupRoleSerializer,
-    UserGroupRoleNestedSerializer, UserInvitationCreateSerializer,
+    UserInvitationCreateSerializer,
 )
-from .permissions import IsGroupAdmin
-from rest_framework.permissions import IsAuthenticated, OR
+
+# src/sigic_geonode/sigic_auth/views.py
+
 
 User = get_user_model()
 
@@ -72,10 +90,11 @@ class UserGroupRoleByUserViewSet(viewsets.ViewSet):
         return Response({"groups": data})
 
 
-class MyGroupRolesView(views.APIView):
+class MyGroupRolesView(views.views.APIView):
     """
     Devuelve los roles del usuario autenticado basados en el token OIDC.
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -90,11 +109,12 @@ class MyGroupRolesView(views.APIView):
         return Response({"groups": data})
 
 
-class UserGroupRolesByEmailView(views.APIView):
+class UserGroupRolesByEmailView(views.views.APIView):
     """
     Devuelve los roles por grupo de un usuario específico, buscado por email.
     Para uso de administradores o admin de grupo.
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, email):
@@ -110,33 +130,26 @@ class UserGroupRolesByEmailView(views.APIView):
         else:
             # Filtrar SOLO por los grupos donde request.user es admin
             admin_groups = UserGroupRole.objects.filter(
-                user=request.user,
-                role__name="admin"
+                user=request.user, role__name="admin"
             ).values_list("group_id", flat=True)
 
-            qset = UserGroupRole.objects.filter(
-                user=target,
-                group_id__in=admin_groups
-            )
+            qset = UserGroupRole.objects.filter(user=target, group_id__in=admin_groups)
 
         data = {}
         for ugr in qset:
             group = ugr.group.name
             data.setdefault(group, []).append(ugr.role.name)
 
-        return Response({
-            "email": email,
-            "groups": data
-        })
+        return Response({"email": email, "groups": data})
 
 
-class UserInvitationAcceptView(generics.GenericAPIView):
+class UserInvitationAcceptView(generics.Genericviews.APIView):
     permission_classes = []
 
     def get(self, request, token):
         try:
-            invitation = Invitation.objects.get(token=token)
-        except Invitation.DoesNotExist:
+            invitation = UserInvitation.objects.get(token=token)
+        except UserInvitation.DoesNotExist:
             return Response({"detail": "Invalid invitation."}, status=404)
 
         if invitation.is_expired():
@@ -173,7 +186,7 @@ class UserInvitationAcceptView(generics.GenericAPIView):
             return redirect(kc_register)
 
 
-class UserInvitationCallbackView(generics.GenericAPIView):
+class UserInvitationCallbackView(generics.Genericviews.APIView):
     permission_classes = []
 
     def get(self, request):
@@ -182,8 +195,8 @@ class UserInvitationCallbackView(generics.GenericAPIView):
             return Response({"detail": "Missing token."}, status=400)
 
         try:
-            invitation = Invitation.objects.get(token=token)
-        except Invitation.DoesNotExist:
+            invitation = UserInvitation.objects.get(token=token)
+        except UserInvitation.DoesNotExist:
             return Response({"detail": "Invalid invitation."}, status=404)
 
         if invitation.is_expired():
@@ -207,8 +220,8 @@ class UserInvitationCallbackView(generics.GenericAPIView):
         return Response({"detail": "Invitación completada. Roles asignados."})
 
 
-class UserInvitationCreateView(generics.CreateAPIView):
-    serializer_class = InvitationCreateSerializer
+class UserInvitationCreateView(generics.Createviews.APIView):
+    serializer_class = UserInvitationCreateSerializer
     permission_classes = [IsAuthenticated & (IsGroupAdmin | IsAuthenticated)]
     # Aclaración:
     # - superuser pasa con IsAuthenticated
@@ -220,7 +233,7 @@ class UserInvitationCreateView(generics.CreateAPIView):
         send_invitation_email(invitation)
 
 
-class AssignRolesToUserView(APIView):
+class AssignRolesToUserView(views.APIView):
     permission_classes = [IsAuthenticated, IsGroupAdmin]
 
     def post(self, request, group_id):
@@ -243,16 +256,12 @@ class AssignRolesToUserView(APIView):
             except SigicRole.DoesNotExist:
                 return Response({"detail": f"Role {role_name} no existe"}, status=400)
 
-            UserGroupRole.objects.get_or_create(
-                user=user,
-                group=group,
-                role=role
-            )
+            UserGroupRole.objects.get_or_create(user=user, group=group, role=role)
 
         return Response({"detail": "Roles asignados"})
 
 
-class RemoveRoleFromUserView(APIView):
+class RemoveRoleFromUserView(views.APIView):
     permission_classes = [IsAuthenticated, IsGroupAdmin]
 
     def delete(self, request, group_id):
@@ -262,10 +271,6 @@ class RemoveRoleFromUserView(APIView):
         user = User.objects.get(email=email)
         role = SigicRole.objects.get(name=role_name)
 
-        UserGroupRole.objects.filter(
-            user=user,
-            group_id=group_id,
-            role=role
-        ).delete()
+        UserGroupRole.objects.filter(user=user, group_id=group_id, role=role).delete()
 
         return Response({"detail": "Rol revocado"})

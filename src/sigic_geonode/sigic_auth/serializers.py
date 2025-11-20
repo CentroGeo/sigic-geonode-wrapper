@@ -1,7 +1,21 @@
+# ==============================================================================
+#  SIGIC – Sistema Integral de Gestión e Información Científica
+#
+#  Autor: César Benjamín (cesarbenjamin.net)
+#  Derechos patrimoniales: CentroGeo (2025)
+#
+#  Nota:
+#    Este código fue desarrollado para el proyecto SIGIC de
+#    CentroGeo. Se mantiene crédito de autoría, pero la titularidad del código
+#    pertenece a CentroGeo conforme a obra por encargo.
+#
+#  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
+# ==============================================================================
+
 # src/sigic_geonode/sigic_auth/serializers.py
 
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
 from .models import SigicGroup, SigicRole, UserGroupRole, UserInvitation
 
@@ -54,4 +68,3 @@ class UserInvitationCreateSerializer(serializers.ModelSerializer):
         invitation = UserInvitation.objects.create(**validated_data)
         invitation.roles.set(roles)
         return invitation
-

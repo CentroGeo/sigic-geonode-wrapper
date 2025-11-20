@@ -1,7 +1,22 @@
+# ==============================================================================
+#  SIGIC – Sistema Integral de Gestión e Información Científica
+#
+#  Autor: César Benjamín (cesarbenjamin.net)
+#  Derechos patrimoniales: CentroGeo (2025)
+#
+#  Nota:
+#    Este código fue desarrollado para el proyecto SIGIC de
+#    CentroGeo. Se mantiene crédito de autoría, pero la titularidad del código
+#    pertenece a CentroGeo conforme a obra por encargo.
+#
+#  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
+# ==============================================================================
+
 # src/sigic_geonode/sigic_auth/permissions.py
 
 from rest_framework.permissions import BasePermission
-from .models import UserGroupRole, SigicRole
+
+from .models import SigicRole, UserGroupRole
 
 
 class IsGroupAdmin(BasePermission):
@@ -21,9 +36,8 @@ class IsGroupAdmin(BasePermission):
         if user.is_superuser or user.is_staff:
             return True
 
-        group_id = (
-            request.data.get("group") or
-            getattr(view, "kwargs", {}).get("group_id")
+        group_id = request.data.get("group") or getattr(view, "kwargs", {}).get(
+            "group_id"
         )
 
         if not group_id:
@@ -35,7 +49,5 @@ class IsGroupAdmin(BasePermission):
             return False
 
         return UserGroupRole.objects.filter(
-            user=user,
-            group_id=group_id,
-            role=admin_role
+            user=user, group_id=group_id, role=admin_role
         ).exists()

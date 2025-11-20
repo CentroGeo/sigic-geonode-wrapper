@@ -1,8 +1,25 @@
+# ==============================================================================
+#  SIGIC – Sistema Integral de Gestión e Información Científica
+#
+#  Autor: César Benjamín (cesarbenjamin.net)
+#  Derechos patrimoniales: CentroGeo (2025)
+#
+#  Nota:
+#    Este código fue desarrollado para el proyecto SIGIC de
+#    CentroGeo. Se mantiene crédito de autoría, pero la titularidad del código
+#    pertenece a CentroGeo conforme a obra por encargo.
+#
+#  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
+# ==============================================================================
+
 # src/sigic_geonode/permissions/models.py
 
 import secrets
-from django.db import models
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.db import models
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -13,6 +30,7 @@ class SigicGroup(models.Model):
     No es un "grupo" de Django ni un "group" de Keycloak.
     Es un contenedor lógico multi-organización.
     """
+
     name = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True)
 
@@ -25,6 +43,7 @@ class SigicRole(models.Model):
     Roles globales: view, edit, admin, etc.
     No están ligados a grupos; son capacidades puras.
     """
+
     name = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
@@ -36,6 +55,7 @@ class UserGroupRole(models.Model):
     Relación contextual que define el permiso real:
     El usuario U tiene el rol R dentro del grupo G.
     """
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     group = models.ForeignKey(SigicGroup, on_delete=models.CASCADE)
     role = models.ForeignKey(SigicRole, on_delete=models.CASCADE)
@@ -54,6 +74,7 @@ class UserInvitation(models.Model):
     Invitación para un usuario a un grupo con cierto rol.
     Se maneja enteramente en SIGIC, NO en Keycloak.
     """
+
     email = models.EmailField()
     group = models.ForeignKey(SigicGroup, on_delete=models.CASCADE)
     roles = models.ManyToManyField(SigicRole)
@@ -61,8 +82,11 @@ class UserInvitation(models.Model):
     token = models.CharField(max_length=64, unique=True, editable=False)
     accepted = models.BooleanField(default=False)
     issued_by = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="issued_invitations"
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="issued_invitations",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
