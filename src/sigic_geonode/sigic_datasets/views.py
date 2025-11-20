@@ -247,7 +247,7 @@ class DatasetKeywordsViewSet(ViewSet):
         description="Elimina **solo la relación** entre el dataset y el keyword indicado.",
         responses={204: None},
     )
-    def delete_keyword(self, request, dataset_pk=None, keyword=None):
+    def delete_keyword(self, request, dataset_pk=None, pk=None):
         """
         Elimina la asociación de UN keyword específico del dataset.
         No elimina el keyword global, solo la relación.
@@ -255,6 +255,6 @@ class DatasetKeywordsViewSet(ViewSet):
         ds = self._get_dataset(dataset_pk)
         self._check_edit_perm(ds, request.user)
 
-        ds.keywords.remove(keyword)
+        ds.keywords.remove(pk)
 
         return Response(status=204)
