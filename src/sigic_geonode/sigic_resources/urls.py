@@ -6,7 +6,7 @@ from sigic_geonode.router import router
 from .views import SigicResourceBaseViewSet, SigicResourceShortViewSet
 
 router.register(
-    r"sigic-resources", SigicResourceBaseViewSet, basename="sigic-resources"
+    r"api/v2/sigic-resources", SigicResourceBaseViewSet, basename="sigic-resources"
 )
 router.register(
     r"api/v2/sigic-resources-short",
