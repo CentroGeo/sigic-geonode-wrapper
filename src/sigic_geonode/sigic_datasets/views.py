@@ -11,10 +11,11 @@
 #
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
-
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiExample, extend_schema
 from geonode.layers.models import Dataset
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
@@ -57,7 +58,7 @@ class DatasetKeywordsViewSet(ViewSet):
 
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def get_dataset(self, pk):
+    def _get_dataset(self, pk):
         """
         Obtiene el Dataset solicitado o lanza HTTP 404.
 
@@ -71,6 +72,99 @@ class DatasetKeywordsViewSet(ViewSet):
             Http404: Si no existe el dataset.
         """
         return get_object_or_404(Dataset, pk=pk)
+
+    def _check_view_perm(self, dataset, user):
+        """
+        Verifica si un usuario tiene permiso para *ver* el dataset.
+
+        Reglas aplicadas
+        ----------------
+        1. Si el dataset está publicado **y** aprobado (`is_published` + `is_approved`),
+           el acceso es público y se permite a cualquier usuario, autenticado o no.
+
+        2. Si el usuario está autenticado, se le permite el acceso únicamente si
+           posee el permiso `base.view_resourcebase` sobre el `resourcebase_ptr`
+           del dataset.
+
+        3. Si ninguna condición se cumple, se lanza `PermissionDenied`.
+
+        Parámetros
+        ----------
+        dataset : Dataset
+            El dataset cuyo acceso se está validando.
+
+        user : User
+            Usuario que realiza la solicitud.
+
+        Excepciones
+        -----------
+        PermissionDenied
+            Cuando el usuario no tiene permiso para acceder al recurso.
+
+        Notas
+        -----
+        Este método centraliza la lógica de lectura, alineándola con la forma en que
+        GeoNode maneja la visibilidad de los recursos.
+        """
+
+        # Caso 1: acceso público
+        if dataset.is_published and dataset.is_approved:
+            return
+
+        # Caso 2: usuario autenticado con permiso de lectura
+        if user and user.is_authenticated:
+            if user.has_perm("base.view_resourcebase", dataset.resourcebase_ptr):
+                return
+
+        raise PermissionDenied("You do not have permission to view this dataset.")
+
+    def _check_edit_perm(self, dataset, user):
+        """
+        Verifica si un usuario tiene permisos para modificar estilos del dataset.
+
+        Reglas aplicadas
+        ----------------
+        1. El usuario debe estar autenticado.
+           Si no lo está, se lanza inmediatamente `PermissionDenied`.
+
+        2. Si el usuario es `superuser`, se permite la edición sin más validaciones.
+
+        3. Para usuarios normales, solo se permite continuar si tienen el permiso
+           `base.change_layer_style` sobre el `resourcebase_ptr` del dataset.
+
+        Si ninguna condición se cumple, se lanza `PermissionDenied`.
+
+        Parámetros
+        ----------
+        dataset : Dataset
+            El dataset cuyo permiso de edición se está evaluando.
+
+        user : User
+            Usuario autenticado que realiza la solicitud.
+
+        Excepciones
+        -----------
+        PermissionDenied
+            Cuando el usuario no posee los permisos requeridos.
+
+        Notas
+        -----
+        - Este método define *quién puede modificar estilos SLD*, de forma coherente
+          con los permisos de GeoNode.
+        - Se usa en `create`, `update` y `destroy` de estilos SLD.
+        """
+
+        if not (user and user.is_authenticated):
+            raise PermissionDenied("Authentication required.")
+
+        # superuser → acceso total
+        if user.is_superuser:
+            return
+
+        if user.has_perm("base.change_layer_style", dataset.resourcebase_ptr):
+            return
+
+        raise PermissionDenied("You do not have permission to modify styles.")
 
     @extend_schema(
         summary="Obtiene los keywords del dataset",
@@ -86,7 +180,7 @@ class DatasetKeywordsViewSet(ViewSet):
         Returns:
             Response: Lista JSON con los nombres de los keywords.
         """
-        ds = self.get_dataset(dataset_pk)
+        ds = self._get_dataset(dataset_pk)
         return Response(list(ds.keywords.names()))
 
     @extend_schema(
@@ -107,7 +201,8 @@ class DatasetKeywordsViewSet(ViewSet):
         Returns:
             Response: Lista actualizada de keywords.
         """
-        ds = self.get_dataset(dataset_pk)
+        ds = self._get_dataset(dataset_pk)
+        self._check_edit_perm(ds, request.user)
 
         for kw in request.data:
             ds.keywords.add(kw)
@@ -132,32 +227,30 @@ class DatasetKeywordsViewSet(ViewSet):
         Returns:
             Response: Lista actualizada de keywords.
         """
-        ds = self.get_dataset(dataset_pk)
+        ds = self._get_dataset(dataset_pk)
+        self._check_edit_perm(ds, request.user)
+
         ds.keywords.set(request.data)
         return Response(list(ds.keywords.names()))
 
-    @extend_schema(
-        summary="Elimina la asociación con keywords del dataset",
-        description="No elimina los keywords globales, solo la relación.",
-        request={"application/json": {"type": "array", "items": {"type": "string"}}},
-        responses={
-            200: {"application/json": {"type": "array", "items": {"type": "string"}}}
-        },
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"(?P<keyword>[^/]+)",
     )
-    def destroy(self, request, dataset_pk=None):
+    @extend_schema(
+        summary="Elimina un keyword específico del dataset",
+        description="Elimina **solo la relación** entre el dataset y el keyword indicado.",
+        responses={204: None},
+    )
+    def delete_keyword(self, request, dataset_pk=None, keyword=None):
         """
-        Elimina la asociación entre el dataset y los keywords indicados.
-
-        Importante:
-            - No elimina los keywords globales.
-            - Solo elimina la relación con este dataset.
-
-        Returns:
-            Response: Lista actualizada de keywords.
+        Elimina la asociación de UN keyword específico del dataset.
+        No elimina el keyword global, solo la relación.
         """
-        ds = self.get_dataset(dataset_pk)
+        ds = self._get_dataset(dataset_pk)
+        self._check_edit_perm(ds, request.user)
 
-        for kw in request.data:
-            ds.keywords.remove(kw)
+        ds.keywords.remove(keyword)
 
-        return Response(list(ds.keywords.names()))
+        return Response(status=204)

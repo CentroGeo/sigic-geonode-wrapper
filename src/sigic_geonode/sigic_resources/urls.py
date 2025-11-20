@@ -1,5 +1,6 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from .views import SigicResourceBaseViewSet, SigicResourceShortViewSet
 
 router = DefaultRouter()
@@ -7,7 +8,7 @@ router.register(
     r"sigic-resources", SigicResourceBaseViewSet, basename="sigic-resources"
 )
 router.register(
-    r"sigic-resources-short",
+    r"api/v2/sigic-resources-short",
     SigicResourceShortViewSet,
     basename="sigic-resources-short",
 )
