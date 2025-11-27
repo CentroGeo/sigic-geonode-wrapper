@@ -12,14 +12,4 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-from sigic_geonode.router import router
-
-from .views import DatasetKeywordsViewSet
-
 urlpatterns = []
-
-router.register(
-    r"api/v2/datasets/(?P<dataset_pk>[^/.]+)/keywordtags",
-    DatasetKeywordsViewSet,
-    basename="datasets-keywords",
-)
