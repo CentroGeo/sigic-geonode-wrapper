@@ -23,7 +23,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
-from .filters import SigicFilters
+from .filters import MultiWordSearchFilter, SigicFilters, SigicOrderingFilter
 from .serializers import SigicResourceShortSerializer
 
 
@@ -42,6 +42,8 @@ class SigicResourceBaseViewSet(ResourceBaseViewSet):
 
     filter_backends = [
         SigicFilters,
+        MultiWordSearchFilter,
+        SigicOrderingFilter,
     ] + ResourceBaseViewSet.filter_backends
 
 
