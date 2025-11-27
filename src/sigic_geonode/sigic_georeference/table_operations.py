@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from sigic_geonode.celeryapp import sync_geoserver
-from sigic_geonode.sigic_helper.geodata_conn import connection
+from sigic_geonode.utils.geodata_conn import connection
 
 from .utils import get_dataset, get_name_from_ds
 
