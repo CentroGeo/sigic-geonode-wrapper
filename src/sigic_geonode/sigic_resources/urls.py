@@ -33,7 +33,7 @@ router.register(
 )
 
 router.register(
-    r"api/v2/datasets/(?P<dataset_pk>[^/.]+)/keywordtags",
+    r"api/v2/resources/(?P<resource_pk>[^/.]+)/keywordtags",
     ResourceKeywordTagViewSet,
-    basename="datasets-keywords",
+    basename="sigic-resources-keywords",
 )
