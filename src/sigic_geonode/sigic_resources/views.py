@@ -227,6 +227,10 @@ class ResourceKeywordTagViewSet(ViewSet):
 
         return Response(list(ds.keywords.names()))
 
+    @action(
+        detail=False,
+        methods=["put"],
+    )
     @extend_schema(
         summary="Reemplaza completamente los keywords del resource",
         request={"application/json": {"type": "array", "items": {"type": "string"}}},
@@ -235,7 +239,7 @@ class ResourceKeywordTagViewSet(ViewSet):
         },
         examples=[OpenApiExample("Reemplazo total", value=["bosque", "mexico"])],
     )
-    def update(self, request, resource_pk=None):
+    def update_keywords(self, request, resource_pk=None):
         """
         Reemplaza TODOS los keywords del resource con los enviados en la lista.
 
@@ -258,28 +262,6 @@ class ResourceKeywordTagViewSet(ViewSet):
             ds.keywords.add(kw)
 
         return Response(list(ds.keywords.names()))
-
-    @extend_schema(
-        summary="Elimina uno o varios keywords del resource",
-        description="Elimina **solo la relación** entre el resource y los keywords indicados.",
-        request={"application/json": {"type": "array", "items": {"type": "string"}}},
-        responses={204: None},
-    )
-    def destroy(self, request, resource_pk=None):
-        """
-        Elimina la relación con varios keywords al mismo tiempo.
-        No elimina los keywords globales.
-        """
-        ds = self._get_resource(resource_pk)
-        self._check_edit_perm(ds, request.user)
-
-        if not isinstance(request.data, list):
-            raise ValidationError("El cuerpo debe ser una lista de cadenas.")
-
-        for kw in request.data:
-            ds.keywords.remove(kw)
-
-        return Response(status=204)
 
     @action(
         detail=False,
