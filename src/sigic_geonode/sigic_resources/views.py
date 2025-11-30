@@ -185,81 +185,82 @@ class ResourceKeywordTagViewSet(ViewSet):
         raise PermissionDenied("You do not have permission to modify keywords.")
 
     @extend_schema(
+        methods=["get"],
         summary="Obtiene los keywords del resource",
         responses={
             200: {"application/json": {"type": "array", "items": {"type": "string"}}}
         },
         description="Devuelve la lista de keywords asociados al resource.",
     )
-    def list(self, request, resource_pk=None):
-        """
-        Lista todos los keywords asociados al resource.
-
-        Returns:
-            Response: Lista JSON con los nombres de los keywords.
-        """
-        ds = self._get_resource(resource_pk)
-        return Response(list(ds.keywords.names()))
-
     @extend_schema(
+        methods=["post"],
         summary="Agrega keywords al resource",
         request={"application/json": {"type": "array", "items": {"type": "string"}}},
         responses={
             200: {"application/json": {"type": "array", "items": {"type": "string"}}}
         },
-        examples=[OpenApiExample("Agregar etiquetas", value=["bosque", "morelia"])],
-    )
-    def create(self, request, resource_pk=None):
-        """
-        Agrega uno o varios keywords al resource sin eliminar los existentes.
-
-        El cuerpo debe ser una lista JSON de cadenas.
-        Los keywords inexistentes se crean automáticamente.
-
-        Returns:
-            Response: Lista actualizada de keywords.
-        """
-        ds = self._get_resource(resource_pk)
-        self._check_edit_perm(ds, request.user)
-
-        for kw in request.data:
-            ds.keywords.add(kw)
-
-        return Response(list(ds.keywords.names()))
-
-    @action(
-        detail=False,
-        methods=["put"],
+        examples=[
+            OpenApiExample("Agregar etiquetas", value=["bosque", "morelia"]),
+        ],
     )
     @extend_schema(
+        methods=["put"],
         summary="Reemplaza completamente los keywords del resource",
         request={"application/json": {"type": "array", "items": {"type": "string"}}},
         responses={
             200: {"application/json": {"type": "array", "items": {"type": "string"}}}
         },
-        examples=[OpenApiExample("Reemplazo total", value=["bosque", "mexico"])],
+        examples=[
+            OpenApiExample("Reemplazo total", value=["bosque", "mexico"]),
+        ],
     )
-    def update_keywords(self, request, resource_pk=None):
+    @action(
+        detail=False,  # o detail=True según cómo tengas el router
+        methods=["get", "post", "put"],
+        url_path="keywordtags",
+    )
+    def keywordtags(self, request, resource_pk=None):
         """
-        Reemplaza TODOS los keywords del resource con los enviados en la lista.
+        Gestión de keywords de un resource.
 
-        El cuerpo debe ser una lista JSON de cadenas.
+        - GET  → Lista todos los keywords asociados al resource.
+        - POST → Agrega uno o varios keywords sin eliminar los existentes,
+                 aunque sea solo una debe enviarse en forma de array.
+        - PUT  → Reemplaza TODOS los keywords con la lista enviada.
+
+        El cuerpo para POST y PUT debe ser una lista JSON de cadenas.
 
         Returns:
-            Response: Lista final de keywords.
+            Response: Lista JSON con los nombres finales de los keywords.
         """
         ds = self._get_resource(resource_pk)
+
+        # ============================================================
+        # GET → solo lectura, no requiere permiso de edición
+        # ============================================================
+        if request.method == "GET":
+            return Response(list(ds.keywords.names()))
+
+        # Para POST y PUT sí necesitas permiso de edición
         self._check_edit_perm(ds, request.user)
 
         if not isinstance(request.data, list):
             raise ValidationError("El cuerpo debe ser una lista de cadenas.")
 
-        # Limpieza total
-        ds.keywords.set([])
+        # ============================================================
+        # POST → Agregar sin borrar
+        # ============================================================
+        if request.method == "POST":
+            for kw in request.data:
+                ds.keywords.add(kw)
 
-        # Agregar los nuevos
-        for kw in request.data:
-            ds.keywords.add(kw)
+        # ============================================================
+        # PUT → Reemplazo total
+        # ============================================================
+        elif request.method == "PUT":
+            ds.keywords.set([])  # limpia todo
+            for kw in request.data:
+                ds.keywords.add(kw)
 
         return Response(list(ds.keywords.names()))
 
