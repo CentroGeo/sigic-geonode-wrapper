@@ -19,7 +19,7 @@ from drf_spectacular.utils import OpenApiExample, extend_schema
 from geonode.base.api.views import ResourceBaseViewSet
 from geonode.base.models import ResourceBase
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
@@ -91,7 +91,10 @@ class ResourceKeywordTagViewSet(ViewSet):
         - No modifica vocabularios ni tesauros; únicamente relaciones del resource.
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    def get_permissions(self):
+        if self.action == "list":
+            return [AllowAny()]
+        return super().get_permissions()
 
     # ======================================================================
     # Helpers internos
@@ -152,7 +155,7 @@ class ResourceKeywordTagViewSet(ViewSet):
 
         # Caso 2: usuario autenticado con permiso de lectura
         if user and user.is_authenticated:
-            if user.has_perm("base.view_resourcebase", resource.resourcebase_ptr):
+            if user.has_perm("base.view_resourcebase", resource):
                 return
 
         raise PermissionDenied("You do not have permission to view this resource.")
@@ -248,27 +251,21 @@ class ResourceKeywordTagViewSet(ViewSet):
 
         return Response(list(ds.keywords.names()))
 
-    # -----------------------------------------------------
-    # PUT → /keywordtags/
-    # -----------------------------------------------------
+    # ======================================================================
+    # POST → remplazar keywords por una coleccion nueva
+    # ======================================================================
+
     @extend_schema(
         summary="Reemplaza completamente los keywords del resource",
         request={"application/json": {"type": "array", "items": {"type": "string"}}},
         responses={
             200: {"application/json": {"type": "array", "items": {"type": "string"}}}
         },
-        examples=[
-            OpenApiExample("Reemplazo total", value=["bosque", "mexico"]),
-        ],
+        examples=[OpenApiExample("Reemplazo total", value=["bosque", "mexico"])],
     )
-    def update(self, request, resource_pk=None):
+    def replace_keywords(self, request, resource_pk=None):
         """
         Reemplaza TODOS los keywords del resource con los enviados en la lista.
-
-        El cuerpo debe ser una lista JSON de cadenas.
-
-        Returns:
-            Response: Lista final de keywords.
         """
         ds = self._get_resource(resource_pk)
         self._check_edit_perm(ds, request.user)
@@ -276,12 +273,7 @@ class ResourceKeywordTagViewSet(ViewSet):
         if not isinstance(request.data, list):
             raise ValidationError("El cuerpo debe ser una lista de cadenas.")
 
-        # Limpieza total
-        ds.keywords.set([])
-
-        # Agregar los nuevos
-        for kw in request.data:
-            ds.keywords.add(kw)
+        ds.keywords.set(request.data)
 
         return Response(list(ds.keywords.names()))
 
