@@ -19,7 +19,7 @@ from drf_spectacular.utils import OpenApiExample, extend_schema
 from geonode.base.api.views import ResourceBaseViewSet
 from geonode.base.models import ResourceBase
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
@@ -30,8 +30,8 @@ from .serializers import SigicResourceShortSerializer
 class SigicResourceBaseViewSet(ResourceBaseViewSet):
     """
     Extiende ResourceBaseViewSet con filtros personalizados Sigic. En esta clase se
-    mantienen los backends nativos de Geonode  y los personalizados, en los cuales
-    es importantes saber:
+    mantienen los backends nativos de Geonode y los personalizados, en los cuales
+    es importante saber:
     - En el SigicFilters usamos `pop()` para consumir únicamente nuestros filtros
     custom (institution, year, has_geometry, extension).
     - Esto evita que DynamicFilterBackend intente procesarlos y marque error:
@@ -61,7 +61,7 @@ class ResourceKeywordTagViewSet(ViewSet):
     Gestiona los *keywords* (etiquetas) asociados a un ResourceBase de GeoNode.
 
     Este ViewSet proporciona un endpoint estable y desacoplado del
-    serializador interno de GeoNode. Permite consultar, agregar, reemplazar
+    serializer interno de GeoNode. Permite consultar, agregar, reemplazar
     o eliminar *keywords* sin pasar por DynamicRest ni por el
     ResourceBaseSerializer, evitando errores de parseo y problemas en PATCH.
 
@@ -78,12 +78,12 @@ class ResourceKeywordTagViewSet(ViewSet):
         Reemplaza completamente el conjunto de keywords del resource por los
         proporcionados en el cuerpo de la petición.
 
-    - **DELETE /api/v2/resources/{resource_pk}/keywordtags/**
-        Elimina la asociación entre el resource y los keywords indicados.
-        No elimina los keywords del catálogo global, solo la relación.
+    - **DELETE /api/v2/resources/{resource_pk}/keywordtags/{keyword}/**
+        Elimina la asociación entre el resource y el keyword indicado.
+        No elimina el keyword del catálogo global, solo la relación.
 
     Notas:
-        - Requiere autenticación.
+        - Requiere autenticación para escritura.
         - El cuerpo de las peticiones debe ser SIEMPRE una lista JSON
           de cadenas, por ejemplo:
               ["bosque", "morelia", "mexico"]
@@ -91,7 +91,14 @@ class ResourceKeywordTagViewSet(ViewSet):
         - No modifica vocabularios ni tesauros; únicamente relaciones del resource.
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    def get_permissions(self):
+        if self.action == "list":
+            return [AllowAny()]
+        return super().get_permissions()
+
+    # ======================================================================
+    # Helpers internos
+    # ======================================================================
 
     def _get_resource(self, pk):
         """
@@ -148,7 +155,7 @@ class ResourceKeywordTagViewSet(ViewSet):
 
         # Caso 2: usuario autenticado con permiso de lectura
         if user and user.is_authenticated:
-            if user.has_perm("base.view_resourcebase", resource.resourcebase_ptr):
+            if user.has_perm("base.view_resourcebase", resource):
                 return
 
         raise PermissionDenied("You do not have permission to view this resource.")
@@ -184,6 +191,13 @@ class ResourceKeywordTagViewSet(ViewSet):
 
         raise PermissionDenied("You do not have permission to modify keywords.")
 
+    # ======================================================================
+    # REST Endpoints
+    # ======================================================================
+
+    # -----------------------------------------------------
+    # GET → /keywordtags/
+    # -----------------------------------------------------
     @extend_schema(
         summary="Obtiene los keywords del resource",
         responses={
@@ -199,15 +213,22 @@ class ResourceKeywordTagViewSet(ViewSet):
             Response: Lista JSON con los nombres de los keywords.
         """
         ds = self._get_resource(resource_pk)
+        self._check_view_perm(ds, request.user)
+
         return Response(list(ds.keywords.names()))
 
+    # -----------------------------------------------------
+    # POST → /keywordtags/
+    # -----------------------------------------------------
     @extend_schema(
         summary="Agrega keywords al resource",
         request={"application/json": {"type": "array", "items": {"type": "string"}}},
         responses={
             200: {"application/json": {"type": "array", "items": {"type": "string"}}}
         },
-        examples=[OpenApiExample("Agregar etiquetas", value=["bosque", "morelia"])],
+        examples=[
+            OpenApiExample("Agregar etiquetas", value=["bosque", "morelia"]),
+        ],
     )
     def create(self, request, resource_pk=None):
         """
@@ -222,10 +243,17 @@ class ResourceKeywordTagViewSet(ViewSet):
         ds = self._get_resource(resource_pk)
         self._check_edit_perm(ds, request.user)
 
+        if not isinstance(request.data, list):
+            raise ValidationError("El cuerpo debe ser una lista de cadenas.")
+
         for kw in request.data:
             ds.keywords.add(kw)
 
         return Response(list(ds.keywords.names()))
+
+    # ======================================================================
+    # POST → remplazar keywords por una coleccion nueva
+    # ======================================================================
 
     @extend_schema(
         summary="Reemplaza completamente los keywords del resource",
@@ -235,14 +263,9 @@ class ResourceKeywordTagViewSet(ViewSet):
         },
         examples=[OpenApiExample("Reemplazo total", value=["bosque", "mexico"])],
     )
-    def update(self, request, resource_pk=None):
+    def replace_keywords(self, request, resource_pk=None):
         """
         Reemplaza TODOS los keywords del resource con los enviados en la lista.
-
-        El cuerpo debe ser una lista JSON de cadenas.
-
-        Returns:
-            Response: Lista final de keywords.
         """
         ds = self._get_resource(resource_pk)
         self._check_edit_perm(ds, request.user)
@@ -250,37 +273,13 @@ class ResourceKeywordTagViewSet(ViewSet):
         if not isinstance(request.data, list):
             raise ValidationError("El cuerpo debe ser una lista de cadenas.")
 
-        # Limpieza total
-        ds.keywords.set([])
-
-        # Agregar los nuevos
-        for kw in request.data:
-            ds.keywords.add(kw)
+        ds.keywords.set(request.data)
 
         return Response(list(ds.keywords.names()))
 
-    @extend_schema(
-        summary="Elimina uno o varios keywords del resource",
-        description="Elimina **solo la relación** entre el resource y los keywords indicados.",
-        request={"application/json": {"type": "array", "items": {"type": "string"}}},
-        responses={204: None},
-    )
-    def destroy(self, request, resource_pk=None):
-        """
-        Elimina la relación con varios keywords al mismo tiempo.
-        No elimina los keywords globales.
-        """
-        ds = self._get_resource(resource_pk)
-        self._check_edit_perm(ds, request.user)
-
-        if not isinstance(request.data, list):
-            raise ValidationError("El cuerpo debe ser una lista de cadenas.")
-
-        for kw in request.data:
-            ds.keywords.remove(kw)
-
-        return Response(status=204)
-
+    # -----------------------------------------------------
+    # DELETE → /keywordtags/{keyword}/
+    # -----------------------------------------------------
     @action(
         detail=False,
         methods=["delete"],
@@ -300,4 +299,5 @@ class ResourceKeywordTagViewSet(ViewSet):
         self._check_edit_perm(ds, request.user)
 
         ds.keywords.remove(keyword)
+
         return Response(status=204)
