@@ -1,8 +1,19 @@
+<!--
+  SPDX-FileCopyrightText: 2025 CentroGeo
+  SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+  SPDX-License-Identifier: Apache-2.0
+
+  Descripción:
+    Configuración de OGR para GeoServer.
+    Este archivo define la localización de ogr2ogr y los formatos de exportación habilitados
+    (XLSX, Shapefile, GeoPackage, GeoJSON, KML y CSV).
+    Permite que GeoServer (a través del plugin OGR WPS/WFS) convierta y entregue datos
+    en múltiples formatos soportados por GDAL.
+-->
+
 <OgrConfiguration>
     <!-- Si ogr2ogr no está en PATH, pon la ruta completa -->
     <ogr2ogrLocation>/usr/bin/ogr2ogr</ogr2ogrLocation>
-    <!-- Si hace falta, apunta a GDAL_DATA -->
-    <!-- <gdalData>/usr/share/gdal</gdalData> -->
 
     <formats>
 

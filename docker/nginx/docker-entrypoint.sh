@@ -1,4 +1,16 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Script de entrypoint de Nginx para GeoNode.
+#   Modificado para mejorar la lógica de detección de PUBLIC_HOST y HTTP_SCHEME:
+#     - Deriva el esquema (http/https) a partir de variables de entorno.
+#     - Considera puertos estándar y personalizados (80/443 u otros).
+#     - Respeta `HTTP_SCHEME` si fue definido externamente.
+#   Esto permite mayor compatibilidad con balanceadores y despliegues en entornos
+#   con puertos no convencionales.
 
 # Exit script in case of error
 set -e
