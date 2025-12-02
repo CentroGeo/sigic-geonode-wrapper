@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Workflow de GitHub Actions para CI/CD del proyecto
+#   "SIGIC GeoNode Wrapper" en la rama `main`.
+#   Incluye:
+#     - Construcción de imágenes Docker (GeoNode, GeoServer, NGINX, PostGIS, Let's Encrypt)
+#     - Publicación en GitHub Container Registry (GHCR)
+#
+#    Este workflow se activa en la rama `main`.
+#    Las imágenes se etiquetan con `latest`. Y son publicadas en GHCR para su uso en despliegues de producción.
+#
+
+name: Build SIGIC images
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_ROOT: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build & push SIGIC images
+        run: |
+          set -euo pipefail
+
+          MOVING="latest"
+
+          # -----------------------------
+          # 1) ROOT dockerfile → sigic_geonode
+          # -----------------------------
+          ROOT_IMAGE="$(echo "$REGISTRY/$IMAGE_ROOT/sigic_geonode" | tr '[:upper:]' '[:lower:]')"
+
+          echo "----------------------------------------------------"
+          echo "Building ROOT image: sigic_geonode"
+          echo "Tag: $MOVING"
+          echo "----------------------------------------------------"
+
+          docker build \
+            -t "$ROOT_IMAGE:$MOVING" \
+            .
+
+          docker push "$ROOT_IMAGE:$MOVING"
+
+
+          # -----------------------------
+          # 2) Sub-images in ./docker/*
+          # -----------------------------
+          SERVICES=(
+            geoserver
+            geoserver_data
+            nginx
+            postgis
+            letsencrypt
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+
+            DOCKERFILE="./docker/$SERVICE/Dockerfile"
+
+            if [ ! -f "$DOCKERFILE" ]; then
+              echo "Skipping $SERVICE (no Dockerfile)"
+              continue
+            fi
+
+            IMAGE_NAME="sigic_${SERVICE}"
+            IMAGE_BASE="$(echo "$REGISTRY/$IMAGE_ROOT/$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+
+            echo "----------------------------------------------------"
+            echo "Service    : $SERVICE"
+            echo "Image      : $IMAGE_NAME"
+            echo "Tag        : $MOVING"
+            echo "----------------------------------------------------"
+
+            docker build \
+              -t "$IMAGE_BASE:$MOVING" \
+              "./docker/$SERVICE"
+
+            docker push "$IMAGE_BASE:$MOVING"
+
+          done
