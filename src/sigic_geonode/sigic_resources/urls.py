@@ -13,6 +13,8 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # =============================================================================
 
+from django.urls import path
+
 from sigic_geonode.router import router
 
 from .views import (
@@ -21,7 +23,19 @@ from .views import (
     SigicResourceShortViewSet,
 )
 
-urlpatterns = []
+keyword_replace = ResourceKeywordTagViewSet.as_view(
+    {
+        "post": "replace_keywords",
+    }
+)
+
+urlpatterns = [
+    path(
+        "api/v2/resources/<int:resource_pk>/keywordtags/replace/",
+        keyword_replace,
+        name="sigic-resources-keywordtags-replace",
+    ),
+]
 
 router.register(
     r"api/v2/sigic-resources", SigicResourceBaseViewSet, basename="sigic-resources"
@@ -35,5 +49,5 @@ router.register(
 router.register(
     r"api/v2/resources/(?P<resource_pk>[^/.]+)/keywordtags",
     ResourceKeywordTagViewSet,
-    basename="sigic-resources-keywords",
+    basename="sigic-resources-keywordtags",
 )
