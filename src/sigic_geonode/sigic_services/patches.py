@@ -12,23 +12,34 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
+# sigic_services/patches.py
+
 import logging
 
-log = logging.getLogger("geonode")
-_PATCHED = False
-_PATCHED_AUTH_HEADER = False
-_PATCHED_PROXY = False
+from geonode.harvesting.harvesters.wms import WMSServiceHarvester
+
+logger = logging.getLogger(__name__)
+
+_original_run = WMSServiceHarvester.run
 
 
-def patch_placeholder():
-    global _PATCHED
-    if _PATCHED:
-        return
-    _PATCHED = True
+def patched_run(self, exec_request, *args, **kwargs):
+    """
+    Intercepta el run del WMS Harvester y
+    ajusta dinámicamente el default_owner
+    al usuario que lanzó la importación.
+    """
 
-    # from geonode.services.serviceprocessors.wms import WmsServiceHandler
+    if exec_request and hasattr(exec_request, "user") and exec_request.user:
+        logger.info(
+            f"[SIGIC PATCH] Setting harvester default_owner "
+            f"from {getattr(self, 'default_owner', None)} "
+            f"to {exec_request.user}"
+        )
+        self.default_owner = exec_request.user
 
-    def _empty_fun(self):
-        return None
+    return _original_run(self, exec_request, *args, **kwargs)
 
-    return _empty_fun()
+
+# Aplicar el monkeypatch
+WMSServiceHarvester.run = patched_run

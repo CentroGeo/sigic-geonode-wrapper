@@ -8,6 +8,4 @@ class SigicServicesConfig(AppConfig):
     name = "sigic_geonode.sigic_services"
 
     def ready(self):
-        from .patches import patch_placeholder
-
-        patch_placeholder()
+        from . import patches  # noqa
