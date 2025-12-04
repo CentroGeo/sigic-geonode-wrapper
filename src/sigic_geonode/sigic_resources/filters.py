@@ -57,17 +57,13 @@ class SigicFilters(BaseFilterBackend):
             if complete_metadata is not None:
                 if complete_metadata.lower() == "true":
                     queryset = queryset.filter(
-                        ~Q(abstract__isnull=True),
-                        ~Q(abstract__exact=""),
-                        ~Q(abstract__icontains="no abstract provided"),
+                        ~Q(attribution__isnull=True),
                         ~Q(category__isnull=True),
                         ~Q(keywords__isnull=True),
                     )
                 elif complete_metadata.lower() == "false":
                     queryset = queryset.filter(
-                        Q(abstract__isnull=True)
-                        | Q(abstract__exact="")
-                        | Q(abstract__icontains="no abstract provided")
+                        Q(attribution__isnull=True)
                         | Q(category__isnull=True)
                         | Q(keywords__isnull=True)
                     )
