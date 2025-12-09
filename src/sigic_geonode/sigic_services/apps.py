@@ -7,9 +7,10 @@ class SigicServicesConfig(AppConfig):
     verbose_name = "SIGIC Services"
 
     def ready(self):
-        # Import inside ready so Django is fully initialized before patching
         from .patches import (
-            apply_owner_scoped_service_registration,
+            apply_service_model_patch,
+            patch_service_serializer_validation,
         )
 
-        apply_owner_scoped_service_registration()
+        apply_service_model_patch()
+        patch_service_serializer_validation()
