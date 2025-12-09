@@ -55,15 +55,19 @@ class SigicFilters(BaseFilterBackend):
                     )
             # Se valida la completitud de metadatos
             if complete_metadata is not None:
+                INCOMPLETE_ATTRIBUTION = [None, "No especificado"]
+
                 if complete_metadata.lower() == "true":
-                    queryset = queryset.filter(
-                        ~Q(attribution__isnull=True),
-                        ~Q(category__isnull=True),
-                        ~Q(keywords__isnull=True),
+                    queryset = queryset.exclude(
+                        Q(attribution__in=INCOMPLETE_ATTRIBUTION)
+                    ).exclude(
+                        Q(category__isnull=True)
+                    ).exclude(
+                         Q(keywords__isnull=True)
                     )
                 elif complete_metadata.lower() == "false":
                     queryset = queryset.filter(
-                        Q(attribution__isnull=True)
+                        Q(attribution__in=INCOMPLETE_ATTRIBUTION)
                         | Q(category__isnull=True)
                         | Q(keywords__isnull=True)
                     )
