@@ -1,5 +1,5 @@
 from geonode.services.models import Service
-from geonode.services.serializers import ServiceSerializer
+# from geonode.services.serializers import ServiceSerializer
 from rest_framework.exceptions import ValidationError
 
 
@@ -30,4 +30,4 @@ def patch_service_serializer_validation():
 
         return value
 
-    ServiceSerializer.validate_base_url = validate_base_url
+    # ServiceSerializer.validate_base_url = validate_base_url
