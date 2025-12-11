@@ -4,21 +4,16 @@ from rest_framework.exceptions import ValidationError
 
 
 def apply_service_model_patch():
-    """
-    Runtime sync with wrapper migration:
+    original_validate_unique = Service.validate_unique
 
-    - DB: base_url is NOT unique
-    - DB: unique constraint is (base_url, owner)
+    def patched_validate_unique(self, exclude=None):
+        if exclude is None:
+            exclude = ["base_url"]
+        else:
+            exclude = list(exclude) + ["base_url"]
+        return original_validate_unique(self, exclude=exclude)
 
-    This patch only removes Django-level unique validation that
-    still comes from the core model definition.
-    """
-
-    field = Service._meta.get_field("base_url")
-
-    # Disable Django ORM uniqueness validation
-    field.unique = False
-    field._unique = False
+    Service.validate_unique = patched_validate_unique
 
 
 def patch_service_serializer_validation():
