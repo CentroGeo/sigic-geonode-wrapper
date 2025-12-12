@@ -1,5 +1,5 @@
 FROM geonode/geonode-base:latest-ubuntu-22.04
-LABEL GeoNode development team
+LABEL name="SIGIC dev team"
 
 RUN mkdir -p /usr/src/sigic_geonode
 
@@ -24,6 +24,7 @@ RUN chmod +x /usr/bin/celery-commands
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
+# COPY extra_migrations/ /usr/src/geonode/geonode/
 
 RUN yes w | pip install --src /usr/src -r requirements.txt && \
     yes w | pip install -e .

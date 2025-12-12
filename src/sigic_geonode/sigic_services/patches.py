@@ -1,28 +1,32 @@
+from django.core.exceptions import ValidationError
 from geonode.services.models import Service
-# from geonode.services.serializers import ServiceSerializer
-from rest_framework.exceptions import ValidationError
 
 
-def apply_service_model_patch():
-    original_validate_unique = Service.validate_unique
+def patch_service_model():
+    """
+    Patch model-level uniqueness for GeoNode Service.
+    No admin, no serializers, no API.
+    """
 
-    def patched_validate_unique(self, exclude=None):
-        if exclude is None:
-            exclude = ["base_url"]
-        else:
-            exclude = list(exclude) + ["base_url"]
-        return original_validate_unique(self, exclude=exclude)
+    def validate_unique(self, exclude=None):
+        errors = {}
 
-    Service.validate_unique = patched_validate_unique
+        if self.owner is None:
+            errors["owner"] = "Owner is required."
 
+        if self.base_url and self.owner:
+            qs = Service.objects.filter(
+                base_url=self.base_url,
+                owner=self.owner,
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
 
-def patch_service_serializer_validation():
-    def validate_base_url(self, value):
-        user = self.context["request"].user
+            if qs.exists():
+                errors["base_url"] = "This base URL already exists for this owner."
 
-        if Service.objects.filter(base_url=value, owner=user).exists():
-            raise ValidationError("You have already registered this service.")
+        if errors:
+            raise ValidationError(errors)
 
-        return value
-
-    # ServiceSerializer.validate_base_url = validate_base_url
+    # Monkey-patch REAL del modelo
+    Service.validate_unique = validate_unique

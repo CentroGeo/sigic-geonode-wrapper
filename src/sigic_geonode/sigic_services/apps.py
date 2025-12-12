@@ -7,10 +7,6 @@ class SigicServicesConfig(AppConfig):
     verbose_name = "SIGIC Services"
 
     def ready(self):
-        from .patches import (
-            apply_service_model_patch,
-            patch_service_serializer_validation,
-        )
+        from .patches import patch_service_model
 
-        apply_service_model_patch()
-        patch_service_serializer_validation()
+        patch_service_model()
