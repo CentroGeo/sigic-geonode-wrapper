@@ -1,5 +1,11 @@
 FROM geonode/geonode-base:latest-ubuntu-22.04
-LABEL team="SIGIC development team"
+LABEL \
+  org.opencontainers.image.title="sigic-geonode-wrapper" \
+  org.opencontainers.image.version="${WRAPPER_VERSION}" \
+  org.opencontainers.image.description="SIGIC GeoNode wrapper" \
+  sigic.wrapper.version="${WRAPPER_VERSION}" \
+  sigic.geonode.version="${GEONODE_VERSION}" \
+  sigic.patch="${SIGIC_PATCH}"
 
 ARG REQUIREMENTS_VARIANT=bundle
 

@@ -56,22 +56,25 @@ class SigicFilters(BaseFilterBackend):
             # Se valida la completitud de metadatos
             if complete_metadata is not None:
                 if complete_metadata.lower() == "true":
-                    queryset = queryset.filter(
-                        ~Q(abstract__isnull=True),
-                        ~Q(abstract__exact=""),
-                        ~Q(abstract__icontains="no abstract provided"),
-                        ~Q(category__isnull=True),
-                        ~Q(keywords__isnull=True),
+                    # Recursos con todo el núcleo mínimo de metadatos completo
+                    queryset = (
+                        queryset.exclude(Q(attribution__isnull=True))
+                        .exclude(Q(attribution="No especificado"))
+                        .exclude(Q(category__isnull=True))
+                        .exclude(Q(keywords__isnull=True))
+                        .exclude(Q(date_type__isnull=True) | Q(date_type=""))
                     )
                 elif complete_metadata.lower() == "false":
+                    # Recursos con metadatos incompletos (con que falte al menos uno, ya se considera
+                    # como recurso con metadatos incompletos)
                     queryset = queryset.filter(
-                        Q(abstract__isnull=True)
-                        | Q(abstract__exact="")
-                        | Q(abstract__icontains="no abstract provided")
+                        Q(attribution__isnull=True)
+                        | Q(attribution="No especificado")
                         | Q(category__isnull=True)
                         | Q(keywords__isnull=True)
+                        | Q(date_type__isnull=True)
+                        | Q(date_type="")
                     )
-
             return queryset
 
         except Exception as e:
