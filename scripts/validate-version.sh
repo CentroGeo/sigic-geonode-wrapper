@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REQ_FILE="requirements/bundle.txt"
+REQ_FILE="src/requirements/bundle.txt"
 
 echo "🔎 Validando versionado SIGIC…"
 
