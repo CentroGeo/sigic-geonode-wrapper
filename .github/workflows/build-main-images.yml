@@ -64,7 +64,7 @@ jobs:
       # ------------------------------------------------------------
       - name: 🔐 Validar versionado
         run: |
-          ./scripts/validate-version.sh
+          sh ./scripts/validate-version.sh
 
       # ------------------------------------------------------------
       # Crear tag Git (wrapper)
