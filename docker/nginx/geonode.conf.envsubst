@@ -52,14 +52,13 @@ location /geoserver {
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Real-IP $remote_addr;
   proxy_set_header X-Forwarded-Proto $HTTP_SCHEME;
-  proxy_set_header Authorization $http_authorization;
   proxy_set_header Upgrade $http_upgrade;
   proxy_set_header Connection "upgrade";
   proxy_hide_header X-Frame-Options;
   proxy_pass http://$upstream;
   proxy_http_version 1.1;
   proxy_redirect http://$upstream $HTTP_SCHEME://$HTTP_HOST;
-  proxy_request_buffering  off;
+  proxy_request_buffering off;
   client_max_body_size 0;
 }
 
@@ -96,23 +95,25 @@ location / {
   if ($request_method = OPTIONS) {
       add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, OPTIONS";
       add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept";
-      add_header Access-Control-Allow-Credentials true;
+      add_header Access-Control-Allow-Origin "*";
+      add_header Access-Control-Allow-Credentials false;
       add_header Content-Length 0;
       add_header Content-Type text/plain;
       add_header Access-Control-Max-Age 1728000;
-      return 200;
+      return 204;
   }
 
   add_header Access-Control-Allow-Credentials false;
   add_header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, Origin, User-Agent";
   add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, OPTIONS";
-  
+
   proxy_redirect              off;
   proxy_set_header            Host $PUBLIC_HOST;
   proxy_set_header            Origin $HTTP_SCHEME://$PUBLIC_HOST;
   proxy_set_header            X-Real-IP $remote_addr;
   proxy_set_header            X-Forwarded-Host $server_name;
   proxy_set_header            X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header            Authorization $http_authorization_upstream;
   proxy_set_header            X-Forwarded-Proto $HTTP_SCHEME;
   proxy_hide_header           X-Frame-Options;
   proxy_request_buffering     off;
@@ -120,8 +121,9 @@ location / {
   # uwsgi_params
   include /etc/nginx/uwsgi_params;
 
+  # pass all requests to the backend through to the upstream server
   proxy_pass http://$upstream;
-  # uwsgi_pass $upstream;
+  proxy_pass_header Authorization;
 
   # when a client closes the connection then keep the channel to uwsgi open. Otherwise uwsgi throws an IOError
   uwsgi_ignore_client_abort on;
@@ -132,6 +134,6 @@ location / {
       expires 30d;
       access_log off;
       add_header Pragma "public";
-      add_header Cache-Control "max-age=31536000, public";
+      add_header Cache-Control "max-age=31536000, public" always;
   }
 }

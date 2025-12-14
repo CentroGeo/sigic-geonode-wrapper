@@ -1,3 +1,15 @@
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Workflow de GitHub Actions para CI/CD del proyecto
+#   "SIGIC GeoNode Wrapper" en la rama `develop`.
+#   Incluye:
+#     - Construcción de imágenes Docker (GeoNode, GeoServer, NGINX)
+#     - Publicación en GitHub Container Registry (GHCR)
+#     - Despliegue en el servidor de desarrollo usando docker-compose
+
 name: CI/CD - Build & Deploy SIGIC GeoNode Wrapper (develop)
 
 on:
@@ -9,7 +21,7 @@ env:
   GEONODE_BASE_IMAGE_VERSION: 4.4.x.sigic
   NGINX_BASE_IMAGE_VERSION: 1.25.3-latest
   GEOSERVER_BASE_IMAGE_VERSION: 2.24.4-v2
-  GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v3
+  GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v2
 
 jobs:
   build:
@@ -37,6 +49,7 @@ jobs:
           echo "owner=centrogeo" >> $GITHUB_OUTPUT
           echo "geonode-image=sigic-geonode-wrapper" >> $GITHUB_OUTPUT
           echo "geoserver-image=sigic-geoserver" >> $GITHUB_OUTPUT
+          echo "nginx-image=sigic-nginx" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=develop" >> $GITHUB_OUTPUT
 
@@ -51,8 +64,17 @@ jobs:
         run: |
           cd docker/geoserver
           docker build --no-cache \
-            --build-arg GEOSERVER_BASE_IMAGE_VERSION=${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
+            --build-arg BASE_IMAGE_VERSION=${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
             -t ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }} \
+            -f Dockerfile .
+          cd -
+
+      - name: Build & tag NGINX Docker image
+        run: |
+          cd docker/nginx
+          docker build --no-cache \
+            --build-arg BASE_IMAGE_VERSION=${{ env.NGINX_BASE_IMAGE_VERSION }} \
+            -t ghcr.io/${{ steps.vars.outputs.owner }}/sigic-nginx:${{ env.NGINX_BASE_IMAGE_VERSION }} \
             -f Dockerfile .
           cd -
 
@@ -64,6 +86,10 @@ jobs:
       - name: Push GeoServer image
         run: |
             docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{ steps.vars.outputs.geoserver-image }}:${{ env.GEOSERVER_BASE_IMAGE_VERSION }}
+
+      - name: Push NGINX image
+        run: |
+            docker push ghcr.io/${{ steps.vars.outputs.owner }}/${{steps.vars.outputs.nginx-image}}:${{ env.NGINX_BASE_IMAGE_VERSION }}
 
   deploy:
     name: Deploy GeoNode Wrapper to dev server

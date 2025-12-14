@@ -1,4 +1,16 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Script de entrypoint de Nginx para GeoNode.
+#   Modificado para mejorar la lógica de detección de PUBLIC_HOST y HTTP_SCHEME:
+#     - Deriva el esquema (http/https) a partir de variables de entorno.
+#     - Considera puertos estándar y personalizados (80/443 u otros).
+#     - Respeta `HTTP_SCHEME` si fue definido externamente.
+#   Esto permite mayor compatibilidad con balanceadores y despliegues en entornos
+#   con puertos no convencionales.
 
 # Exit script in case of error
 set -e
@@ -15,7 +27,7 @@ echo "Creating autoissued certificates for HTTP host"
 if [ ! -f "/geonode-certificates/autoissued/privkey.pem" ] || [[ $(find /geonode-certificates/autoissued/privkey.pem -mtime +365 -print) ]]; then
         echo "Autoissued certificate does not exist or is too old, we generate one"
         mkdir -p "/geonode-certificates/autoissued/"
-        openssl req -x509 -nodes -days 1825 -newkey rsa:2048 -keyout "/geonode-certificates/autoissued/privkey.pem" -out "/geonode-certificates/autoissued/fullchain.pem" -subj "/CN=${HTTP_HOST:-HTTPS_HOST}" 
+        openssl req -x509 -nodes -days 1825 -newkey rsa:2048 -keyout "/geonode-certificates/autoissued/privkey.pem" -out "/geonode-certificates/autoissued/fullchain.pem" -subj "/CN=${HTTP_HOST:-HTTPS_HOST}"
 else
         echo "Autoissued certificate already exists"
 fi
@@ -52,14 +64,43 @@ if [ -z "${HTTP_SCHEME}" ]; then
 else
     # HTTP_SCHEME was defined externally
     if [ "$HTTP_SCHEME" = "https" ]; then
-        if [ -z "${HTTPS_HOST}" ]; then
-            PUBLIC_HOST="${HTTP_HOST}:${HTTPS_PORT:-443}"
+      if [ -n "${HTTPS_HOST}" ]; then
+        if [ -z "${HTTPS_PORT}" ] || [ "$HTTPS_PORT" = "443" ]; then
+          PUBLIC_HOST="${HTTPS_HOST}"
         else
-            PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT:-443}"
+          PUBLIC_HOST="${HTTPS_HOST}:${HTTPS_PORT}"
         fi
+      else
+        # fallback si no hay HTTPS_HOST
+        if [ -z "${HTTP_HOST}" ]; then
+          echo "ERROR: neither HTTPS_HOST nor HTTP_HOST is set"; exit 1
+        fi
+        if [ -z "${HTTP_PORT}" ] || [ "$HTTP_PORT" = "80" ]; then
+          PUBLIC_HOST="${HTTP_HOST}"
+        else
+          PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT}"
+        fi
+      fi
     else
-        PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT:-80}"
+      # http
+      if [ -z "${HTTP_HOST}" ]; then
+        echo "ERROR: HTTP_HOST is not set"; exit 1
+      fi
+      if [ -z "${HTTP_PORT}" ] || [ "$HTTP_PORT" = "80" ]; then
+        PUBLIC_HOST="${HTTP_HOST}"
+      else
+        PUBLIC_HOST="${HTTP_HOST}:${HTTP_PORT}"
+      fi
     fi
+fi
+
+# Default final si por alguna razón aún no quedó seteado
+if [ -z "${PUBLIC_HOST}" ]; then
+  if [ -n "${HTTPS_HOST}" ]; then
+    PUBLIC_HOST="${HTTPS_HOST}${HTTPS_PORT:+:${HTTPS_PORT}}"
+  else
+    PUBLIC_HOST="${HTTP_HOST}${HTTP_PORT:+:${HTTP_PORT}}"
+  fi
 fi
 
 export HTTP_SCHEME=${HTTP_SCHEME:-http}
@@ -90,5 +131,5 @@ echo "-----------------------------------------------------"
 echo "FINISHED NGINX ENTRYPOINT ---------------------------"
 echo "-----------------------------------------------------"
 
-# Run the CMD 
+# Run the CMD
 exec "$@"

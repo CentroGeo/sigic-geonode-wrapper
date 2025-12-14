@@ -1,4 +1,3 @@
-
 # Common Django template for GeoNode and Celery services below
 x-common-django: &default-common-django
   image: ghcr.io/centrogeo/sigic-geonode-wrapper:develop
@@ -11,6 +10,7 @@ x-common-django: &default-common-django
     - backup-restore:/backup_restore
     - data:/data
     - tmp:/tmp
+    - modulo-ia:/mnt/volumes/statics/uploaded/ia
 
 services:
   # Our custom django application. It includes Geonode.
@@ -31,7 +31,7 @@ services:
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "uwsgi --ini /usr/src/sigic_geonode/uwsgi.ini"
     networks:
-      - sigic-network
+      - sigicnetwork
 
   # Celery worker that executes celery tasks created by Django.
   celery:
@@ -45,11 +45,11 @@ services:
     entrypoint: ["/usr/src/sigic_geonode/entrypoint.sh"]
     command: "celery-cmd"
     networks:
-      - sigic-network
+      - sigicnetwork
 
   # Nginx is serving django static and media files and proxies to django and geonode
   geonode:
-    image: ${COMPOSE_PROJECT_NAME}/nginx:${NGINX_BASE_IMAGE_VERSION}
+    image: ghcr.io/centrogeo/sigic-nginx:${NGINX_BASE_IMAGE_VERSION}
     build:
       context: ./docker/nginx
       dockerfile: Dockerfile
@@ -68,7 +68,7 @@ services:
       - statics:/mnt/volumes/statics
     restart: unless-stopped
     networks:
-      - sigic-network
+      - sigicnetwork
 
   # memcached service
   memcached:
@@ -83,7 +83,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - sigic-network
+      - sigicnetwork
 
   # Geoserver backend
   geoserver:
@@ -117,7 +117,7 @@ services:
       django:
         condition: service_healthy
     networks:
-      - sigic-network
+      - sigicnetwork
 
   data-dir-conf:
     image: ${COMPOSE_PROJECT_NAME}/geoserver_data:${GEOSERVER_DATA_BASE_IMAGE_VERSION}
@@ -134,7 +134,7 @@ services:
     healthcheck:
       test: "ls -A '/geoserver_data/data' | wc -l"
     networks:
-      - sigic-network
+      - sigicnetwork
 
   # Vanilla RabbitMQ service. This is needed by celery
   rabbitmq:
@@ -144,7 +144,7 @@ services:
       - rabbitmq:/var/lib/rabbitmq
     restart: unless-stopped
     networks:
-      - sigic-network
+      - sigicnetwork
 
 volumes:
   statics:
@@ -161,7 +161,11 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-tmp
   rabbitmq:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
+  modulo-ia:
+    name: ${COMPOSE_PROJECT_NAME}-modulo-ia
 
 networks:
-  sigic-network:
-    external: true
+  sigicnetwork:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1360"

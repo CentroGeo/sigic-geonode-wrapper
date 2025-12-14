@@ -1,4 +1,19 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Este script extiende la configuración de GeoServer para manejar el
+#   proveedor de autenticación `geonodeAuthProvider`.
+#   - Verifica la existencia de los archivos `config.xml`.
+#   - Realiza un respaldo (`.orig`) de las configuraciones encontradas.
+#   - Ejecuta el script `set_geoserver_auth.sh` sobre ambas rutas
+#     (`security/sigic_auth/geonodeAuthProvider/` y
+#      `security/auth/geonodeAuthProvider/`).
+#
+#   Si no existen los archivos, la configuración se omite de forma segura.
+
 set -e
 
 source /root/.bashrc

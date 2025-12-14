@@ -18,11 +18,13 @@
 #
 #########################################################################
 import os
+
 from django.apps import AppConfig as BaseAppConfig
 
 
 def run_setup_hooks(*args, **kwargs):
     from django.conf import settings
+
     from .celeryapp import app as celeryapp
 
     LOCAL_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -31,10 +33,17 @@ def run_setup_hooks(*args, **kwargs):
     if celeryapp not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS += (celeryapp,)
 
+
 def setup_sigic_hooks(*args, **kwargs):
     import django.contrib.auth.decorators as auth_decorators
+
     from sigic_geonode.sigic_auth.keycloak import jwt_or_session_login_required
-    auth_decorators.login_required = jwt_or_session_login_required
+
+    _PATCHED = getattr(auth_decorators, "_sigic_patched", False)
+
+    if not _PATCHED:
+        auth_decorators.login_required = jwt_or_session_login_required
+        auth_decorators._sigic_patched = True
 
 
 class AppConfig(BaseAppConfig):

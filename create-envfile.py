@@ -18,6 +18,7 @@
 #
 #########################################################################
 import argparse
+import ast
 import json
 import logging
 import os
@@ -25,7 +26,6 @@ import random
 import re
 import string
 import sys
-import ast
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -89,6 +89,8 @@ def generate_env_file(args):
             else "http"
         )
 
+        _vals_to_replace["http_scheme"] = tcp
+
         _vals_to_replace["http_host"] = (
             _jsfile.get("hostname", args.hostname) if tcp == "http" else ""
         )
@@ -119,6 +121,23 @@ def generate_env_file(args):
         if tcp == "https" and not _vals_to_replace["email"]:
             raise Exception("With HTTPS enabled, the email parameter is required")
 
+        force_script_name = (
+            _vals_to_replace.get("force_script_name", "").strip().lstrip("/")
+        )
+        force_script_name_prefix = f"/{force_script_name}" if force_script_name else ""
+
+        _vals_to_replace["FORCE_SCRIPT_NAME"] = force_script_name_prefix
+        _vals_to_replace["STATIC_URL"] = (
+            f"{force_script_name_prefix}/static/"
+            if force_script_name_prefix
+            else "/static/"
+        )
+        _vals_to_replace["MEDIA_URL"] = (
+            f"{force_script_name_prefix}/uploaded/"
+            if force_script_name_prefix
+            else "/uploaded/"
+        )
+
         return {**_jsfile, **_vals_to_replace}
 
     for key, val in _get_vals_to_replace(args).items():
@@ -139,21 +158,24 @@ def generate_env_file(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="ENV file builder",
-        description="Tool for generate environment file automatically. The information can be passed or via CLI or via JSON file ( --file /path/env.json)",
+        description=(
+            "Tool for generate environment file automatically. "
+            "The information can be passed or via CLI or via JSON file ( --file /path/env.json)"
+        ),
         usage="python create-envfile.py localhost -f /path/to/json/file.json",
-        allow_abbrev=False
+        allow_abbrev=False,
     )
     parser.add_argument(
         "--noinput",
         "--no-input",
         action="store_false",
         dest="confirmation",
-        help=("skips prompting for confirmation."),
+        help="skips prompting for confirmation.",
     )
     parser.add_argument(
         "-hn",
         "--hostname",
-        help=f"Host name, default localhost",
+        help="Host name, default localhost",
         default="localhost",
     )
 
@@ -167,7 +189,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--file",
-        help="absolute path of the file with the configuration. Note: we expect that the keys of the dictionary have the same name as the CLI params",
+        help=(
+            "absolute path of the file with the configuration. "
+            "Note: we expect that the keys of the dictionary have the same name as the CLI params"
+        ),
     )
     # booleans
     parser.add_argument(
@@ -192,6 +217,12 @@ if __name__ == "__main__":
         help="Development/production or test",
         choices=["prod", "test", "dev"],
         default="prod",
+    )
+    parser.add_argument(
+        "--force_script_name",
+        dest="force_script_name",
+        help="Subpath (e.g., geonode) if GeoNode runs under a subpath. Leave empty for root.",
+        default="",
     )
 
     args = parser.parse_args()

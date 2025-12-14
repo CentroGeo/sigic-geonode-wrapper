@@ -18,19 +18,43 @@
 #
 #########################################################################
 
+from django.conf import settings
+from django.conf.urls.i18n import i18n_patterns
+from django.contrib import admin
+from django.urls import include, path, re_path
+from django.views.generic.base import RedirectView
 from geonode.urls import urlpatterns as geonode_urlpatterns
-from django.urls import re_path, path, include
-from sigic_geonode.upload.views import SigicImporterViewSet
 
-urlpatterns = [
-    re_path(
-        r"uploads/upload",
-        SigicImporterViewSet.as_view({"post": "create"}),
-        name="importer_upload",
+from sigic_geonode.sigic_auth.debug import whoami
+
+from .router import router
+
+urlpatterns = []
+
+if settings.DEFAULT_HOME_PATH and settings.DEFAULT_HOME_PATH != "":
+    urlpatterns += [
+        re_path(
+            r"^$",
+            RedirectView.as_view(
+                url=f"/{settings.DEFAULT_HOME_PATH}/", permanent=False
+            ),
+        )
+    ]
+
+urlpatterns += [
+    path("sigic/whoami", whoami),
+    path("sigic/georeference", include("sigic_geonode.sigic_georeference.urls")),
+    path(
+        "sigic/ia/mediauploads/", include("sigic_geonode.sigic_ia_media_uploads.urls")
     ),
-    re_path(
-        r"api/v2/", include('sigic_geonode.misc.urls')
-    ),
- ] + geonode_urlpatterns
+    path("sigic/request", include("sigic_geonode.sigic_request.urls")),
+    path("", include("sigic_geonode.sigic_datasets.urls")),
+    path("", include("sigic_geonode.sigic_resources.urls")),
+    path("", include("sigic_geonode.sigic_styles.urls")),
+] + geonode_urlpatterns
 
+urlpatterns += i18n_patterns(
+    re_path(r"^geonode-admin/", admin.site.urls, name="admin"),
+)
 
+urlpatterns += router.urls

@@ -1,6 +1,13 @@
 # docker-compose.dev.yml
 services:
   django:
+    build:
+      context: ./
+      dockerfile: Dockerfile-local-dev
     volumes:
       - ./src/sigic_geonode:/usr/src/sigic_geonode/sigic_geonode
     command: "uwsgi --ini /usr/src/sigic_geonode/uwsgi.ini --py-autoreload 2"
+
+  celery:
+    volumes:
+      - ./src/sigic_geonode:/usr/src/sigic_geonode/sigic_geonode

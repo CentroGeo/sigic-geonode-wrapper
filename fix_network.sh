@@ -5,4 +5,4 @@ set -e
 
 sh set-netplan-mtu-safe.sh
 sh set-docker-mtu-safe.sh
-sh create-sigic-network.sh
+sh create-sigicnetwork.sh

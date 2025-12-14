@@ -17,16 +17,18 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
+# flake8: noqa evitar errores por imports estrellas y variables no declaradas
+
+import ast
 
 # Django settings for the GeoNode project.
 import os
-import ast
 
 try:
     from urllib.parse import urlparse, urlunparse
-    from urllib.request import urlopen, Request
+    from urllib.request import Request, urlopen
 except ImportError:
-    from urllib2 import urlopen, Request
+    from urllib2 import Request, urlopen
     from urlparse import urlparse, urlunparse
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -163,23 +165,43 @@ if LDAP_ENABLED and "geonode_ldap" not in INSTALLED_APPS:
 # Add your specific LDAP configuration after this comment:
 # https://docs.geonode.org/en/master/advanced/contrib/#configuration
 
+# Apps que deben cargarse ANTES (para monkeypatches)
+INSTALLED_APPS = (
+    "sigic_geonode.sigic_styles",  # ✔ SE EJECUTA ANTES QUE geonode.layers
+) + INSTALLED_APPS
+
+# Apps que no necesitan ejecutarse antes
 INSTALLED_APPS += (
-    # "sigic_geonode.misc", #  esto de los links ya no va a ir dentro de geonode, debe ser un proyecto aparte
     "sigic_geonode.sigic_auth",
+    "sigic_geonode.sigic_datasets",
     "sigic_geonode.sigic_resources",
+    "sigic_geonode.sigic_ia_media_uploads",
 )
 
 MIDDLEWARE = [
-    'sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT' if mw == 'django.middleware.csrf.CsrfViewMiddleware' else mw
+    "sigic_geonode.sigic_auth.middleware.SkipCSRFMiddlewareForJWT"
+    if mw == "django.middleware.csrf.CsrfViewMiddleware"
+    else mw
     for mw in MIDDLEWARE
 ]
 
-SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True"))
-SOCIALACCOUNT_OIDC_PROVIDER=os.getenv("SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect")
-SOCIALACCOUNT_ADAPTER = os.environ.get("SOCIALACCOUNT_ADAPTER", "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter")
-SOCIALACCOUNT_PROVIDER_NAME=os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
+MIDDLEWARE += [
+    "sigic_geonode.sigic_auth.middleware.KeycloakUserFromBearerInjectionMiddleware",
+]
 
-SOCIALACCOUNT_PROVIDERS={
+SOCIALACCOUNT_OIDC_PROVIDER_ENABLED = ast.literal_eval(
+    os.environ.get("SOCIALACCOUNT_OIDC_PROVIDER_ENABLED", "True")
+)
+SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
+    "SOCIALACCOUNT_OIDC_PROVIDER", "geonode_openid_connect"
+)
+SOCIALACCOUNT_ADAPTER = os.environ.get(
+    "SOCIALACCOUNT_ADAPTER",
+    "sigic_geonode.sigic_auth.account_adapters.SigicSocialAccountAdapter",
+)
+SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
+
+SOCIALACCOUNT_PROVIDERS = {
     SOCIALACCOUNT_OIDC_PROVIDER: {
         "NAME": SOCIALACCOUNT_OIDC_PROVIDER,
         "SCOPE": ["openid", "email", "profile"],
@@ -187,16 +209,28 @@ SOCIALACCOUNT_PROVIDERS={
         "COMMON_FIELDS": {
             "email": "email",
             "last_name": "family_name",
-            "first_name": "given_name"
+            "first_name": "given_name",
         },
-        "USER_FIELDS": {
-            "username": "preferred_username"
-        },
-        "ACCESS_TOKEN_URL": os.getenv("SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token"),
-        "AUTHORIZE_URL": os.getenv("SOCIALACCOUNT_OIDC_AUTHORIZE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth"),
-        "ID_TOKEN_ISSUER": os.getenv("SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER", "https://iam.dev.geoint.mx/realms/sigic"),
-        "PROFILE_URL": os.getenv("SOCIALACCOUNT_OIDC_PROFILE_URL", "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo"),
-        "OAUTH_PKCE_ENABLED": ast.literal_eval(os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True"))
+        "USER_FIELDS": {"username": "preferred_username"},
+        "ACCESS_TOKEN_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_ACCESS_TOKEN_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/token",
+        ),
+        "AUTHORIZE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_AUTHORIZE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/auth",
+        ),
+        "ID_TOKEN_ISSUER": os.getenv(
+            "SOCIALACCOUNT_OIDC_ID_TOKEN_ISSUER",
+            "https://iam.dev.geoint.mx/realms/sigic",
+        ),
+        "PROFILE_URL": os.getenv(
+            "SOCIALACCOUNT_OIDC_PROFILE_URL",
+            "https://iam.dev.geoint.mx/realms/sigic/protocol/openid-connect/userinfo",
+        ),
+        "OAUTH_PKCE_ENABLED": ast.literal_eval(
+            os.getenv("SOCIALACCOUNT_OIDC_OAUTH_PKCE_ENABLED", "True")
+        ),
     }
 }
 
@@ -216,10 +250,92 @@ REST_FRAMEWORK = {
 }
 
 HARVESTER_TYPES = {
-    "FILE": "sigic_geonode.remote_services.file_harvester.FileHarvester",
+    "FILE": "sigic_geonode.sigic_remote_services.file_harvester.FileHarvester",
 }
 
 SERVICES_TYPE_MODULES = [
-    "sigic_geonode.remote_services.file_service.FileServiceInfo",
+    "sigic_geonode.sigic_remote_services.file_service.FileServiceInfo",
 ]
 
+CELERY_TASK_QUEUES += (
+    Queue(
+        "sigic_geonode.sync_geoserver",
+        GEONODE_EXCHANGE,
+        routing_key="sigic_geonode.sync_geoserver",
+    ),
+)
+# Valor predeterminado si no existe la variable de entorno
+DEFAULT_ALLOWED_DOCUMENT_TYPES = (
+    "txt",
+    "csv",
+    "log",
+    "doc",
+    "docx",
+    "ods",
+    "odt",
+    "sld",
+    "qml",
+    "xls",
+    "xlsx",
+    "xml",
+    "bm",
+    "bmp",
+    "dwg",
+    "dxf",
+    "fif",
+    "gif",
+    "jpg",
+    "jpe",
+    "jpeg",
+    "png",
+    "tif",
+    "tiff",
+    "pbm",
+    "odp",
+    "ppt",
+    "pptx",
+    "pdf",
+    "tar",
+    "tgz",
+    "rar",
+    "gz",
+    "7z",
+    "zip",
+    "aif",
+    "aifc",
+    "aiff",
+    "au",
+    "mp3",
+    "mpga",
+    "wav",
+    "afl",
+    "avi",
+    "avs",
+    "fli",
+    "mp2",
+    "mp4",
+    "mpg",
+    "ogg",
+    "webm",
+    "3gp",
+    "flv",
+    "vdo",
+    "glb",
+    "pcd",
+    "gltf",
+    "ifc",
+    "json",
+)
+
+# Leer la variable de entorno y dividirla por comas
+env_allowed_types = os.getenv("ALLOWED_DOCUMENT_TYPES")
+if env_allowed_types:
+    ALLOWED_DOCUMENT_TYPES = [
+        ext.strip()
+        for ext in env_allowed_types.replace(" ", "").split(",")
+        if ext.strip()
+    ]
+else:
+    ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
+
+DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")

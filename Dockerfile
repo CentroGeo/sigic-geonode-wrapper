@@ -1,10 +1,16 @@
 FROM geonode/geonode-base:latest-ubuntu-22.04
-LABEL GeoNode development team
+LABEL \
+  org.opencontainers.image.title="sigic-geonode-wrapper" \
+  org.opencontainers.image.version="${WRAPPER_VERSION}" \
+  org.opencontainers.image.description="SIGIC GeoNode wrapper" \
+  sigic.wrapper.version="${WRAPPER_VERSION}" \
+  sigic.geonode.version="${GEONODE_VERSION}" \
+  sigic.patch="${SIGIC_PATCH}"
+
+ARG REQUIREMENTS_VARIANT=bundle
 
 RUN mkdir -p /usr/src/sigic_geonode
-
 RUN apt-get update -y && apt-get install curl wget unzip gnupg2 locales -y
-
 RUN sed -i -e 's/# C.UTF-8 UTF-8/C.UTF-8 UTF-8/' /etc/locale.gen && \
     locale-gen
 ENV LC_ALL C.UTF-8
@@ -25,7 +31,7 @@ COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
 
-RUN yes w | pip install --src /usr/src -r requirements.txt && \
+RUN yes w | pip install --src /usr/src -r requirements/${REQUIREMENTS_VARIANT}.txt && \
     yes w | pip install -e .
 
 # Cleanup apt update lists
