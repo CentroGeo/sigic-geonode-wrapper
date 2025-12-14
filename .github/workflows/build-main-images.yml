@@ -120,15 +120,17 @@ jobs:
       - name: 🐳 Build & push sigic_geonode
         run: |
           IMAGE="$(echo "$REGISTRY/$IMAGE_ROOT/sigic_geonode" | tr '[:upper:]' '[:lower:]')"
-          CANON="${{ steps.wrapper_tag.outputs.tag }}"
+      
+          DOCKER_TAG="$(cat .version-docker)"
+          SEMVER_TAG="$(cat .version-semver)"
           VERSION=$(cat VERSION)
-
-          docker build -t "$IMAGE:$CANON" .
-          docker push "$IMAGE:$CANON"
-
-          docker tag "$IMAGE:$CANON" "$IMAGE:$VERSION"
-          docker tag "$IMAGE:$CANON" "$IMAGE:latest"
-
+      
+          docker build -t "$IMAGE:$DOCKER_TAG" .
+          docker push "$IMAGE:$DOCKER_TAG"
+      
+          docker tag "$IMAGE:$DOCKER_TAG" "$IMAGE:$VERSION"
+          docker tag "$IMAGE:$DOCKER_TAG" "$IMAGE:latest"
+      
           docker push "$IMAGE:$VERSION"
           docker push "$IMAGE:latest"
 
