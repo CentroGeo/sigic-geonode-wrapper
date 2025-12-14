@@ -100,7 +100,7 @@ jobs:
         id: wrapper_tag
         run: |
           VERSION=$(cat VERSION)
-          REQ_FILE="requirements/bundle.txt"
+          REQ_FILE="src/requirements/bundle.txt"
 
           GEONODE_VERSION=$(grep -E '^# GEONODE_VERSION=' "$REQ_FILE" | sed 's/# GEONODE_VERSION=//')
           SIGIC_PATCH=$(grep -E '^# SIGIC_PATCH=' "$REQ_FILE" | sed 's/# SIGIC_PATCH=//')
