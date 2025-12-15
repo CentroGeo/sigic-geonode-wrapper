@@ -29,7 +29,6 @@ env:
   GEOSERVER_BASE_IMAGE_VERSION: 2.24.4-v2
   GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v2
   POSTGRES_BASE_IMAGE_VERSION: 15.3-latest
-  POSTGIS_BASE_IMAGE_VERSION: 15.3-latest
 
 jobs:
   release:
@@ -152,7 +151,7 @@ jobs:
             nginx
             geoserver
             geoserver_data
-            postgis
+            postgresql
             letsencrypt
           )
 
