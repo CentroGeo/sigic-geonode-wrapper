@@ -246,6 +246,7 @@ Utiliza el script incluido en el repositorio:
 ```
 sudo sh fix_network.sh
 ```
+
 Este comando crea la red llamada sigic-network con los parámetros específicos necesarios (driver bridge, MTU reducido), los cuales evitan problemas de conectividad entre contenedores y con servicios externos como GeoServer o PostgreSQL.
 
 ####  5. Construye los servicios

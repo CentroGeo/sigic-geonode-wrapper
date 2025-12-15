@@ -24,6 +24,12 @@ env:
   REGISTRY: ghcr.io
   IMAGE_ROOT: ${{ github.repository }}
 
+  NGINX_BASE_IMAGE_VERSION: 1.25.3-latest
+  LETSENCRYPT_BASE_IMAGE_VERSION: 2.6.0-latest
+  GEOSERVER_BASE_IMAGE_VERSION: 2.24.4-v2
+  GEOSERVER_DATA_BASE_IMAGE_VERSION: 2.24.4-v2
+  POSTGRESQL_BASE_IMAGE_VERSION : 15.3-latest
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -64,7 +70,7 @@ jobs:
       # ------------------------------------------------------------
       - name: 🔐 Validar versionado
         run: |
-          sh ./scripts/validate-version.sh
+          ./scripts/validate-version.sh
 
       # ------------------------------------------------------------
       # Crear tag Git (wrapper)
@@ -100,7 +106,7 @@ jobs:
         id: wrapper_tag
         run: |
           VERSION=$(cat VERSION)
-          REQ_FILE="requirements/bundle.txt"
+          REQ_FILE="src/requirements/bundle.txt"
 
           GEONODE_VERSION=$(grep -E '^# GEONODE_VERSION=' "$REQ_FILE" | sed 's/# GEONODE_VERSION=//')
           SIGIC_PATCH=$(grep -E '^# SIGIC_PATCH=' "$REQ_FILE" | sed 's/# SIGIC_PATCH=//')
@@ -120,15 +126,17 @@ jobs:
       - name: 🐳 Build & push sigic_geonode
         run: |
           IMAGE="$(echo "$REGISTRY/$IMAGE_ROOT/sigic_geonode" | tr '[:upper:]' '[:lower:]')"
-          CANON="${{ steps.wrapper_tag.outputs.tag }}"
+      
+          DOCKER_TAG="$(cat .version-docker)"
+          SEMVER_TAG="$(cat .version-semver)"
           VERSION=$(cat VERSION)
-
-          docker build -t "$IMAGE:$CANON" .
-          docker push "$IMAGE:$CANON"
-
-          docker tag "$IMAGE:$CANON" "$IMAGE:$VERSION"
-          docker tag "$IMAGE:$CANON" "$IMAGE:latest"
-
+      
+          docker build -t "$IMAGE:$DOCKER_TAG" .
+          docker push "$IMAGE:$DOCKER_TAG"
+      
+          docker tag "$IMAGE:$DOCKER_TAG" "$IMAGE:$VERSION"
+          docker tag "$IMAGE:$DOCKER_TAG" "$IMAGE:latest"
+      
           docker push "$IMAGE:$VERSION"
           docker push "$IMAGE:latest"
 
@@ -143,13 +151,19 @@ jobs:
             nginx
             geoserver
             geoserver_data
-            postgis
+            postgresql
             letsencrypt
           )
 
           for SERVICE in "${SERVICES[@]}"; do
             DOCKERFILE="./docker/$SERVICE/Dockerfile"
             ENV_VAR="$(echo "${SERVICE}_BASE_IMAGE_VERSION" | tr '[:lower:]' '[:upper:]')"
+
+            if [ -z "${!ENV_VAR:-}" ]; then
+              echo "❌ Variable de entorno $ENV_VAR no definida"
+              exit 1
+            fi
+            
             BASE_VERSION="${!ENV_VAR}"
 
             if [ ! -f "$DOCKERFILE" ]; then
