@@ -70,7 +70,8 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
         login = super().complete_login(request, app, token, response, **kwargs)
         preferred_username = login.account.extra_data.get("preferred_username")
         email = login.account.extra_data.get("email")
-        logger.debug("Complete Extra data received: %s", extra)
+
+        logger.debug("complete_login Extra data received: %s", extra)
 
         if preferred_username:
             login.user.username = preferred_username
@@ -84,10 +85,10 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
         user = super().save_user(request, sociallogin, form=form)
         # Aseguramos persistencia explícita del email
         extra = sociallogin.account.extra_data
-        logger.debug("Save Extra data received: %s", extra)
+
+        logger.debug("save_user Extra data received: %s", extra)
+
         if extra.get("email") and user.email != extra["email"]:
             user.email = extra["email"]
-        if extra.get("preferred_username") and user.username != extra["preferred_username"]:
-            user.username = extra["preferred_username"]
-        user.save(update_fields=["email"])
+            user.save(update_fields=["email"])
         return user
