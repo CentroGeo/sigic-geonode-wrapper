@@ -66,30 +66,28 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
 
 
 class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
-
     def complete_login(self, request, app, token, response, **kwargs):
-        # No tocamos username aquí
-        return super().complete_login(request, app, token, response, **kwargs)
+        login = super().complete_login(request, app, token, response, **kwargs)
+        preferred_username = login.account.extra_data.get("preferred_username")
+        email = login.account.extra_data.get("email")
+        logger.debug("Complete Extra data received: %s", extra)
+
+        if preferred_username:
+            login.user.username = preferred_username
+        if email:
+            login.user.email = email
+
+        login.account.user = login.user
+        return login
 
     def save_user(self, request, sociallogin, form=None):
         user = super().save_user(request, sociallogin, form=form)
-
+        # Aseguramos persistencia explícita del email
         extra = sociallogin.account.extra_data
-
-        preferred_username = extra.get("preferred_username")
-        email = extra.get("email")
-
-        updated = False
-
-        if preferred_username and user.username != preferred_username:
-            user.username = preferred_username
-            updated = True
-
-        if email and user.email != email:
-            user.email = email
-            updated = True
-
-        if updated:
-            user.save(update_fields=["username", "email"])
-
+        logger.debug("Save Extra data received: %s", extra)
+        if extra.get("email") and user.email != extra["email"]:
+            user.email = extra["email"]
+        if extra.get("preferred_username") and user.username != extra["preferred_username"]:
+            user.username = extra["preferred_username"]
+        user.save(update_fields=["email"])
         return user
