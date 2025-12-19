@@ -37,7 +37,8 @@ Contiene un Dockerfile y un docker-compose para facilitar el despliegue de un se
   ```
 `create-envfile.py` acepta los siguientes argumentos:
 
-- `--https`: Habilita SSL. Está deshabilitado por defecto.
+- `--https`: Habilita SSL. Está deshabilitado por defecto. Sólo debe usarse si se publica directamente en Internet sin usar un proxy reverso al frente.
+- `--externalhttps`: Habilita SSL externo. Está deshabilitado por defecto. Sólo debe usarse si se publica detrás de un proxy reverso que maneja SSL.
 - `--env_type`: Define el tipo de entorno:
    - `prod`: Se desactiva`DEBUG` y se solicita un certificado `SSL` válido al servidor ACME de Let's Encrypt.
    - `test`: Se desactiva `DEBUG` y se genera un certificado `SSL` de prueba para uso local.
