@@ -13,6 +13,40 @@ from .utils import get_dataset, get_name_from_ds
 
 
 class JoinDataframes(APIView):
+    """
+    Endpoint para realizar un join entre una tabla sin geometría y una capa geográfica.
+
+    Este endpoint toma columnas de una capa geográfica (geo_layer) y las agrega a una tabla
+    destino (layer), convirtiendo la tabla destino en una capa geográfica.
+
+    Parámetros del POST request:
+    - layer (int): ID del Dataset destino (tabla sin geometría) al que se le AGREGARÁN las columnas.
+                   Esta tabla recibirá las nuevas columnas incluyendo geometría.
+
+    - geo_layer (int): ID del Dataset fuente (capa geográfica) desde donde se TOMARÁN las columnas.
+                       Esta capa proporciona los datos que serán copiados.
+
+    - layer_pivot (str): Nombre de la columna en 'layer' que se usará como llave para el join.
+
+    - geo_pivot (str): Nombre de la columna en 'geo_layer' que se usará como llave para el join.
+
+    - columns (list[str]): Lista de nombres de columnas que se copiarán desde 'geo_layer' a 'layer'.
+                           Puede incluir 'geometry' para copiar la geometría.
+
+    Ejemplo de uso:
+        POST /sigic/georeference/join
+        {
+            "layer": 123,           // Tabla destino (sin geometría)
+            "geo_layer": 456,       // Capa fuente (con geometría)
+            "layer_pivot": "cve",   // Columna llave en tabla destino
+            "geo_pivot": "cve_geo", // Columna llave en capa fuente
+            "columns": ["nombre", "poblacion", "geometry"]
+        }
+
+    Retorna:
+        - 200: {"status": "success"} si el join se completó correctamente
+        - 400: {"status": "error message"} si ocurrió algún error
+    """
     def post(self, request: Request):
         request_data: dict[str, str] = request.data
         ds = get_dataset(request_data.get("layer", -1))
