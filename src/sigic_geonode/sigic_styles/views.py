@@ -12,8 +12,7 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # ==============================================================================
 
-# import json
-# import os
+import re
 import xml.etree.ElementTree as ET
 
 import requests
@@ -26,9 +25,8 @@ from drf_spectacular.utils import (  # OpenApiExample,
     extend_schema_view,
     inline_serializer,
 )
-
-# from geonode.layers.api.views import DatasetViewSet
 from geonode.layers.models import Dataset
+from lxml import etree
 from rest_framework import serializers
 from rest_framework import status as drf_status
 from rest_framework.decorators import action
@@ -58,6 +56,53 @@ CreateUpdateStyleRequest = inline_serializer(
         "sld_body": serializers.CharField(required=False),
     },
 )
+
+
+class InvalidSLDError(Exception):
+    pass
+
+
+def validate_sld_before_post(xml: bytes) -> None:
+    root = etree.fromstring(xml)
+
+    version = root.attrib.get("version")
+    nsmap = root.nsmap
+
+    is_sld_1_0 = version == "1.0.0" and nsmap.get("sld") == "http://www.opengis.net/sld"
+
+    if not is_sld_1_0:
+        return
+
+    illegal = root.xpath(
+        ".//se:*",
+        namespaces={"se": "http://www.opengis.net/se"},
+    )
+
+    if illegal:
+        tags = {el.tag for el in illegal}
+        raise InvalidSLDError(
+            "SLD 1.0.0 contiene elementos SE inválidos: " + ", ".join(sorted(tags))
+        )
+
+
+def normalize_mixed_sld(xml: bytes) -> bytes:
+    """
+    Convierte SLD mezclado (se:*) a SLD 1.0.0 válido.
+    NO intenta soportar features avanzadas.
+    """
+
+    text = xml.decode("utf-8")
+
+    # se:* → sld:*
+    text = re.sub(r"<(/?)se:", r"<\1sld:", text)
+
+    # SvgParameter → CssParameter
+    text = text.replace("SvgParameter", "CssParameter")
+
+    # eliminar xmlns:se
+    text = re.sub(r'\s+xmlns:se="[^"]+"', "", text)
+
+    return text.encode("utf-8")
 
 
 @extend_schema_view(
@@ -662,6 +707,20 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             sld_body = sld_file.read()
         else:
             sld_body = sld_body.encode("utf-8")
+
+        try:
+            validate_sld_before_post(sld_body)
+        except InvalidSLDError:
+            # Intentar corrección automática
+            sld_body = normalize_mixed_sld(sld_body)
+
+            try:
+                validate_sld_before_post(sld_body)
+            except InvalidSLDError as e:
+                return Response(
+                    {"error": str(e)},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
 
         url_upload = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
 
