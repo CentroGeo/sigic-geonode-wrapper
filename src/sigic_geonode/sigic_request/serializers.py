@@ -3,7 +3,7 @@ from .models import Request as SigicRequest
 from dynamic_rest.serializers import DynamicModelSerializer
 from django.conf import settings
 from geonode.base.models import ResourceBase
-from geonode.base.api.serializers import SimpleTopicCategorySerializer, ExtentBboxField
+from geonode.base.api.serializers import DownloadLinkField, ExtentBboxField, SimpleTopicCategorySerializer
 from django.apps import apps
 
 
@@ -14,16 +14,24 @@ def get_users_model():
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_users_model()
-        fields = ( 'pk', 'username', 'email')
+        fields = ('pk', 'username', 'email')
 
 class ResourceSerializer(serializers.ModelSerializer):
-    # category = ComplexDynamicRelationField(SimpleTopicCategorySerializer, embed=True)
     category = SimpleTopicCategorySerializer(read_only=True, default=None)
     extent = ExtentBboxField(required=False)
+    download_url = DownloadLinkField(read_only=True)
     class Meta:
         model = ResourceBase
-        fields = ('pk', 'title', 'category', 'resource_type', 'is_published', 'extent', 'sourcetype')
-
+        fields = (
+            'pk',
+            'title',
+            'category',
+            'resource_type',
+            'is_published',
+            'extent',
+            'sourcetype',
+            'download_url',
+        )
 
 #serializer para el modelo Request, para listar y crear elementos
 # metodos: POST, GET (list, retrieve)
