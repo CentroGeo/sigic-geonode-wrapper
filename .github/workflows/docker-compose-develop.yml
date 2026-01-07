@@ -1,3 +1,15 @@
+# SPDX-FileCopyrightText: 2025 CentroGeo
+# SPDX-FileContributor: César Benjamín <cesarbenjamindotnet@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Descripción:
+#   Workflow de GitHub Actions para CI/CD del proyecto
+#   "SIGIC GeoNode Wrapper" en la rama `develop`.
+#   Incluye:
+#     - Construcción de imágenes Docker (GeoNode, GeoServer, NGINX)
+#     - Publicación en GitHub Container Registry (GHCR)
+#     - Despliegue en el servidor de desarrollo usando docker-compose
+
 name: CI/CD - Build & Deploy SIGIC GeoNode Wrapper (develop)
 
 on:

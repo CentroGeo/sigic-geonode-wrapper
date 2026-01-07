@@ -1,0 +1,14 @@
+# Ignorar TODO por defecto
+extra_migrations/**
+
+# PERMITIR solo estructura válida: */migrations/**
+!extra_migrations/*/
+!extra_migrations/*/migrations/
+!extra_migrations/*/migrations/**
+
+# Bloquear basura común
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.swp
+**/.DS_Store

@@ -173,8 +173,8 @@ INSTALLED_APPS = (
 # Apps que no necesitan ejecutarse antes
 INSTALLED_APPS += (
     "sigic_geonode.sigic_auth",
-    "sigic_geonode.sigic_resources",
     "sigic_geonode.sigic_datasets",
+    "sigic_geonode.sigic_resources",
     "sigic_geonode.sigic_ia_media_uploads",
     "sigic_geonode.sigic_request",
 )
