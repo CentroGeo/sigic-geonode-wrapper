@@ -36,7 +36,7 @@ class JoinDataframes(APIView):
             ds.save()
             try:
                 cur.execute(
-                    SQL("ALTER TABLE {layer_table} ADD {columns}VARCHAR;").format(
+                    SQL("ALTER TABLE {layer_table} ADD {columns} VARCHAR;").format(
                         columns=SQL(" VARCHAR, ADD ").join(
                             [Identifier(col) for col in columns if col != "geometry"]
                         ),
@@ -95,12 +95,18 @@ class JoinDataframes(APIView):
                         ),
                     )
                 )
-            except Exception:
+            except Exception as e:
                 connection.rollback()
                 ds.state = enumerations.STATE_INCOMPLETE
                 ds.save()
+                # Incluir más detalles del error para debugging
+                import traceback
                 return Response(
-                    {"status": "failed running database changes"},
+                    {
+                        "status": "failed running database changes",
+                        "error": str(e),
+                        "traceback": traceback.format_exc(),
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         try:
