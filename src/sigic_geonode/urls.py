@@ -47,7 +47,7 @@ urlpatterns += [
     path(
         "sigic/ia/mediauploads/", include("sigic_geonode.sigic_ia_media_uploads.urls")
     ),
-    path("sigic/request", include("sigic_geonode.sigic_request.urls")),
+    path("sigic/requests", include("sigic_geonode.sigic_requests.urls")),
     path("", include("sigic_geonode.sigic_datasets.urls")),
     path("", include("sigic_geonode.sigic_resources.urls")),
     path("", include("sigic_geonode.sigic_styles.urls")),

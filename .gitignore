@@ -70,3 +70,7 @@ local_settings.py
 .vagrant/
 Vagrantfile
 /.env
+
+src/sigic_geonode/sigic_requests/migrations/
+*.http
+docker/nginx/nginx.conf.envsubst
