@@ -73,4 +73,3 @@ Vagrantfile
 
 src/sigic_geonode/sigic_requests/migrations/
 *.http
-docker/nginx/nginx.conf.envsubst
