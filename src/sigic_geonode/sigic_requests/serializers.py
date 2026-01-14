@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.apps import apps
 from rest_framework import serializers
-from geonode.base.api.serializers import DownloadLinkField, ExtentBboxField, SimpleTopicCategorySerializer
+from geonode.base.api.serializers import ExtentBboxField, SimpleTopicCategorySerializer, LinksSerializer
 from geonode.base.models import ResourceBase
 from dynamic_rest.serializers import DynamicModelSerializer
+from dynamic_rest.fields.fields import DynamicRelationField
 from .models import Requests as SigicRequests
 
 
@@ -16,10 +17,10 @@ class UserSerializer(serializers.ModelSerializer):
         model = get_users_model()
         fields = ('pk', 'username', 'email')
 
-class ResourceSerializer(serializers.ModelSerializer):
+class ResourceSerializer(DynamicModelSerializer):
     category = SimpleTopicCategorySerializer(read_only=True, default=None)
     extent = ExtentBboxField(required=False)
-    download_url = DownloadLinkField(read_only=True)
+    links = DynamicRelationField(LinksSerializer, source="id", read_only=True)
     class Meta:
         model = ResourceBase
         fields = (
@@ -30,13 +31,13 @@ class ResourceSerializer(serializers.ModelSerializer):
             'is_published',
             'extent',
             'sourcetype',
-            'download_url',
+            'links'
         )
 
 #serializer para el modelo Request, para listar y crear elementos
 # metodos: POST, GET (list, retrieve)
 class RequestsSerializer(DynamicModelSerializer):
-    resource = ResourceSerializer(read_only=True)
+    resource = DynamicRelationField(ResourceSerializer, embed=True, read_only=True)
     resource_pk = serializers.PrimaryKeyRelatedField(
         queryset=ResourceBase.objects.all(),
         source='resource',
@@ -72,7 +73,7 @@ class RequestsSerializer(DynamicModelSerializer):
 # metodos: PUT, PATCH
 # en el viewset debe ajustarse para que solo los usuarios admin (o quien va a revisar ) puedan usar este serializer
 class RequestReviewerSerializer(DynamicModelSerializer):
-    resource = ResourceSerializer(read_only=True)
+    resource = DynamicRelationField(ResourceSerializer, embed=True, source='resource', read_only=True)
     owner = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True, default=None)
     # reviewer_pk = serializers.PrimaryKeyRelatedField(
