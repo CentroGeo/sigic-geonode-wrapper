@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import MeProfileView
+from .views import MeAvatarView, MeProfileView
 
 urlpatterns = [
     path(
@@ -8,4 +8,5 @@ urlpatterns = [
         MeProfileView.as_view(),
         name="me-profile",
     ),
+    path("api/v2/account/me/avatar/", MeAvatarView.as_view(), name="me-avatar"),
 ]
