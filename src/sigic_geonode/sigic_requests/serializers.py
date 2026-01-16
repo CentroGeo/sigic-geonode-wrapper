@@ -2,6 +2,7 @@ from django.conf import settings
 from django.apps import apps
 from rest_framework import serializers
 from geonode.base.api.serializers import ExtentBboxField, SimpleTopicCategorySerializer, LinksSerializer
+from geonode.base.api.fields import ComplexDynamicRelationField
 from geonode.base.models import ResourceBase
 from dynamic_rest.serializers import DynamicModelSerializer
 from dynamic_rest.fields.fields import DynamicRelationField
@@ -18,22 +19,23 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('pk', 'username', 'email')
 
 class ResourceSerializer(DynamicModelSerializer):
-    category = SimpleTopicCategorySerializer(read_only=True, default=None)
+    # category = SimpleTopicCategorySerializer(read_only=True, default=None)
+    category = ComplexDynamicRelationField(SimpleTopicCategorySerializer, embed=True)
     extent = ExtentBboxField(required=False)
     links = DynamicRelationField(LinksSerializer, source="id", read_only=True)
     class Meta:
         model = ResourceBase
         fields = (
-            'pk',
-            'title',
+            'alternate',
             'category',
-            'resource_type',
-            'is_published',
             'extent',
-            'sourcetype',
+            'is_published',
             'links',
+            'pk',
+            'resource_type',
+            'sourcetype',
             'subtype',
-            'alternate'
+            'title',
         )
 
 #serializer para el modelo Request, para listar y crear elementos
@@ -75,7 +77,7 @@ class RequestsSerializer(DynamicModelSerializer):
 # metodos: PUT, PATCH
 # en el viewset debe ajustarse para que solo los usuarios admin (o quien va a revisar ) puedan usar este serializer
 class RequestReviewerSerializer(DynamicModelSerializer):
-    resource = DynamicRelationField(ResourceSerializer, embed=True, source='resource', read_only=True)
+    resource = DynamicRelationField(ResourceSerializer, embed=True, read_only=True)
     owner = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True, default=None)
     # reviewer_pk = serializers.PrimaryKeyRelatedField(
