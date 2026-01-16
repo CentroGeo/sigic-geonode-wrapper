@@ -91,6 +91,7 @@ class FileServiceHandler(base.ServiceHandlerBase):
             else:
                 logger.warning(GeoNodeException("Could not reach remote endpoint."))
             instance.harvester = service_harvester
+            instance.save()
 
         self.geonode_service_id = instance.id
         return instance
