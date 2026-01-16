@@ -31,7 +31,9 @@ class ResourceSerializer(DynamicModelSerializer):
             'is_published',
             'extent',
             'sourcetype',
-            'links'
+            'links',
+            'subtype',
+            'alternate'
         )
 
 #serializer para el modelo Request, para listar y crear elementos
