@@ -62,12 +62,42 @@ class InvalidSLDError(Exception):
     pass
 
 
+class SLDNeedsNormalization(Exception):
+    """Indica que el SLD necesita ser normalizado antes de enviarse a GeoServer."""
+
+    pass
+
+
 def validate_sld_before_post(xml: bytes) -> None:
+    """
+    Valida un SLD antes de enviarlo a GeoServer.
+
+    Detecta:
+    - SLD 1.0.0 con elementos SE inválidos (mezcla de namespaces)
+    - SLD 1.1.0 con elementos se: que necesitan normalización
+
+    Raises:
+        InvalidSLDError: Si el SLD tiene errores que no se pueden corregir
+        SLDNeedsNormalization: Si el SLD necesita ser normalizado
+    """
     root = etree.fromstring(xml)
 
     version = root.attrib.get("version")
     nsmap = root.nsmap
 
+    # Detectar SLD 1.1.0 con elementos se:
+    is_sld_1_1 = version == "1.1.0"
+    has_se_elements = bool(
+        root.xpath(".//se:*", namespaces={"se": "http://www.opengis.net/se"})
+    )
+
+    if is_sld_1_1 and has_se_elements:
+        # SLD 1.1.0 necesita normalización para que GeoServer preserve los estilos
+        raise SLDNeedsNormalization(
+            "SLD 1.1.0 con elementos SE necesita normalización"
+        )
+
+    # Validar SLD 1.0.0
     is_sld_1_0 = version == "1.0.0" and nsmap.get("sld") == "http://www.opengis.net/sld"
 
     if not is_sld_1_0:
@@ -87,11 +117,23 @@ def validate_sld_before_post(xml: bytes) -> None:
 
 def normalize_mixed_sld(xml: bytes) -> bytes:
     """
-    Convierte SLD mezclado (se:*) a SLD 1.0.0 válido.
-    NO intenta soportar features avanzadas.
-    """
+    Convierte SLD 1.1.0 con elementos se: a SLD 1.0.0 válido.
 
+    Transformaciones:
+    - Cambia version="1.1.0" a version="1.0.0"
+    - Convierte elementos se:* a sld:*
+    - Convierte SvgParameter a CssParameter
+    - Agrega xmlns:sld si no existe
+    - Elimina namespaces innecesarios (se, xsi, schemaLocation)
+
+    GeoServer no convierte correctamente SvgParameter a CssParameter cuando
+    recibe SLD 1.1.0, lo que causa pérdida de estilos visuales (colores, etc.).
+    Esta función realiza la conversión antes de enviar a GeoServer.
+    """
     text = xml.decode("utf-8")
+
+    # Cambiar versión 1.1.0 → 1.0.0
+    text = re.sub(r'version="1\.1\.0"', 'version="1.0.0"', text)
 
     # se:* → sld:*
     text = re.sub(r"<(/?)se:", r"<\1sld:", text)
@@ -99,8 +141,21 @@ def normalize_mixed_sld(xml: bytes) -> bytes:
     # SvgParameter → CssParameter
     text = text.replace("SvgParameter", "CssParameter")
 
-    # eliminar xmlns:se
+    # Eliminar xmlns:se
     text = re.sub(r'\s+xmlns:se="[^"]+"', "", text)
+
+    # Eliminar xsi:schemaLocation y xmlns:xsi
+    text = re.sub(r'\s+xsi:schemaLocation="[^"]+"', "", text)
+    text = re.sub(r'\s+xmlns:xsi="[^"]+"', "", text)
+
+    # Agregar xmlns:sld si no existe y hay elementos sld:
+    if "sld:" in text and 'xmlns:sld=' not in text:
+        # Buscar el elemento StyledLayerDescriptor y agregar el namespace
+        text = re.sub(
+            r'(<StyledLayerDescriptor\s)',
+            r'\1xmlns:sld="http://www.opengis.net/sld" ',
+            text,
+        )
 
     return text.encode("utf-8")
 
@@ -710,8 +765,8 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
         try:
             validate_sld_before_post(sld_body)
-        except InvalidSLDError:
-            # Intentar corrección automática
+        except (InvalidSLDError, SLDNeedsNormalization):
+            # Intentar corrección automática para SLD mezclado o SLD 1.1.0
             sld_body = normalize_mixed_sld(sld_body)
 
             try:
@@ -721,6 +776,9 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                     {"error": str(e)},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            except SLDNeedsNormalization:
+                # Después de normalizar no debería lanzar esta excepción
+                pass
 
         url_upload = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
 
@@ -876,6 +934,25 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             sld_body = sld_file.read()
         else:
             sld_body = sld_body.encode("utf-8")
+
+        # ---------------------------------------------
+        # Validar y normalizar SLD si es necesario
+        # ---------------------------------------------
+        try:
+            validate_sld_before_post(sld_body)
+        except (InvalidSLDError, SLDNeedsNormalization):
+            # Normalizar SLD mezclado o SLD 1.1.0
+            sld_body = normalize_mixed_sld(sld_body)
+
+            try:
+                validate_sld_before_post(sld_body)
+            except InvalidSLDError as e:
+                return Response(
+                    {"error": str(e)},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
+            except SLDNeedsNormalization:
+                pass
 
         gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
         auth = (
