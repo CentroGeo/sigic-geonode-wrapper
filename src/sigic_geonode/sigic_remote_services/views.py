@@ -19,6 +19,7 @@ Permite crear servicios con validación de URL única por usuario.
 """
 
 import logging
+import math
 
 from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
@@ -36,7 +37,16 @@ from geonode.services import enumerations as services_enumerations
 from geonode.services.serviceprocessors import get_service_handler
 from geonode.harvesting.models import Harvester, HarvestableResource
 
-from .filters import HarvesterIdFilter, ServiceIdFilter, OwnerFilter
+from .filters import (
+    HarvesterIdFilter,
+    ServiceIdFilter,
+    OwnerFilter,
+    TypeFilter,
+    NameFilter,
+    TitleFilter,
+    CreatedRangeFilter,
+    HarvesterStatusFilter,
+)
 from .serializers import (
     ServiceCreateSerializer,
     ServiceListSerializer,
@@ -51,15 +61,75 @@ logger = logging.getLogger(__name__)
     list=extend_schema(
         summary="Lista servicios remotos",
         description=(
-            "Retorna los servicios remotos. "
+            "Retorna los servicios remotos con soporte para paginación, ordenamiento y filtros. "
             "Usuarios no superusuarios solo ven sus propios servicios."
         ),
         parameters=[
+            OpenApiParameter(
+                name="page",
+                description="Número de página (comienza en 1)",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                description="Cantidad de resultados por página (máximo 100, por defecto 10)",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="sort",
+                description=(
+                    "Campo de ordenamiento. Prefijo '-' para orden descendente. "
+                    "Campos permitidos: created, name, title, type. Ejemplo: -created"
+                ),
+                required=False,
+                type=str,
+            ),
             OpenApiParameter(
                 name="owner_id",
                 description="Filtrar por ID del propietario",
                 required=False,
                 type=int,
+            ),
+            OpenApiParameter(
+                name="type",
+                description="Filtrar por tipo de servicio (WMS, FILE, etc.). Múltiples valores separados por coma.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="name",
+                description="Filtrar por nombre (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="title",
+                description="Filtrar por título (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="created_after",
+                description="Filtrar servicios creados después de esta fecha (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="created_before",
+                description="Filtrar servicios creados antes de esta fecha (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="harvester_status",
+                description=(
+                    "Filtrar por estado del harvester (ready, updating-harvestable-resources, "
+                    "performing-harvesting). Múltiples valores separados por coma."
+                ),
+                required=False,
+                type=str,
             ),
         ],
         tags=["Servicios Remotos"],
@@ -97,7 +167,19 @@ class ServiceViewSet(ViewSet):
     ]
     permission_classes = [IsAuthenticated]
     pagination_class = GeoNodeApiPagination
-    filter_backends = [OwnerFilter]
+    filter_backends = [
+        OwnerFilter,
+        TypeFilter,
+        NameFilter,
+        TitleFilter,
+        CreatedRangeFilter,
+        HarvesterStatusFilter,
+    ]
+
+    # Campos permitidos para ordenamiento
+    ALLOWED_SORT_FIELDS = {"created", "name", "title", "type", "-created", "-name", "-title", "-type"}
+    DEFAULT_PAGE_SIZE = 10
+    MAX_PAGE_SIZE = 100
 
     def get_queryset(self):
         """Retorna queryset filtrado por owner si no es superusuario."""
@@ -116,10 +198,59 @@ class ServiceViewSet(ViewSet):
         return qs
 
     def list(self, request):
-        """Lista todos los servicios remotos del usuario."""
-        services = self.get_queryset()
-        serializer = ServiceListSerializer(services, many=True)
-        return Response({"count": services.count(), "results": serializer.data})
+        """Lista todos los servicios remotos del usuario con paginación, ordenamiento y filtros."""
+        queryset = self.get_queryset()
+
+        # Aplicar filtros
+        for backend in self.filter_backends:
+            queryset = backend().filter_queryset(request, queryset, self)
+
+        # Aplicar ordenamiento
+        sort_field = request.query_params.get("sort", "-created")
+        if sort_field in self.ALLOWED_SORT_FIELDS:
+            queryset = queryset.order_by(sort_field)
+        else:
+            queryset = queryset.order_by("-created")
+
+        # Total antes de paginar
+        total_count = queryset.count()
+
+        # Aplicar paginación
+        page = request.query_params.get("page")
+        page_size = request.query_params.get("page_size")
+
+        if page is not None:
+            try:
+                page = max(1, int(page))
+                page_size = min(
+                    self.MAX_PAGE_SIZE,
+                    max(1, int(page_size)) if page_size else self.DEFAULT_PAGE_SIZE,
+                )
+                offset = (page - 1) * page_size
+                queryset = queryset[offset : offset + page_size]
+            except (ValueError, TypeError):
+                page = 1
+                page_size = self.DEFAULT_PAGE_SIZE
+                queryset = queryset[: page_size]
+        else:
+            page = None
+            page_size = None
+
+        serializer = ServiceListSerializer(queryset, many=True)
+
+        response_data = {
+            "count": total_count,
+            "results": serializer.data,
+        }
+
+        # Agregar información de paginación si se solicitó
+        if page is not None:
+            total_pages = math.ceil(total_count / page_size) if page_size > 0 else 1
+            response_data["page"] = page
+            response_data["page_size"] = page_size
+            response_data["total_pages"] = total_pages
+
+        return Response(response_data)
 
     def retrieve(self, request, pk=None):
         """Obtiene el detalle de un servicio remoto."""

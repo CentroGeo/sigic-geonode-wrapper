@@ -99,3 +99,103 @@ class OwnerFilter(BaseFilterBackend):
             queryset = queryset.filter(owner=request.user)
 
         return queryset
+
+
+class TypeFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por tipo.
+
+    Uso: ?type=WMS o ?type=WMS,FILE (múltiples valores separados por coma)
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        service_type = request.query_params.get("type")
+
+        if service_type:
+            types = [t.strip().upper() for t in service_type.split(",")]
+            queryset = queryset.filter(type__in=types)
+
+        return queryset
+
+
+class NameFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por nombre (búsqueda parcial insensible a mayúsculas).
+
+    Uso: ?name=datos
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        name = request.query_params.get("name")
+
+        if name:
+            queryset = queryset.filter(name__icontains=name)
+
+        return queryset
+
+
+class TitleFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por título (búsqueda parcial insensible a mayúsculas).
+
+    Uso: ?title=servicio
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        title = request.query_params.get("title")
+
+        if title:
+            queryset = queryset.filter(title__icontains=title)
+
+        return queryset
+
+
+class CreatedRangeFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por rango de fecha de creación.
+
+    Uso: ?created_after=2024-01-01&created_before=2024-12-31
+    Las fechas deben estar en formato ISO 8601 (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS).
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        from django.utils.dateparse import parse_datetime, parse_date
+
+        created_after = request.query_params.get("created_after")
+        created_before = request.query_params.get("created_before")
+
+        if created_after:
+            try:
+                dt = parse_datetime(created_after) or parse_date(created_after)
+                if dt:
+                    queryset = queryset.filter(created__gte=dt)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Error en CreatedRangeFilter (after): {e}")
+
+        if created_before:
+            try:
+                dt = parse_datetime(created_before) or parse_date(created_before)
+                if dt:
+                    queryset = queryset.filter(created__lte=dt)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Error en CreatedRangeFilter (before): {e}")
+
+        return queryset
+
+
+class HarvesterStatusFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por estado del harvester asociado.
+
+    Uso: ?harvester_status=ready o ?harvester_status=ready,updating-harvestable-resources
+    Valores posibles: ready, updating-harvestable-resources, performing-harvesting, etc.
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        harvester_status = request.query_params.get("harvester_status")
+
+        if harvester_status:
+            statuses = [s.strip().lower() for s in harvester_status.split(",")]
+            queryset = queryset.filter(harvester__status__in=statuses)
+
+        return queryset
