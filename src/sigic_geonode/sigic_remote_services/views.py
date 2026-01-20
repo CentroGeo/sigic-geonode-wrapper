@@ -150,6 +150,14 @@ logger = logging.getLogger(__name__)
         ),
         tags=["Servicios Remotos"],
     ),
+    partial_update=extend_schema(
+        summary="Actualiza parcialmente un servicio remoto",
+        description=(
+            "Permite actualizar campos del servicio como descripción. "
+            "Solo el propietario del servicio o un superusuario puede actualizarlo."
+        ),
+        tags=["Servicios Remotos"],
+    ),
 )
 class ServiceViewSet(ViewSet):
     """
@@ -263,6 +271,46 @@ class ServiceViewSet(ViewSet):
 
         serializer = ServiceDetailSerializer(service)
         return Response(serializer.data)
+
+    def partial_update(self, request, pk=None):
+        """Actualiza parcialmente un servicio remoto (solo descripción)."""
+        try:
+            service = self.get_queryset().get(pk=pk)
+        except Service.DoesNotExist:
+            return Response(
+                {"error": "Servicio no encontrado"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verificar permisos: solo el owner o superusuario puede actualizar
+        if not request.user.is_superuser and service.owner != request.user:
+            return Response(
+                {"error": "No tienes permiso para modificar este servicio"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Actualizar campos permitidos
+        updated_fields = []
+
+        if "description" in request.data:
+            service.description = request.data["description"]
+            updated_fields.append("description")
+
+        if "title" in request.data:
+            service.title = request.data["title"]
+            updated_fields.append("title")
+
+        if updated_fields:
+            try:
+                service.save(update_fields=updated_fields)
+            except Exception as e:
+                logger.error(f"Error al actualizar servicio: {e}")
+                return Response(
+                    {"error": f"Error al actualizar: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        response_serializer = ServiceDetailSerializer(service)
+        return Response(response_serializer.data)
 
     def create(self, request):
         """
