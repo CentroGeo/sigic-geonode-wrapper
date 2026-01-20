@@ -292,11 +292,18 @@ class ServiceViewSet(ViewSet):
         updated_fields = []
 
         if "description" in request.data:
-            service.description = request.data["description"]
+            # description: CharField max_length=255
+            service.description = request.data["description"][:255]
             updated_fields.append("description")
 
+        if "abstract" in request.data:
+            # abstract: TextField max_length=2000 - para descripciones largas
+            service.abstract = request.data["abstract"][:2000]
+            updated_fields.append("abstract")
+
         if "title" in request.data:
-            service.title = request.data["title"]
+            # title: CharField max_length=255
+            service.title = request.data["title"][:255]
             updated_fields.append("title")
 
         # Permitir asociar harvester manualmente por ID

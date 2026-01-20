@@ -91,6 +91,7 @@ class ServiceListSerializer(serializers.ModelSerializer):
             "name",
             "title",
             "description",
+            "abstract",
             "type",
             "harvester_id",
             "owner",
