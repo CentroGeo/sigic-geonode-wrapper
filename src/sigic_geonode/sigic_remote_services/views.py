@@ -46,6 +46,9 @@ from .filters import (
     TitleFilter,
     CreatedRangeFilter,
     HarvesterStatusFilter,
+    UrlFilter,
+    DescriptionFilter,
+    AbstractFilter,
 )
 from .serializers import (
     ServiceCreateSerializer,
@@ -117,6 +120,24 @@ logger = logging.getLogger(__name__)
                 type=str,
             ),
             OpenApiParameter(
+                name="url",
+                description="Filtrar por URL (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="description",
+                description="Filtrar por descripción (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="abstract",
+                description="Filtrar por abstract (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
                 name="created_before",
                 description="Filtrar servicios creados antes de esta fecha (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS)",
                 required=False,
@@ -150,6 +171,14 @@ logger = logging.getLogger(__name__)
         ),
         tags=["Servicios Remotos"],
     ),
+    partial_update=extend_schema(
+        summary="Actualiza parcialmente un servicio remoto",
+        description=(
+            "Permite actualizar campos del servicio como descripción. "
+            "Solo el propietario del servicio o un superusuario puede actualizarlo."
+        ),
+        tags=["Servicios Remotos"],
+    ),
 )
 class ServiceViewSet(ViewSet):
     """
@@ -172,6 +201,9 @@ class ServiceViewSet(ViewSet):
         TypeFilter,
         NameFilter,
         TitleFilter,
+        UrlFilter,
+        DescriptionFilter,
+        AbstractFilter,
         CreatedRangeFilter,
         HarvesterStatusFilter,
     ]
@@ -264,6 +296,116 @@ class ServiceViewSet(ViewSet):
         serializer = ServiceDetailSerializer(service)
         return Response(serializer.data)
 
+    def partial_update(self, request, pk=None):
+        """Actualiza parcialmente un servicio remoto (solo descripción)."""
+        try:
+            service = self.get_queryset().get(pk=pk)
+        except Service.DoesNotExist:
+            return Response(
+                {"error": "Servicio no encontrado"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verificar permisos: solo el owner o superusuario puede actualizar
+        if not request.user.is_superuser and service.owner != request.user:
+            return Response(
+                {"error": "No tienes permiso para modificar este servicio"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Limpiar valores "None" que vienen del bug de GeoNode
+        # GeoNode guarda str(None) = "None" cuando el WMS no devuelve título
+        if service.title == "None":
+            service.title = ""
+            updated_fields = ["title"]
+        else:
+            updated_fields = []
+
+        if "description" in request.data:
+            # description: CharField max_length=255
+            service.description = request.data["description"][:255]
+            if "description" not in updated_fields:
+                updated_fields.append("description")
+
+        if "abstract" in request.data:
+            # abstract: TextField max_length=2000 - para descripciones largas
+            service.abstract = request.data["abstract"][:2000]
+            if "abstract" not in updated_fields:
+                updated_fields.append("abstract")
+
+        if "title" in request.data:
+            # title: CharField max_length=255
+            service.title = request.data["title"][:255]
+            if "title" not in updated_fields:
+                updated_fields.append("title")
+
+        # Permitir asociar harvester manualmente por ID
+        if "harvester_id" in request.data:
+            harvester_id = request.data["harvester_id"]
+            if harvester_id:
+                try:
+                    harvester = Harvester.objects.get(id=int(harvester_id))
+                    service.harvester = harvester
+                    updated_fields.append("harvester")
+                except (Harvester.DoesNotExist, ValueError, TypeError):
+                    return Response(
+                        {"error": f"Harvester con ID {harvester_id} no encontrado"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                # Si se envía harvester_id como null, desasociar
+                service.harvester = None
+                updated_fields.append("harvester")
+
+        # Si no tiene harvester y no se especificó uno, intentar asociar automáticamente
+        if not service.harvester and "harvester_id" not in request.data:
+            self._associate_harvester(service)
+
+        if updated_fields:
+            try:
+                service.save(update_fields=updated_fields)
+            except Exception as e:
+                logger.error(f"Error al actualizar servicio: {e}")
+                return Response(
+                    {"error": f"Error al actualizar: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        response_serializer = ServiceDetailSerializer(service)
+        return Response(response_serializer.data)
+
+    def _associate_harvester(self, service):
+        """
+        Intenta asociar un harvester al servicio buscando por URL.
+
+        Busca un harvester cuyo remote_url coincida con el base_url del servicio.
+        Si encuentra uno, actualiza la relación en ambas direcciones.
+        """
+        if service.harvester:
+            return service.harvester
+
+        # Buscar harvester por URL exacta o con variaciones comunes
+        base_url = service.base_url.rstrip("/")
+        harvester = Harvester.objects.filter(remote_url=base_url).first()
+
+        if not harvester:
+            # Intentar con trailing slash
+            harvester = Harvester.objects.filter(remote_url=f"{base_url}/").first()
+
+        if not harvester:
+            # Intentar sin trailing slash si el original lo tenía
+            harvester = Harvester.objects.filter(
+                remote_url=service.base_url
+            ).first()
+
+        if harvester:
+            service.harvester = harvester
+            service.save(update_fields=["harvester"])
+            logger.info(
+                f"Harvester {harvester.id} asociado al servicio {service.id}"
+            )
+
+        return harvester
+
     def create(self, request):
         """
         Registra un nuevo servicio remoto.
@@ -285,7 +427,10 @@ class ServiceViewSet(ViewSet):
 
         url = serializer.validated_data["url"]
         service_type = serializer.validated_data.get("type", "AUTO")
+        title = serializer.validated_data.get("title", "")
+        name = serializer.validated_data.get("name", "")
         description = serializer.validated_data.get("description", "")
+        abstract = serializer.validated_data.get("abstract", "")
 
         existing = Service.objects.filter(base_url=url, owner=request.user).first()
 
@@ -332,17 +477,34 @@ class ServiceViewSet(ViewSet):
                 service = handler.create_geonode_service(owner=request.user)
 
                 # Buscar y asociar harvester si no está asociado
-                if not service.harvester:
-                    harvester = Harvester.objects.filter(
-                        remote_url=service.base_url
-                    ).first()
-                    if harvester:
-                        service.harvester = harvester
-                        service.save(update_fields=["harvester"])
+                self._associate_harvester(service)
+
+                # Sobrescribir campos si se enviaron valores
+                # También limpiar título "None" del bug de GeoNode
+                updated_fields = []
+
+                if title:
+                    service.title = title[:255]
+                    updated_fields.append("title")
+                elif service.title == "None":
+                    # Limpiar el bug de GeoNode que guarda str(None)
+                    service.title = ""
+                    updated_fields.append("title")
+
+                if name:
+                    service.name = name[:255]
+                    updated_fields.append("name")
 
                 if description:
-                    service.description = description
-                    service.save(update_fields=["description"])
+                    service.description = description[:255]
+                    updated_fields.append("description")
+
+                if abstract:
+                    service.abstract = abstract[:2000]
+                    updated_fields.append("abstract")
+
+                if updated_fields:
+                    service.save(update_fields=updated_fields)
 
         except Exception as e:
             logger.error(f"Error al crear servicio remoto: {e}")

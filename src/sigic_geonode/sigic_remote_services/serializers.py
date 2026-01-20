@@ -54,11 +54,29 @@ class ServiceCreateSerializer(serializers.Serializer):
         required=False,
         help_text="Tipo de servicio. Si es AUTO, se detectará automáticamente.",
     )
+    title = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text="Título del servicio. Si no se envía, se obtiene del servicio remoto.",
+    )
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text="Nombre del servicio. Si no se envía, se genera de la URL.",
+    )
     description = serializers.CharField(
         required=False,
         allow_blank=True,
+        max_length=255,
+        help_text="Descripción corta del servicio (máx 255 caracteres).",
+    )
+    abstract = serializers.CharField(
+        required=False,
+        allow_blank=True,
         max_length=2000,
-        help_text="Descripción opcional del servicio",
+        help_text="Descripción larga del servicio (máx 2000 caracteres).",
     )
 
     def validate_url(self, value):
@@ -91,6 +109,7 @@ class ServiceListSerializer(serializers.ModelSerializer):
             "name",
             "title",
             "description",
+            "abstract",
             "type",
             "harvester_id",
             "owner",
