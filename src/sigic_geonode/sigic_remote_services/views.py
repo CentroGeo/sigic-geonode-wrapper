@@ -403,7 +403,10 @@ class ServiceViewSet(ViewSet):
 
         url = serializer.validated_data["url"]
         service_type = serializer.validated_data.get("type", "AUTO")
+        title = serializer.validated_data.get("title", "")
+        name = serializer.validated_data.get("name", "")
         description = serializer.validated_data.get("description", "")
+        abstract = serializer.validated_data.get("abstract", "")
 
         existing = Service.objects.filter(base_url=url, owner=request.user).first()
 
@@ -452,9 +455,32 @@ class ServiceViewSet(ViewSet):
                 # Buscar y asociar harvester si no está asociado
                 self._associate_harvester(service)
 
+                # Sobrescribir campos si se enviaron valores
+                # También limpiar título "None" del bug de GeoNode
+                updated_fields = []
+
+                if title:
+                    service.title = title[:255]
+                    updated_fields.append("title")
+                elif service.title == "None":
+                    # Limpiar el bug de GeoNode que guarda str(None)
+                    service.title = ""
+                    updated_fields.append("title")
+
+                if name:
+                    service.name = name[:255]
+                    updated_fields.append("name")
+
                 if description:
-                    service.description = description
-                    service.save(update_fields=["description"])
+                    service.description = description[:255]
+                    updated_fields.append("description")
+
+                if abstract:
+                    service.abstract = abstract[:2000]
+                    updated_fields.append("abstract")
+
+                if updated_fields:
+                    service.save(update_fields=updated_fields)
 
         except Exception as e:
             logger.error(f"Error al crear servicio remoto: {e}")
