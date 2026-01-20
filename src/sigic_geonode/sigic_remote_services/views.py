@@ -46,6 +46,9 @@ from .filters import (
     TitleFilter,
     CreatedRangeFilter,
     HarvesterStatusFilter,
+    UrlFilter,
+    DescriptionFilter,
+    AbstractFilter,
 )
 from .serializers import (
     ServiceCreateSerializer,
@@ -117,6 +120,24 @@ logger = logging.getLogger(__name__)
                 type=str,
             ),
             OpenApiParameter(
+                name="url",
+                description="Filtrar por URL (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="description",
+                description="Filtrar por descripción (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="abstract",
+                description="Filtrar por abstract (búsqueda parcial, insensible a mayúsculas)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
                 name="created_before",
                 description="Filtrar servicios creados antes de esta fecha (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS)",
                 required=False,
@@ -180,6 +201,9 @@ class ServiceViewSet(ViewSet):
         TypeFilter,
         NameFilter,
         TitleFilter,
+        UrlFilter,
+        DescriptionFilter,
+        AbstractFilter,
         CreatedRangeFilter,
         HarvesterStatusFilter,
     ]

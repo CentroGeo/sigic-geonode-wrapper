@@ -199,3 +199,51 @@ class HarvesterStatusFilter(BaseFilterBackend):
             queryset = queryset.filter(harvester__status__in=statuses)
 
         return queryset
+
+
+class UrlFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por URL (búsqueda parcial insensible a mayúsculas).
+
+    Uso: ?url=geoserver
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        url = request.query_params.get("url")
+
+        if url:
+            queryset = queryset.filter(base_url__icontains=url)
+
+        return queryset
+
+
+class DescriptionFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por descripción (búsqueda parcial insensible a mayúsculas).
+
+    Uso: ?description=geoespacial
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        description = request.query_params.get("description")
+
+        if description:
+            queryset = queryset.filter(description__icontains=description)
+
+        return queryset
+
+
+class AbstractFilter(BaseFilterBackend):
+    """
+    Filtro para servicios por abstract (búsqueda parcial insensible a mayúsculas).
+
+    Uso: ?abstract=infraestructura
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        abstract = request.query_params.get("abstract")
+
+        if abstract:
+            queryset = queryset.filter(abstract__icontains=abstract)
+
+        return queryset
