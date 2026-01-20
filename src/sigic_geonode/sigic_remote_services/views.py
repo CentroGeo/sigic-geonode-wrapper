@@ -299,6 +299,28 @@ class ServiceViewSet(ViewSet):
             service.title = request.data["title"]
             updated_fields.append("title")
 
+        # Permitir asociar harvester manualmente por ID
+        if "harvester_id" in request.data:
+            harvester_id = request.data["harvester_id"]
+            if harvester_id:
+                try:
+                    harvester = Harvester.objects.get(id=int(harvester_id))
+                    service.harvester = harvester
+                    updated_fields.append("harvester")
+                except (Harvester.DoesNotExist, ValueError, TypeError):
+                    return Response(
+                        {"error": f"Harvester con ID {harvester_id} no encontrado"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                # Si se envía harvester_id como null, desasociar
+                service.harvester = None
+                updated_fields.append("harvester")
+
+        # Si no tiene harvester y no se especificó uno, intentar asociar automáticamente
+        if not service.harvester and "harvester_id" not in request.data:
+            self._associate_harvester(service)
+
         if updated_fields:
             try:
                 service.save(update_fields=updated_fields)
@@ -311,6 +333,39 @@ class ServiceViewSet(ViewSet):
 
         response_serializer = ServiceDetailSerializer(service)
         return Response(response_serializer.data)
+
+    def _associate_harvester(self, service):
+        """
+        Intenta asociar un harvester al servicio buscando por URL.
+
+        Busca un harvester cuyo remote_url coincida con el base_url del servicio.
+        Si encuentra uno, actualiza la relación en ambas direcciones.
+        """
+        if service.harvester:
+            return service.harvester
+
+        # Buscar harvester por URL exacta o con variaciones comunes
+        base_url = service.base_url.rstrip("/")
+        harvester = Harvester.objects.filter(remote_url=base_url).first()
+
+        if not harvester:
+            # Intentar con trailing slash
+            harvester = Harvester.objects.filter(remote_url=f"{base_url}/").first()
+
+        if not harvester:
+            # Intentar sin trailing slash si el original lo tenía
+            harvester = Harvester.objects.filter(
+                remote_url=service.base_url
+            ).first()
+
+        if harvester:
+            service.harvester = harvester
+            service.save(update_fields=["harvester"])
+            logger.info(
+                f"Harvester {harvester.id} asociado al servicio {service.id}"
+            )
+
+        return harvester
 
     def create(self, request):
         """
@@ -380,13 +435,7 @@ class ServiceViewSet(ViewSet):
                 service = handler.create_geonode_service(owner=request.user)
 
                 # Buscar y asociar harvester si no está asociado
-                if not service.harvester:
-                    harvester = Harvester.objects.filter(
-                        remote_url=service.base_url
-                    ).first()
-                    if harvester:
-                        service.harvester = harvester
-                        service.save(update_fields=["harvester"])
+                self._associate_harvester(service)
 
                 if description:
                     service.description = description
