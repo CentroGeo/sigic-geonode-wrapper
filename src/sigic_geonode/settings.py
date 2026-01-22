@@ -339,3 +339,182 @@ else:
     ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
 
 DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
+
+
+USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
+if USE_IDEGEOWEB:
+    import idegeo.settings as geowebsettings
+
+    INSTALLED_APPS += geowebsettings.IDEGEO_APPS
+    INSTALLED_APPS += geowebsettings.THIRD_PARTY_APPS
+
+    MIDDLEWARE += [
+        "ninja.compatibility.files.fix_request_files_middleware",
+        "idegeo.middleware.GeonodeSessionMiddleware",
+        "idegeo.middleware.UserMiddleware",
+        "idegeo.middleware.LoginRequiredMiddleware",
+    ]
+
+    TEMPLATES[0]["OPTIONS"]["context_processors"] += (
+        ["idegeo.context_processors.site_styles_processor"],
+    )
+
+    AUTHENTICATION_BACKENDS += [
+        "django.contrib.auth.backends.ModelBackend",
+        "idegeo.auth.backends.GeonodeBackend",
+    ]
+
+    VITE_DEBUG = bool(int(os.environ.get("VITE_DEBUG", "0")))
+
+    DJANGO_VITE = {
+        "ADMINLAYERS": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "layers_admin/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/layers_admin/assets/manifest.json"
+            ),
+        },
+        "IDEGEO_MAPS": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "idegeo_maps/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/idegeo_maps/assets/manifest.json"
+            ),
+        },
+        "GEOSTORIES": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "geo_stories/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/geo_stories/assets/manifest.json"
+            ),
+        },
+        "GEOVISOR": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "geovisor/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/geovisor/assets/manifest.json"
+            ),
+        },
+        "ESCENAS": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "escenas/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/escenas/assets/.vite/manifest.json"
+            ),
+        },
+        "FILE_MANAGER": {
+            "dev_mode": VITE_DEBUG,
+            "dev_server_port": 5173,
+            "dev_server_host": "localhost",
+            "static_url_prefix": "file_manager/assets/",
+            "manifest_path": os.path.join(
+                PROJECT_ROOT, "static/file_manager/assets/manifest.json"
+            ),
+        },
+    }
+
+    DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+    CKEDITOR_UPLOAD_PATH = "uploads/"
+
+    CKEDITOR_CONFIGS = {
+        "default": {
+            "toolbar": "MyToolbar",
+            "allowedContent": True,
+            "startupOutlineBlocks": False,
+            "extraAllowedContent": "iframe[src|width|height|name|align]",
+            "toolbar_MyToolbar": [
+                {
+                    "name": "styles",
+                    "items": ["Styles", "FontSize", "Font", "Bold", "Italic"],
+                },
+                {
+                    "name": "paragraph",
+                    "items": [
+                        "NumberedList",
+                        "BulletedList",
+                        "-",
+                        "Outdent",
+                        "Indent",
+                        "-",
+                        "JustifyLeft",
+                        "JustifyCenter",
+                        "JustifyRight",
+                        "JustifyBlock",
+                    ],
+                },
+                {"name": "colors", "items": ["TextColor", "BGColor"]},
+                {"name": "links", "items": ["Link", "Unlink"]},
+                {"name": "insert", "items": ["Image", "Table", "Iframe"]},
+                {"name": "geonode", "items": ["mapa", "documentos", "references"]},
+                {"name": "editing", "items": ["Scayt"]},
+                {"name": "document", "items": ["Source", "Preview"]},
+                {"name": "tools", "items": ["Maximize"]},
+            ],
+            "extraPlugins": ",".join(
+                [
+                    "autolink",
+                    "autoembed",
+                    "embedsemantic",
+                    "iframedialog",
+                    "tableresize",
+                    "tabletools",
+                ]
+            ),
+        },
+        "restricted": {  # Another config with fewer features
+            "toolbar": "RestrictedToolbar",
+            "allowedContent": True,
+            "startupOutlineBlocks": False,
+            "toolbar_RestrictedToolbar": [
+                {
+                    "name": "styles",
+                    "items": ["Styles", "FontSize", "Font", "Bold", "Italic"],
+                },
+                {
+                    "name": "paragraph",
+                    "items": [
+                        "NumberedList",
+                        "BulletedList",
+                        "-",
+                        "Outdent",
+                        "Indent",
+                        "-",
+                        "JustifyLeft",
+                        "JustifyCenter",
+                        "JustifyRight",
+                        "JustifyBlock",
+                    ],
+                },
+                {"name": "colors", "items": ["TextColor", "BGColor"]},
+                {"name": "links", "items": ["Link", "Unlink"]},
+                {"name": "insert", "items": ["Image", "Table", "Iframe"]},
+                {"name": "editing", "items": ["Scayt"]},
+            ],
+            "extraPlugins": ",".join(
+                [
+                    "autolink",
+                    "autoembed",
+                    "embedsemantic",
+                    "iframedialog",
+                    "tableresize",
+                    "tabletools",
+                ]
+            ),
+        },
+    }
+
+    GENERATE_ENUMS_FROM_CHOICES = True
+
+    # True si es necesario bloquear la app
+    LOGIN_REQUIRED = bool(int(os.environ.get("LOGIN_REQUIRED", "0")))
