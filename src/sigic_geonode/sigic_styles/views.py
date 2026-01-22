@@ -93,9 +93,7 @@ def validate_sld_before_post(xml: bytes) -> None:
 
     if is_sld_1_1 and has_se_elements:
         # SLD 1.1.0 necesita normalización para que GeoServer preserve los estilos
-        raise SLDNeedsNormalization(
-            "SLD 1.1.0 con elementos SE necesita normalización"
-        )
+        raise SLDNeedsNormalization("SLD 1.1.0 con elementos SE necesita normalización")
 
     # Validar SLD 1.0.0
     is_sld_1_0 = version == "1.0.0" and nsmap.get("sld") == "http://www.opengis.net/sld"
@@ -149,10 +147,10 @@ def normalize_mixed_sld(xml: bytes) -> bytes:
     text = re.sub(r'\s+xmlns:xsi="[^"]+"', "", text)
 
     # Agregar xmlns:sld si no existe y hay elementos sld:
-    if "sld:" in text and 'xmlns:sld=' not in text:
+    if "sld:" in text and "xmlns:sld=" not in text:
         # Buscar el elemento StyledLayerDescriptor y agregar el namespace
         text = re.sub(
-            r'(<StyledLayerDescriptor\s)',
+            r"(<StyledLayerDescriptor\s)",
             r'\1xmlns:sld="http://www.opengis.net/sld" ',
             text,
         )
