@@ -389,10 +389,10 @@ if USE_IDEGEOWEB:
         ["idegeo.context_processors.site_styles_processor"],
     )
 
-    AUTHENTICATION_BACKENDS += [
+    AUTHENTICATION_BACKENDS += (
         "django.contrib.auth.backends.ModelBackend",
         "idegeo.auth.backends.GeonodeBackend",
-    ]
+    )
 
     VITE_DEBUG = bool(int(os.environ.get("VITE_DEBUG", "0")))
 
