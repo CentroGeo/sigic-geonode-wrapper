@@ -343,10 +343,12 @@ DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
 
 USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
 if USE_IDEGEOWEB:
-    import idegeo.settings as geowebsettings
+    import importlib
 
-    INSTALLED_APPS += geowebsettings.IDEGEO_APPS
-    INSTALLED_APPS += geowebsettings.THIRD_PARTY_APPS
+    geoweb_settings = importlib.import_module("idegeo.settings")
+
+    INSTALLED_APPS += geoweb_settings.IDEGEO_APPS
+    INSTALLED_APPS += geoweb_settings.THIRD_PARTY_APPS
 
     MIDDLEWARE += [
         "ninja.compatibility.files.fix_request_files_middleware",
