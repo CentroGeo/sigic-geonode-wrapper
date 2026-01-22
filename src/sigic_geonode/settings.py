@@ -343,12 +343,40 @@ DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
 
 USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
 if USE_IDEGEOWEB:
-    import importlib
+    IDEGEO_APPS = (
+        "idegeo.base",
+        "idegeo.people",
+        "idegeo.content_handler",
+        "idegeo.catalog.layers",
+        "idegeo.catalog.maps",
+        "idegeo.mviewer",
+        "idegeo.escenas",
+        "idegeo.topic_maps",
+        "idegeo.layers_admin",
+        "idegeo.geo_stories",
+        "idegeo.idegeo_maps",
+        "idegeo.documents",
+        "idegeo.CKUpload",
+        "idegeo.dashboard",
+        "idegeo.GeonodeModels",
+        "idegeo.edomex",
+        "idegeo.geovisor",
+        "idegeo.file_manager",
+    )
 
-    geoweb_settings = importlib.import_module("idegeo.settings")
+    THIRD_PARTY_APPS = (
+        "django_bootstrap5",
+        "ckeditor",
+        "ckeditor_uploader",
+        "fontawesome_6",
+        "django_vite",
+        "taggit",
+        "treebeard",
+        "ninja",
+    )
 
-    INSTALLED_APPS += geoweb_settings.IDEGEO_APPS
-    INSTALLED_APPS += geoweb_settings.THIRD_PARTY_APPS
+    INSTALLED_APPS += IDEGEO_APPS
+    INSTALLED_APPS += THIRD_PARTY_APPS
 
     MIDDLEWARE += [
         "ninja.compatibility.files.fix_request_files_middleware",
