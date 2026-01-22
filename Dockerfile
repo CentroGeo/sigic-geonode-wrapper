@@ -33,7 +33,7 @@ RUN chmod +x /usr/bin/celery-commands
 COPY src/celery-cmd /usr/bin/celery-cmd
 RUN chmod +x /usr/bin/celery-cmd
 
-COPY vendor/geoweb/geoweb-0.1.0-py3-none-any.whl /tmp/geoweb.whl
+COPY vendor/idegeo/geoweb-0.1.0-py3-none-any.whl /tmp/geoweb.whl
 
 RUN yes w | pip install --src /usr/src -r requirements/${REQUIREMENTS_VARIANT}.txt && \
     yes w | pip install -e .
