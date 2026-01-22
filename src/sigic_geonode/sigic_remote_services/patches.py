@@ -12,12 +12,11 @@
 # =============================================================================
 
 """
-Monkey patching para extender HarvesterViewSet de GeoNode.
+Monkey patching para extender funcionalidades de GeoNode.
 
 Agrega las siguientes funcionalidades:
-- Filtro por default_owner para que usuarios vean solo sus harvesters
-- Validación de URL única por usuario al crear
-- Campo service_id en las respuestas
+- HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
+- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
 """
 
 import logging
@@ -28,6 +27,8 @@ from rest_framework.response import Response
 from geonode.harvesting.api.views import HarvesterViewSet
 from geonode.harvesting.models import Harvester
 from geonode.services.models import Service
+from geonode.services.serviceprocessors.wms import WmsServiceHandler
+from geonode.services.serviceprocessors.arcgis import ArcMapServiceHandler
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +100,53 @@ if not getattr(HarvesterViewSet, "_patched_by_sigic", False):
 
         return response
 
-    # Aplicar patches
+    # Aplicar patches a HarvesterViewSet
     HarvesterViewSet.get_queryset = custom_get_queryset
     HarvesterViewSet.list = custom_list
     HarvesterViewSet.retrieve = custom_retrieve
     HarvesterViewSet._patched_by_sigic = True
+
+
+# =============================================================================
+# Patch para WmsServiceHandler y ArcMapServiceHandler
+# Bug: harvester_id no se guardaba al crear servicios remotos
+# =============================================================================
+
+if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
+    _orig_wms_create_geonode_service = WmsServiceHandler.create_geonode_service
+
+    def patched_wms_create_geonode_service(self, owner, parent=None):
+        """
+        Corrige bug donde el harvester se asignaba pero no se persistía.
+        """
+        instance = _orig_wms_create_geonode_service(self, owner, parent)
+        if instance and instance.harvester and instance.pk:
+            instance.save(update_fields=["harvester"])
+            logger.debug(
+                f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
+                f"para servicio {instance.id}"
+            )
+        return instance
+
+    WmsServiceHandler.create_geonode_service = patched_wms_create_geonode_service
+    WmsServiceHandler._patched_by_sigic = True
+
+
+if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
+    _orig_arc_create_geonode_service = ArcMapServiceHandler.create_geonode_service
+
+    def patched_arc_create_geonode_service(self, owner, parent=None):
+        """
+        Corrige bug donde el harvester se asignaba pero no se persistía.
+        """
+        instance = _orig_arc_create_geonode_service(self, owner, parent)
+        if instance and instance.harvester and instance.pk:
+            instance.save(update_fields=["harvester"])
+            logger.debug(
+                f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
+                f"para servicio ArcGIS {instance.id}"
+            )
+        return instance
+
+    ArcMapServiceHandler.create_geonode_service = patched_arc_create_geonode_service
+    ArcMapServiceHandler._patched_by_sigic = True
