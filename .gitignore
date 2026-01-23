@@ -72,5 +72,5 @@ local_settings.py
 Vagrantfile
 /.env
 
-src/sigic_geonode/sigic_requests/migrations/
+# src/sigic_geonode/sigic_requests/migrations/
 *.http
