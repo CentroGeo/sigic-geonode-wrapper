@@ -16,7 +16,9 @@ Monkey patching para extender funcionalidades de GeoNode.
 
 Agrega las siguientes funcionalidades:
 - HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
-- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
+- WmsServiceHandler/ArcMapServiceHandler:
+  - Corrige bug donde harvester_id no se guardaba
+  - Permite que múltiples usuarios registren la misma URL (name único por usuario)
 """
 
 import logging
@@ -109,7 +111,10 @@ if not getattr(HarvesterViewSet, "_patched_by_sigic", False):
 
 # =============================================================================
 # Patch para WmsServiceHandler y ArcMapServiceHandler
-# Bug: harvester_id no se guardaba al crear servicios remotos
+# Bug fix: harvester_id no se guardaba al crear servicios remotos
+#
+# Nota: La migración 0001_service_unique_per_owner.py modifica los constraints
+# de BD para permitir que múltiples usuarios registren la misma URL.
 # =============================================================================
 
 if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
@@ -120,7 +125,7 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
         Corrige bug donde el harvester se asignaba pero no se persistía.
         """
         instance = _orig_wms_create_geonode_service(self, owner, parent)
-        if instance and instance.harvester and instance.pk:
+        if instance and instance.pk and instance.harvester:
             instance.save(update_fields=["harvester"])
             logger.debug(
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
@@ -140,7 +145,7 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
         Corrige bug donde el harvester se asignaba pero no se persistía.
         """
         instance = _orig_arc_create_geonode_service(self, owner, parent)
-        if instance and instance.harvester and instance.pk:
+        if instance and instance.pk and instance.harvester:
             instance.save(update_fields=["harvester"])
             logger.debug(
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
