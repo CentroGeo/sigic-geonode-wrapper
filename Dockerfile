@@ -41,8 +41,10 @@ RUN yes w | pip install --src /usr/src -r requirements/${REQUIREMENTS_VARIANT}.t
 
 
 RUN if [ "$USE_IDEGEOWEB" = "true" ] || [ "$USE_IDEGEOWEB" = "True" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
+        apt-get update \
+        && apt-get install -y --no-install-recommends software-properties-common \
+        && add-apt-repository universe -y \
+        && apt-get install -y --no-install-recommends \
             python3-dev \
             libpq-dev \
             libcairo2 \
@@ -50,7 +52,8 @@ RUN if [ "$USE_IDEGEOWEB" = "true" ] || [ "$USE_IDEGEOWEB" = "True" ]; then \
             libpangocairo-1.0-0 \
             libpangoft2-1.0-0 \
             libharfbuzz0b \
-            libharfbuzz-subset0 \
+            libharfbuzz-dev \
+            libharfbuzz0b \
             libfontconfig1 \
             libgdk-pixbuf2.0-0 \
             libglib2.0-0 \
