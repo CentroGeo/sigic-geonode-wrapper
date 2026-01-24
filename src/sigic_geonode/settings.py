@@ -370,8 +370,6 @@ if USE_IDEGEOWEB:
         "ckeditor_uploader",
         "fontawesome_6",
         "django_vite",
-        "taggit",
-        "treebeard",
         "ninja",
     )
 
