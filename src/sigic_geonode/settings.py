@@ -345,7 +345,7 @@ USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
 if USE_IDEGEOWEB:
     IDEGEO_APPS = (
         "idegeo.base",
-        "idegeo.people",
+        # "idegeo.people",
         "idegeo.content_handler",
         "idegeo.catalog.layers",
         "idegeo.catalog.maps",
