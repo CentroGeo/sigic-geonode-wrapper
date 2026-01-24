@@ -11,3 +11,4 @@ python-jose
 xlsxwriter
 xlrd
 pandas
+psycopg[binary]
