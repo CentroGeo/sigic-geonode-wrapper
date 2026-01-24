@@ -62,6 +62,7 @@ RUN if [ "$USE_IDEGEOWEB" = "true" ] || [ "$USE_IDEGEOWEB" = "True" ]; then \
             fonts-freefont-ttf \
             fonts-liberation \
         && pip install /tmp/geoweb-0.1.0-py3-none-any.whl ; \
+        && pip install psycopg[binary] ; \
     fi
 
 
