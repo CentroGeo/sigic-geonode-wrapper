@@ -16,6 +16,7 @@ Monkey patching para extender funcionalidades de GeoNode.
 
 Agrega las siguientes funcionalidades:
 - HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
+- IsAdminOrListOnly: Permite que owners accedan a sus propios harvesters
 - WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
 """
 
@@ -24,13 +25,64 @@ import logging
 from rest_framework import status
 from rest_framework.response import Response
 
-from geonode.harvesting.api.views import HarvesterViewSet
+from geonode.harvesting.api.views import HarvesterViewSet, IsAdminOrListOnly
 from geonode.harvesting.models import Harvester
 from geonode.services.models import Service
 from geonode.services.serviceprocessors.wms import WmsServiceHandler
 from geonode.services.serviceprocessors.arcgis import ArcMapServiceHandler
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Patch para IsAdminOrListOnly - Permite que owners accedan a sus harvesters
+# =============================================================================
+
+if not getattr(IsAdminOrListOnly, "_patched_by_sigic", False):
+    _orig_has_permission = IsAdminOrListOnly.has_permission
+
+    def patched_has_permission(self, request, view):
+        """
+        Extiende permisos para permitir que el owner del harvester acceda.
+
+        Permisos originales de GeoNode:
+        - Superusuarios: acceso total
+        - Otros usuarios: solo pueden listar
+
+        Permisos extendidos por SIGIC:
+        - Superusuarios: acceso total
+        - Owner del harvester: puede ver detalle, actualizar y operar su harvester
+        - Otros usuarios: solo pueden listar
+        """
+        # Superusuarios tienen acceso total
+        if request.user.is_superuser:
+            return True
+
+        # Listar siempre está permitido (el queryset filtra por owner)
+        if view.action == "list":
+            return True
+
+        # Para otras acciones, verificar si el usuario es owner del harvester
+        if request.user.is_authenticated and view.action in [
+            "retrieve", "update", "partial_update", "destroy",
+            "harvestable_resources", "update_harvestable_resources",
+            "perform_harvesting"
+        ]:
+            # Obtener el harvester_id de la URL
+            harvester_pk = view.kwargs.get("pk") or view.kwargs.get("harvester_id")
+            if harvester_pk:
+                try:
+                    harvester = Harvester.objects.get(pk=harvester_pk)
+                    if harvester.default_owner == request.user:
+                        return True
+                except Harvester.DoesNotExist:
+                    pass
+
+        return False
+
+    IsAdminOrListOnly.has_permission = patched_has_permission
+    IsAdminOrListOnly._patched_by_sigic = True
+    logger.info("[SIGIC Patch] IsAdminOrListOnly permisos extendidos para owners")
 
 
 if not getattr(HarvesterViewSet, "_patched_by_sigic", False):
