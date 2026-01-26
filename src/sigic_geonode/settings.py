@@ -344,21 +344,26 @@ DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
 USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
 if USE_IDEGEOWEB:
     IDEGEO_APPS = (
+        # NIVEL 1: MODELOS BASE
         "sigic_geonode.sigic_idegeo.apps.idegeo_content_handler.IdegeoContentHandlerConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_people.IdegeoPeopleConfig",
+
+        # NIVEL 2: CONSUMEN MODELOS
         "sigic_geonode.sigic_idegeo.apps.idegeo_base.IdegeoBaseConfig",
+        "sigic_geonode.sigic_idegeo.apps.idegeo_dashboard.IdegeoDashboardConfig",
+
+        # NIVEL 3: APPS FUNCIONALES
+        "sigic_geonode.sigic_idegeo.apps.idegeo_mviewer.IdegeoMviewerConfig",
+        "sigic_geonode.sigic_idegeo.apps.idegeo_topic_maps.IdegeoTopicMapsConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_catalog_layers.IdegeoCatalogLayersConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_catalog_maps.IdegeoCatalogMapsConfig",
 
-        "idegeo.mviewer",
         "idegeo.escenas",
-        "idegeo.topic_maps",
         "idegeo.layers_admin",
         "idegeo.geo_stories",
         "idegeo.idegeo_maps",
         "idegeo.documents",
         "idegeo.CKUpload",
-        "idegeo.dashboard",
         "idegeo.GeonodeModels",
         "idegeo.geovisor",
         "idegeo.file_manager",
