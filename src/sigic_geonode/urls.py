@@ -58,9 +58,9 @@ urlpatterns += i18n_patterns(
     re_path(r"^geonode-admin/", admin.site.urls, name="admin"),
 )
 
-# enchufar geoweb SIN mezclar
-urlpatterns += [
-    path("geoweb/", include("idegeo.urls")),
-]
+if settings.USE_IDEGEOWEB:
+    urlpatterns += [
+        path("idegeoweb/", include("sigic_geonode.sigic_idegeo.urls")),
+    ]
 
 urlpatterns += router.urls
