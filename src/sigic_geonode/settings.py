@@ -344,9 +344,9 @@ DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
 USE_IDEGEOWEB = ast.literal_eval(os.getenv("USE_IDEGEOWEB", "False"))
 if USE_IDEGEOWEB:
     IDEGEO_APPS = (
-        "sigic_geonode.sigic_idegeo.apps.idegeo_base.IdegeoBaseConfig",
-        "sigic_geonode.sigic_idegeo.apps.idegeo_people.IdegeoPeopleConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_content_handler.IdegeoContentHandlerConfig",
+        "sigic_geonode.sigic_idegeo.apps.idegeo_people.IdegeoPeopleConfig",
+        "sigic_geonode.sigic_idegeo.apps.idegeo_base.IdegeoBaseConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_catalog_layers.IdegeoCatalogLayersConfig",
         "sigic_geonode.sigic_idegeo.apps.idegeo_catalog_maps.IdegeoCatalogMapsConfig",
 
