@@ -178,6 +178,7 @@ INSTALLED_APPS += (
     "sigic_geonode.sigic_ia_media_uploads",
     "sigic_geonode.sigic_requests",
     "sigic_geonode.sigic_account",
+    "sigic_geonode.sigic_remote_services",
 )
 
 MIDDLEWARE = [
