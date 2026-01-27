@@ -4,10 +4,11 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
-from idegeo.base.models import SiteStyle
-from idegeo.base.forms import InterfaceForm
-from idegeo.content_handler.views import handler_home
-from idegeo.content_handler.models import Header, Style, Menu
+from idegeo_base.models import SiteStyle
+from idegeo_base.forms import InterfaceForm
+from idegeo_content_handler.views import handler_home
+from idegeo_content_handler.views import handler_home
+from idegeo_content_handler.models import Header, Style, Menu
 
 
 def index(request):
