@@ -5,8 +5,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.decorators.csrf import csrf_exempt
 
-from .api import api
-from . import views
+from idegeo.api import api
+from idegeo import views
+
 
 urlpatterns = [
 
