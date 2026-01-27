@@ -6,4 +6,13 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # =============================================================================
 
-default_app_config = "sigic_geonode.sigic_remote_services.apps.SigicRemoteServicesConfig"
+from django.apps import AppConfig
+
+
+class SigicRemoteServicesConfig(AppConfig):
+    name = "sigic_geonode.sigic_remote_services"
+    verbose_name = "SIGIC Remote Services"
+
+    def ready(self):
+        # Importar patches para aplicarlos al cargar la app
+        from . import patches  # noqa: F401

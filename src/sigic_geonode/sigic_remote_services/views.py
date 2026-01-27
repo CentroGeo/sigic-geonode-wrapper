@@ -20,6 +20,7 @@ Permite crear servicios con validación de URL única por usuario.
 
 import logging
 import math
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
@@ -506,10 +507,41 @@ class ServiceViewSet(ViewSet):
                 if updated_fields:
                     service.save(update_fields=updated_fields)
 
+        except XMLParseError as e:
+            logger.error(f"Error de parseo XML al crear servicio remoto: {e}")
+            return Response(
+                {
+                    "error": (
+                        "El servicio remoto devolvió XML malformado. "
+                        "Esto puede ocurrir si el servidor responde con HTML en lugar de XML, "
+                        "o si el XML contiene entidades no válidas."
+                    ),
+                    "detail": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
+            error_msg = str(e)
+            is_xml_entity_error = (
+                "undefined entity" in error_msg.lower()
+                or ("not defined" in error_msg and "entity" in error_msg.lower())
+            )
+            if is_xml_entity_error:
+                logger.error(f"Error de entidad XML al crear servicio remoto: {e}")
+                return Response(
+                    {
+                        "error": (
+                            "El servicio remoto devolvió XML con entidades HTML no válidas "
+                            "(como &nbsp;, &copy;, etc.). El servidor puede estar respondiendo "
+                            "con contenido HTML en lugar de XML."
+                        ),
+                        "detail": error_msg,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             logger.error(f"Error al crear servicio remoto: {e}")
             return Response(
-                {"error": f"Error al crear el servicio: {str(e)}"},
+                {"error": f"Error al crear el servicio: {error_msg}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
