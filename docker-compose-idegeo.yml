@@ -37,30 +37,6 @@ services:
     networks:
       - sigicnetwork
 
-  geoweb:
-    platform: linux/amd64
-    build:
-      context: ./geoweb/
-      dockerfile: context/Dockerfile.idegeo
-    container_name: geoweb4${COMPOSE_PROJECT_NAME}
-    env_file:
-      - .env_geoweb
-    volumes:
-      - static_volume:/mnt/volumes/static_root
-      - media_volume:/mnt/volumes/uploaded
-      - ./:/idegeo
-    restart: unless-stopped
-    command:
-      - /bin/sh
-      - -c
-      - |
-        pip install -r requirements.txt
-        python manage.py migrate
-        python manage.py collectstatic --noinput
-        gunicorn idegeo.wsgi:application --bind 0.0.0.0:7070
-    networks:
-      - sigicnetwork
-
   # Celery worker that executes celery tasks created by Django.
   celery:
     <<: *default-common-django
@@ -97,7 +73,32 @@ services:
       - nginx-confd:/etc/nginx
       - nginx-certificates:/geonode-certificates
       - statics:/mnt/volumes/statics
+      - geoweb-static:/mnt/volumes/static_root
+      - geoweb-media:/mnt/volumes/uploaded
     restart: unless-stopped
+    networks:
+      - sigicnetwork
+
+  geoweb:
+    platform: linux/amd64
+    build:
+      context: ./geoweb/
+      dockerfile: context/Dockerfile.idegeo
+    container_name: geoweb4${COMPOSE_PROJECT_NAME}
+    env_file:
+      - .env_geoweb
+    volumes:
+      - geoweb-static:/mnt/volumes/static_root
+      - geoweb-media:/mnt/volumes/uploaded
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -c
+      - |
+        pip install -r requirements.txt
+        python manage.py migrate
+        python manage.py collectstatic --noinput
+        gunicorn idegeo.wsgi:application --bind 0.0.0.0:7070
     networks:
       - sigicnetwork
 
@@ -244,6 +245,10 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}-rabbitmq
   modulo-ia:
     name: ${COMPOSE_PROJECT_NAME}-modulo-ia
+  geoweb-static:
+    name: ${COMPOSE_PROJECT_NAME}-geoweb-static
+  geoweb-media:
+    name: ${COMPOSE_PROJECT_NAME}-geoweb-media
 
 networks:
   sigicnetwork:
