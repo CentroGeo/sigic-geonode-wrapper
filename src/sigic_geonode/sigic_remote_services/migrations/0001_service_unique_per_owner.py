@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("services", "24_initial"),
-        ("harvesting", "0047_update_wms_harvester_type"),
+        ("harvesting", "0049_alter_harvester_harvester_type"),
     ]
 
     operations = [
