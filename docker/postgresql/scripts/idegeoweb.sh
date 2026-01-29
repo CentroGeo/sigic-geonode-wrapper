@@ -18,9 +18,9 @@ set -e
 
 echo "==> Habilitando sigic_geonode_geoweb: $GEONODE_DATABASE"
 
-if [ "$USE_IDEGEOWEB" = "True"]; then
+if [ "$USE_IDEGEOWEB" = "True" ]; then
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$GEONODE_DATABASE" <<-EOSQL
-    CREATE DATABASE IF NOT EXISTS sigic_geonode_geoweb;
+    CREATE DATABASE sigic_geonode_geoweb;
 EOSQL
 fi
 
