@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.apps import apps
 from rest_framework import serializers
-from geonode.base.api.serializers import ExtentBboxField, SimpleTopicCategorySerializer, LinksSerializer
+from geonode.base.api.serializers import DownloadLinkField, EmbedUrlField, ExtentBboxField, LinksSerializer, SimpleTopicCategorySerializer
 from geonode.base.api.fields import ComplexDynamicRelationField
 from geonode.base.models import ResourceBase
 from dynamic_rest.serializers import DynamicModelSerializer
@@ -21,6 +21,8 @@ class UserSerializer(serializers.ModelSerializer):
 class ResourceSerializer(DynamicModelSerializer):
     # category = SimpleTopicCategorySerializer(read_only=True, default=None)
     category = ComplexDynamicRelationField(SimpleTopicCategorySerializer, embed=True)
+    download_url = DownloadLinkField(read_only=True)
+    embed_url = EmbedUrlField(required=False)
     extent = ExtentBboxField(required=False)
     links = DynamicRelationField(LinksSerializer, source="id", read_only=True)
     class Meta:
@@ -28,6 +30,8 @@ class ResourceSerializer(DynamicModelSerializer):
         fields = (
             'alternate',
             'category',
+            'download_url',
+            'embed_url',
             'extent',
             'is_published',
             'links',
