@@ -16,17 +16,12 @@
 
 set -e
 
-echo "==> Habilitando unaccent en GEONODE_DATABASE: $GEONODE_DATABASE"
+echo "==> Habilitando sigic_geonode_geoweb: $GEONODE_DATABASE"
 
+if [ "$USE_IDEGEOWEB" = "True"]; then
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$GEONODE_DATABASE" <<-EOSQL
-    CREATE EXTENSION IF NOT EXISTS unaccent;
+    CREATE DATABASE IF NOT EXISTS sigic_geonode_geoweb;
 EOSQL
+fi
 
-echo "==> Habilitando unaccent en GEONODE_GEODATABASE: $GEONODE_GEODATABASE"
-
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$GEONODE_GEODATABASE" <<-EOSQL
-    CREATE EXTENSION IF NOT EXISTS unaccent;
-EOSQL
-
-echo "==> unaccent habilitado en ambas bases."
-
+echo "==> sigic_geonode_geoweb habilitado"
