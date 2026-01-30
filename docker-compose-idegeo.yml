@@ -99,6 +99,8 @@ services:
         python manage.py migrate
         python manage.py collectstatic --noinput
         gunicorn idegeo.wsgi:application --bind 0.0.0.0:7070
+    expose:
+      - 7070
     ports:
       - "7070:7070"
     networks:
