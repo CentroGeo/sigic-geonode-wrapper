@@ -201,7 +201,7 @@ location /geoweb/ {
   proxy_set_header X-Forwarded-Prefix /geoweb;
 
   # pass all requests to the backend through to the upstream server
-  proxy_pass http://$upstream;
+  proxy_pass http://$upstream/;
   proxy_pass_header Authorization;
 
   location ~* \.(?:js|jpg|jpeg|gif|png|tgz|gz|rar|bz2|doc|pdf|ppt|tar|wav|bmp|ttf|rtf|swf|ico|flv|woff|woff2|svg|xml)$ {
