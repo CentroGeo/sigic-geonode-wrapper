@@ -35,12 +35,11 @@ from rest_framework.authentication import BasicAuthentication, SessionAuthentica
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from oauth2_provider.contrib.rest_framework import OAuth2Authentication
-
-from geonode.base.api.pagination import GeoNodeApiPagination
 
 from sigic_geonode.sigic_auth.keycloak import KeycloakJWTAuthentication
 
@@ -68,6 +67,27 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ScenarioPagination(PageNumberPagination):
+    """Paginacion compatible con la estructura de respuesta de GeoNode."""
+    page_size = 10
+    page_size_query_param = "page_size"
+
+    def get_paginated_response(self, data):
+        return Response(
+            {
+                "links": {
+                    "next": self.get_next_link(),
+                    "previous": self.get_previous_link(),
+                },
+                "total": self.page.paginator.count,
+                "page": self.page.number,
+                "page_size": self.get_page_size(self.request),
+                "results": data,
+            }
+        )
+
 
 # Clases de autenticacion reutilizables
 AUTHENTICATION_CLASSES = [
@@ -127,7 +147,7 @@ class ScenarioViewSet(ModelViewSet):
     """ViewSet para gestionar escenarios narrativos."""
 
     authentication_classes = AUTHENTICATION_CLASSES
-    pagination_class = GeoNodeApiPagination
+    pagination_class = ScenarioPagination
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
