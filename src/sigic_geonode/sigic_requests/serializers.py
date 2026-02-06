@@ -33,6 +33,7 @@ class ResourceSerializer(DynamicModelSerializer):
             'download_url',
             'embed_url',
             'extent',
+            'is_approved',
             'is_published',
             'links',
             'pk',
