@@ -47,4 +47,9 @@ http {
       ''      close;
     }
 
+    map $http_x_forwarded_proto $forwarded_proto {
+      default $http_x_forwarded_proto;
+      ""      $scheme;
+    }
+
 }
