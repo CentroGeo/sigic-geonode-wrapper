@@ -20,15 +20,13 @@
 # flake8: noqa evitar errores por imports estrellas y variables no declaradas
 
 import ast
-
-# Django settings for the GeoNode project.
 import os
 
 try:
     from urllib.parse import urlparse, urlunparse
-    from urllib.request import Request, urlopen
+    from urllib.request import urlopen, Request
 except ImportError:
-    from urllib2 import Request, urlopen
+    from urllib2 import urlopen, Request
     from urlparse import urlparse, urlunparse
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -176,6 +174,9 @@ INSTALLED_APPS += (
     "sigic_geonode.sigic_datasets",
     "sigic_geonode.sigic_resources",
     "sigic_geonode.sigic_ia_media_uploads",
+    "sigic_geonode.sigic_requests",
+    "sigic_geonode.sigic_account",
+    "sigic_geonode.sigic_remote_services",
 )
 
 MIDDLEWARE = [

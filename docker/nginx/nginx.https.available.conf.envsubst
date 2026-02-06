@@ -40,3 +40,8 @@ map $http_authorization $http_authorization_upstream {
     default $http_authorization;
     ""      "";
 }
+
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}

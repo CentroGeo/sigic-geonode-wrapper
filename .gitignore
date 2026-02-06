@@ -49,6 +49,7 @@ coverage.xml
 
 # Django stuff:
 *.log
+*.http
 celerybeat-schedule.*
 
 # Sphinx documentation
@@ -70,3 +71,6 @@ local_settings.py
 .vagrant/
 Vagrantfile
 /.env
+
+# src/sigic_geonode/sigic_requests/migrations/
+*.http
