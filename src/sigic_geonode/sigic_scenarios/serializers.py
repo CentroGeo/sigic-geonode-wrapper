@@ -15,6 +15,7 @@
 Serializers DRF para los modelos de escenarios, escenas, capas y marcadores.
 """
 
+from geonode.layers.models import Dataset
 from rest_framework import serializers
 
 from .models import Scenario, Scene, SceneLayer, SceneMarker
@@ -202,6 +203,8 @@ class SceneReorderSerializer(serializers.Serializer):
 class SceneLayerSerializer(serializers.ModelSerializer):
     """Serializer de lectura para capas de escena."""
 
+    dataset_title = serializers.SerializerMethodField()
+
     class Meta:
         model = SceneLayer
         fields = [
@@ -209,17 +212,31 @@ class SceneLayerSerializer(serializers.ModelSerializer):
             "scene",
             "geonode_id",
             "name",
+            "dataset_title",
             "style",
             "style_title",
             "visible",
             "opacity",
             "stack_order",
         ]
-        read_only_fields = ["id", "stack_order"]
+        read_only_fields = ["id", "stack_order", "dataset_title"]
+
+    def get_dataset_title(self, obj):
+        """Retorna el titulo del Dataset vinculado en GeoNode, si existe."""
+        if obj.geonode_id is None:
+            return None
+        try:
+            return Dataset.objects.values_list("title", flat=True).get(pk=obj.geonode_id)
+        except Dataset.DoesNotExist:
+            return None
 
 
 class SceneLayerCreateSerializer(serializers.ModelSerializer):
-    """Serializer para creacion de capas."""
+    """Serializer para creacion de capas.
+
+    Valida que geonode_id corresponda a un Dataset existente de tipo capa
+    y auto-rellena el campo name con el alternate del Dataset.
+    """
 
     class Meta:
         model = SceneLayer
@@ -232,6 +249,34 @@ class SceneLayerCreateSerializer(serializers.ModelSerializer):
             "visible",
             "opacity",
         ]
+        extra_kwargs = {
+            "geonode_id": {"required": True},
+            "name": {"required": False},
+        }
+
+    def validate_geonode_id(self, value):
+        """Verifica que exista un Dataset con este ID y que sea de tipo capa."""
+        try:
+            dataset = Dataset.objects.get(pk=value)
+        except Dataset.DoesNotExist:
+            raise serializers.ValidationError(
+                f"No existe un dataset en GeoNode con id {value}."
+            )
+        if dataset.subtype not in ("vector", "raster"):
+            raise serializers.ValidationError(
+                f"El dataset {value} no es de tipo capa "
+                f"(subtype actual: {dataset.subtype})."
+            )
+        # Almacenar referencia para usar en validate()
+        self._dataset = dataset
+        return value
+
+    def validate(self, attrs):
+        # Auto-rellenar name con el alternate del Dataset si no se proporciono
+        dataset = getattr(self, "_dataset", None)
+        if dataset and not attrs.get("name"):
+            attrs["name"] = dataset.alternate
+        return attrs
 
 
 class SceneLayerUpdateSerializer(serializers.ModelSerializer):

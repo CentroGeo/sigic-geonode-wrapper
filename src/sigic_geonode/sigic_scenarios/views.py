@@ -470,7 +470,12 @@ class SceneLayerViewSet(ModelViewSet):
         scene = get_object_or_404(Scene, id=scene_id)
         _check_scenario_owner(scene.scenario, request.user)
 
-        serializer = SceneLayerCreateSerializer(data=request.data, many=True)
+        # Inyectar scene_id en cada item para que el serializer lo valide
+        data = request.data if isinstance(request.data, list) else [request.data]
+        for item in data:
+            item["scene"] = scene.id
+
+        serializer = SceneLayerCreateSerializer(data=data, many=True)
         serializer.is_valid(raise_exception=True)
 
         created = []
@@ -703,7 +708,12 @@ class SceneMarkerViewSet(ModelViewSet):
         scene = get_object_or_404(Scene, id=scene_id)
         _check_scenario_owner(scene.scenario, request.user)
 
-        serializer = SceneMarkerCreateSerializer(data=request.data, many=True)
+        # Inyectar scene_id en cada item para que el serializer lo valide
+        data = request.data if isinstance(request.data, list) else [request.data]
+        for item in data:
+            item["scene"] = scene.id
+
+        serializer = SceneMarkerCreateSerializer(data=data, many=True)
         serializer.is_valid(raise_exception=True)
 
         created = []
