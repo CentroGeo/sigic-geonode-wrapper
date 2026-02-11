@@ -73,6 +73,7 @@ services:
       - nginx-confd:/etc/nginx
       - nginx-certificates:/geonode-certificates
       - statics:/mnt/volumes/statics
+      - modulo-ia:/mnt/volumes/statics/uploaded/ia
     restart: unless-stopped
     networks:
       - sigicnetwork
