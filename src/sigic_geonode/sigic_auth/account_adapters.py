@@ -13,6 +13,7 @@
 # ==============================================================================
 
 import logging
+
 from allauth.account.utils import user_username
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.core.exceptions import ValidationError
@@ -25,16 +26,20 @@ class SigicSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
         user = super().populate_user(request, sociallogin, data)
 
-        # Aquí sí tienes acceso directo al "email"
+        extra = sociallogin.account.extra_data
+
         email = data.get("email")
         preferred_username = data.get("preferred_username")
 
-        if email:
-            user.email = email
         if preferred_username:
             user.username = preferred_username
         else:
             user.username = email
+
+        user.email = extra.get("email", "")
+        user.first_name = extra.get("given_name", "")
+        user.last_name = extra.get("family_name", "")
+
         return user
 
 
