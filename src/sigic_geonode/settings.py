@@ -207,7 +207,7 @@ SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAut
 SOCIALACCOUNT_PROVIDERS = {
     SOCIALACCOUNT_OIDC_PROVIDER: {
         "NAME": SOCIALACCOUNT_OIDC_PROVIDER,
-        "SCOPE": ["openid", "email", "profile"],
+        "SCOPE": ["openid", "profile", "email"],
         "AUTH_PARAMS": {},
         "COMMON_FIELDS": {
             "email": "email",
