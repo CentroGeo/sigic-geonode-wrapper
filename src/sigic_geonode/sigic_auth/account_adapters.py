@@ -79,8 +79,7 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
 
         extra = sociallogin.account.extra_data or {}
 
-        # --- equivalente a populate_user ---
-        username = extra.get("email") or extra.get("preferred_username")
+        username = extra.get("email")
         email = extra.get("email")
         first_name = extra.get("given_name")
         last_name = extra.get("family_name")
