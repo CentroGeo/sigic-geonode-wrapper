@@ -65,7 +65,26 @@ class KeycloakJWTAuthentication(BaseAuthentication):
                 raise AuthenticationFailed("Token válido pero sin 'preferred_username'")
 
             User = get_user_model()
-            user, _ = User.objects.get_or_create(username=payload["preferred_username"])
+
+            email = payload.get("email")
+
+            user, created = User.objects.get_or_create(email=email, username=email)
+
+            updated_fields = []
+
+            first_name = payload.get("given_name") or payload.get("first_name")
+            if first_name and user.first_name != first_name:
+                user.first_name = first_name
+                updated_fields.append("first_name")
+
+            last_name = payload.get("family_name") or payload.get("last_name")
+            if last_name and user.last_name != last_name:
+                user.last_name = last_name
+                updated_fields.append("last_name")
+
+            if updated_fields:
+                user.save(update_fields=updated_fields)
+
             return user, None
 
         except (ExpiredSignatureError, JWTClaimsError, JWTError, Exception) as e:

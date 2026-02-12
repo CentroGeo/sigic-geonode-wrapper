@@ -66,6 +66,7 @@ services:
     volumes:
       - nginx-confd:/etc/nginx
       - statics:/mnt/volumes/statics
+      - modulo-ia:/mnt/volumes/statics/uploaded/ia
     restart: unless-stopped
     networks:
       - sigicnetwork
