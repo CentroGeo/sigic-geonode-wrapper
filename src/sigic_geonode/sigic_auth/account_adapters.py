@@ -28,14 +28,7 @@ class SigicSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         extra = sociallogin.account.extra_data
 
-        email = data.get("email")
-        preferred_username = data.get("preferred_username")
-
-        if preferred_username:
-            user.username = preferred_username
-        else:
-            user.username = email
-
+        user.username = extra.get("email", "")
         user.email = extra.get("email", "")
         user.first_name = extra.get("given_name", "")
         user.last_name = extra.get("family_name", "")
