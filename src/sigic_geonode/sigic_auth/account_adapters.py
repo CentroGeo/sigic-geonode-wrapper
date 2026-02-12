@@ -67,42 +67,27 @@ class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
 
-        login.user.email = login.account.extra_data.get("email")
-        login.user.username = login.account.extra_data.get("email")
-        login.user.first_name = login.account.extra_data.get("given_name")
-        login.user.last_name = login.account.extra_data.get("family_name")
+        extra = login.account.extra_data or {}
+        print("Extra data from OIDC response:", extra)
+        user = login.user
 
-        return login
-
-    def save_user(self, request, sociallogin, form=None):
-        user = super().save_user(request, sociallogin, form=form)
-
-        extra = sociallogin.account.extra_data or {}
-
-        username = extra.get("email")
+        # --- FORZAR PERFIL (equivalente a populate_user) ---
         email = extra.get("email")
+        username = email
         first_name = extra.get("given_name")
         last_name = extra.get("family_name")
 
-        updated_fields = []
-
-        if username and user.username != username:
+        if username:
             user.username = username
-            updated_fields.append("username")
 
-        if email and user.email != email:
+        if email:
             user.email = email
-            updated_fields.append("email")
 
-        if first_name and user.first_name != first_name:
+        if first_name:
             user.first_name = first_name
-            updated_fields.append("first_name")
 
-        if last_name and user.last_name != last_name:
+        if last_name:
             user.last_name = last_name
-            updated_fields.append("last_name")
 
-        if updated_fields:
-            user.save(update_fields=updated_fields)
-
-        return user
+        login.account.user = user
+        return login
