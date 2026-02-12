@@ -66,6 +66,12 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
 class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
+
+        login.user.email = login.account.extra_data.get("email")
+        login.user.username = login.account.extra_data.get("email")
+        login.user.first_name = login.account.extra_data.get("given_name")
+        login.user.last_name = login.account.extra_data.get("family_name")
+
         return login
 
     def save_user(self, request, sociallogin, form=None):
