@@ -13,6 +13,7 @@
 # ==============================================================================
 
 import logging
+
 from allauth.account.utils import user_username
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.core.exceptions import ValidationError
@@ -25,16 +26,13 @@ class SigicSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
         user = super().populate_user(request, sociallogin, data)
 
-        # Aquí sí tienes acceso directo al "email"
-        email = data.get("email")
-        preferred_username = data.get("preferred_username")
+        extra = sociallogin.account.extra_data
 
-        if email:
-            user.email = email
-        if preferred_username:
-            user.username = preferred_username
-        else:
-            user.username = email
+        user.username = extra.get("email", "")
+        user.email = extra.get("email", "")
+        user.first_name = extra.get("given_name", "")
+        user.last_name = extra.get("family_name", "")
+
         return user
 
 
@@ -68,22 +66,28 @@ class SigicLocalAccountAdapter(LocalAccountAdapter):
 class SigicOpenIDConnectAdapter(GenericOpenIDConnectAdapter):
     def complete_login(self, request, app, token, response, **kwargs):
         login = super().complete_login(request, app, token, response, **kwargs)
-        preferred_username = login.account.extra_data.get("preferred_username")
-        email = login.account.extra_data.get("email")
 
-        if preferred_username:
-            login.user.username = preferred_username
+        extra = login.account.extra_data or {}
+        print("Extra data from OIDC response:", extra)
+        user = login.user
+
+        # --- FORZAR PERFIL (equivalente a populate_user) ---
+        email = extra.get("email")
+        username = email
+        first_name = extra.get("given_name")
+        last_name = extra.get("family_name")
+
+        if username:
+            user.username = username
+
         if email:
-            login.user.email = email
+            user.email = email
 
-        login.account.user = login.user
+        if first_name:
+            user.first_name = first_name
+
+        if last_name:
+            user.last_name = last_name
+
+        login.account.user = user
         return login
-
-    def save_user(self, request, sociallogin, form=None):
-        user = super().save_user(request, sociallogin, form=form)
-        # Aseguramos persistencia explícita del email
-        extra = sociallogin.account.extra_data
-        if extra.get("email") and user.email != extra["email"]:
-            user.email = extra["email"]
-            user.save(update_fields=["email"])
-        return user
