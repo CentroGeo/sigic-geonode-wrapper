@@ -200,14 +200,14 @@ SOCIALACCOUNT_OIDC_PROVIDER = os.getenv(
 )
 SOCIALACCOUNT_ADAPTER = os.environ.get(
     "SOCIALACCOUNT_ADAPTER",
-    "sigic_geonode.sigic_auth.account_adapters.SigicSocialAccountAdapter",
+    "sigic_geonode.sigic_auth.account_adapters.SigicOpenIDConnectAdapter",
 )
 SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAuth")
 
 SOCIALACCOUNT_PROVIDERS = {
     SOCIALACCOUNT_OIDC_PROVIDER: {
         "NAME": SOCIALACCOUNT_OIDC_PROVIDER,
-        "SCOPE": ["openid", "email", "profile"],
+        "SCOPE": ["openid", "profile", "email"],
         "AUTH_PARAMS": {},
         "COMMON_FIELDS": {
             "email": "email",
