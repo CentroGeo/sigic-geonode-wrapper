@@ -361,6 +361,10 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if user.is_superuser:
             return
 
+        # owner del dataset → puede gestionar sus estilos
+        if dataset.owner == user:
+            return
+
         if user.has_perm("base.change_layer_style", dataset.resourcebase_ptr):
             return
 
