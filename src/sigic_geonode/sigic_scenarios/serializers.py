@@ -81,12 +81,14 @@ class ScenarioCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Scenario
         fields = [
+            "id",
             "name",
             "url_id",
             "is_public",
             "description",
             "scenes_layout_styles",
         ]
+        read_only_fields = ["id"]
 
 
 class ScenarioUpdateSerializer(serializers.ModelSerializer):

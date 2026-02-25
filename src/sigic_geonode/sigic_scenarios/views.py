@@ -169,6 +169,20 @@ class ScenarioViewSet(ModelViewSet):
             return qs.filter(is_public=True)
         return qs.filter(Q(is_public=True) | Q(owner=self.request.user))
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        response_serializer = ScenarioDetailSerializer(
+            serializer.instance, context={"request": request}
+        )
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers,
+        )
+
     def perform_create(self, serializer):
         # Valores por defecto para scenes_layout_styles si no se proporcionan
         layout = serializer.validated_data.get("scenes_layout_styles")
@@ -177,6 +191,8 @@ class ScenarioViewSet(ModelViewSet):
                 "text_panel": 50,
                 "map_panel": 50,
                 "timeline_position": "bottom",
+                "gradient_start": "#1a1a2e",
+                "gradient_end": "#16213e",
             }
         serializer.save(owner=self.request.user)
 
