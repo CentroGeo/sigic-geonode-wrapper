@@ -30,13 +30,13 @@ def upload_image_preview(request):
         filename = filename.replace(" ", "_")
         
         ext = os.path.splitext(filename)[1].lower()
-        if ext not in ALLOWED_EXTENSIONS:
+        if ext not in settings.ALLOWED_EXTENSIONS:
             return Response({"error": f"Invalid file type: {ext}"}, status=400)
         
         if file.size > MAX_FILE_SIZE:
             return Response({"error": "File too large"}, status=400)
         
-        if ext in ALLOWED_DOCUMENT_FILE_EXTENSIONS:
+        if ext in settings.ALLOWED_DOCUMENT_FILE_EXTENSIONS:
             upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "documents")
             url = f"{settings.MEDIA_URL}ia/uploads/documents/{filename}"
         else:
