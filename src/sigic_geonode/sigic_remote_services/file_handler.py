@@ -81,7 +81,9 @@ class FileServiceHandler(base.ServiceHandlerBase):
                 default_owner=owner,
                 scheduling_enabled=False,
                 remote_url=instance.service_url,
-                delete_orphan_resources_automatically=True,
+                # False para evitar que al re-cosechar se eliminen recursos
+                # que otro usuario también tiene referenciados.
+                delete_orphan_resources_automatically=False,
                 harvester_type=self.get_harvester_type(),
                 harvester_type_specific_configuration=self.get_harvester_configuration_options(),
             )

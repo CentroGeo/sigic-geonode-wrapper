@@ -170,6 +170,9 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
     def patched_wms_create_geonode_service(self, owner, parent=None):
         """
         Corrige bug donde el harvester se asignaba pero no se persistía.
+        También desactiva delete_orphan_resources_automatically para evitar
+        que la re-cosecha de un usuario elimine recursos de otros usuarios
+        que compartan la misma URL de servicio.
         """
         instance = _orig_wms_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -178,6 +181,15 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio {instance.id}"
             )
+            if instance.harvester.delete_orphan_resources_automatically:
+                instance.harvester.delete_orphan_resources_automatically = False
+                instance.harvester.save(
+                    update_fields=["delete_orphan_resources_automatically"]
+                )
+                logger.debug(
+                    f"[SIGIC Patch] delete_orphan_resources_automatically "
+                    f"desactivado para harvester {instance.harvester.id}"
+                )
         return instance
 
     WmsServiceHandler.create_geonode_service = patched_wms_create_geonode_service
@@ -190,6 +202,9 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
     def patched_arc_create_geonode_service(self, owner, parent=None):
         """
         Corrige bug donde el harvester se asignaba pero no se persistía.
+        También desactiva delete_orphan_resources_automatically para evitar
+        que la re-cosecha de un usuario elimine recursos de otros usuarios
+        que compartan la misma URL de servicio.
         """
         instance = _orig_arc_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -198,6 +213,15 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio ArcGIS {instance.id}"
             )
+            if instance.harvester.delete_orphan_resources_automatically:
+                instance.harvester.delete_orphan_resources_automatically = False
+                instance.harvester.save(
+                    update_fields=["delete_orphan_resources_automatically"]
+                )
+                logger.debug(
+                    f"[SIGIC Patch] delete_orphan_resources_automatically "
+                    f"desactivado para harvester ArcGIS {instance.harvester.id}"
+                )
         return instance
 
     ArcMapServiceHandler.create_geonode_service = patched_arc_create_geonode_service
