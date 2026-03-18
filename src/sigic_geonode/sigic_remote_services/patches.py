@@ -18,6 +18,7 @@ Agrega las siguientes funcionalidades:
 - HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
 - IsAdminOrListOnly: Permite que owners accedan a sus propios harvesters
 - WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
+- BaseHarvesterWorker: Fuerza permisos owner-only tras cada cosecha
 """
 
 import logging
@@ -26,12 +27,18 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from geonode.harvesting.api.views import HarvesterViewSet, IsAdminOrListOnly
+from geonode.harvesting.harvesters.base import BaseHarvesterWorker
 from geonode.harvesting.models import Harvester
+from geonode.resource.manager import resource_manager
 from geonode.services.models import Service
 from geonode.services.serviceprocessors.wms import WmsServiceHandler
 from geonode.services.serviceprocessors.arcgis import ArcMapServiceHandler
 
 logger = logging.getLogger(__name__)
+
+# Permisos owner-only: ningún grupo ni usuario extra tiene acceso.
+# El owner obtiene sus permisos implícitamente a través de resource_manager.
+_OWNER_ONLY_PERMISSIONS = {"users": {}, "groups": {}}
 
 
 # =============================================================================
@@ -173,6 +180,7 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
         También desactiva delete_orphan_resources_automatically para evitar
         que la re-cosecha de un usuario elimine recursos de otros usuarios
         que compartan la misma URL de servicio.
+        Establece default_access_permissions a owner-only.
         """
         instance = _orig_wms_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -181,15 +189,23 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio {instance.id}"
             )
+            update_fields = []
             if instance.harvester.delete_orphan_resources_automatically:
                 instance.harvester.delete_orphan_resources_automatically = False
-                instance.harvester.save(
-                    update_fields=["delete_orphan_resources_automatically"]
-                )
+                update_fields.append("delete_orphan_resources_automatically")
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester {instance.harvester.id}"
                 )
+            if instance.harvester.default_access_permissions != _OWNER_ONLY_PERMISSIONS:
+                instance.harvester.default_access_permissions = _OWNER_ONLY_PERMISSIONS
+                update_fields.append("default_access_permissions")
+                logger.debug(
+                    f"[SIGIC Patch] default_access_permissions owner-only "
+                    f"establecido para harvester {instance.harvester.id}"
+                )
+            if update_fields:
+                instance.harvester.save(update_fields=update_fields)
         return instance
 
     WmsServiceHandler.create_geonode_service = patched_wms_create_geonode_service
@@ -205,6 +221,7 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
         También desactiva delete_orphan_resources_automatically para evitar
         que la re-cosecha de un usuario elimine recursos de otros usuarios
         que compartan la misma URL de servicio.
+        Establece default_access_permissions a owner-only.
         """
         instance = _orig_arc_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -213,16 +230,77 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio ArcGIS {instance.id}"
             )
+            update_fields = []
             if instance.harvester.delete_orphan_resources_automatically:
                 instance.harvester.delete_orphan_resources_automatically = False
-                instance.harvester.save(
-                    update_fields=["delete_orphan_resources_automatically"]
-                )
+                update_fields.append("delete_orphan_resources_automatically")
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester ArcGIS {instance.harvester.id}"
                 )
+            if instance.harvester.default_access_permissions != _OWNER_ONLY_PERMISSIONS:
+                instance.harvester.default_access_permissions = _OWNER_ONLY_PERMISSIONS
+                update_fields.append("default_access_permissions")
+                logger.debug(
+                    f"[SIGIC Patch] default_access_permissions owner-only "
+                    f"establecido para harvester ArcGIS {instance.harvester.id}"
+                )
+            if update_fields:
+                instance.harvester.save(update_fields=update_fields)
         return instance
 
     ArcMapServiceHandler.create_geonode_service = patched_arc_create_geonode_service
     ArcMapServiceHandler._patched_by_sigic = True
+
+
+# =============================================================================
+# Patch para BaseHarvesterWorker
+# Fuerza permisos owner-only en Guardian tras cada cosecha, independientemente
+# del estado de GeoFence. Garantiza que los recursos cosechados sean visibles
+# únicamente para el owner y superusuarios.
+# =============================================================================
+
+if not getattr(BaseHarvesterWorker, "_patched_by_sigic_permissions", False):
+    _orig_finalize_resource_update = BaseHarvesterWorker.finalize_resource_update
+
+    def patched_finalize_resource_update(
+        self, geonode_resource, harvested_info, harvestable_resource
+    ):
+        """
+        Llama a la finalización estándar y luego fuerza permisos owner-only
+        en Django (Guardian), sin importar si GeoFence tuvo errores.
+        """
+        try:
+            _orig_finalize_resource_update(
+                self, geonode_resource, harvested_info, harvestable_resource
+            )
+        except Exception as e:
+            logger.warning(
+                f"[SIGIC Patch] finalize_resource_update original falló "
+                f"(posiblemente GeoFence): {e}"
+            )
+
+        if geonode_resource is None:
+            return
+
+        try:
+            owner = harvestable_resource.harvester.default_owner
+            resource_manager.set_permissions(
+                geonode_resource.uuid,
+                instance=geonode_resource,
+                permissions=_OWNER_ONLY_PERMISSIONS,
+                created=False,
+            )
+            logger.debug(
+                f"[SIGIC Patch] Permisos owner-only aplicados al recurso "
+                f"{geonode_resource.id} (owner: {owner})"
+            )
+        except Exception as e:
+            logger.warning(
+                f"[SIGIC Patch] No se pudieron forzar permisos owner-only "
+                f"en recurso {geonode_resource.id}: {e}"
+            )
+
+    BaseHarvesterWorker.finalize_resource_update = patched_finalize_resource_update
+    BaseHarvesterWorker._patched_by_sigic_permissions = True
+    logger.info("[SIGIC Patch] BaseHarvesterWorker permisos owner-only activados")
