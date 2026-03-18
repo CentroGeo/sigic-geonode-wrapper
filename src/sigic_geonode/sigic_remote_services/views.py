@@ -26,6 +26,7 @@ from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from rest_framework import status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
@@ -547,6 +548,90 @@ class ServiceViewSet(ViewSet):
 
         response_serializer = ServiceListSerializer(service)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Re-dispara la cosecha de recursos de un servicio",
+        description=(
+            "Reinicia el proceso de cosecha del harvester asociado al servicio. "
+            "Si el harvester quedó atascado (por falla de GeoServer, servicio remoto o Celery), "
+            "resetea el estado a 'ready' y vuelve a disparar la tarea. "
+            "Solo el propietario del servicio o un superusuario puede ejecutar esta acción."
+        ),
+        tags=["Servicios Remotos"],
+    )
+    @action(detail=True, methods=["post"], url_path="retry-harvesting")
+    def retry_harvesting(self, request, pk=None):
+        """Re-dispara la cosecha del harvester asociado al servicio."""
+        try:
+            service = self.get_queryset().get(pk=pk)
+        except Service.DoesNotExist:
+            return Response(
+                {"error": "Servicio no encontrado"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not request.user.is_superuser and service.owner != request.user:
+            return Response(
+                {"error": "No tienes permiso para operar este servicio"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        harvester = service.harvester
+        if not harvester:
+            return Response(
+                {"error": "Este servicio no tiene un harvester asociado"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Si el harvester está atascado, resetear a ready
+        STUCK_STATUSES = {
+            "updating-harvestable-resources",
+            "performing-harvesting",
+        }
+        previous_status = harvester.status
+        if harvester.status in STUCK_STATUSES:
+            Harvester.objects.filter(pk=harvester.pk).update(status="ready")
+            harvester.refresh_from_db()
+            logger.info(
+                f"[SIGIC] Harvester {harvester.pk} reseteado de '{previous_status}' "
+                f"a 'ready' por usuario {request.user}"
+            )
+
+        if harvester.status != "ready":
+            return Response(
+                {
+                    "error": (
+                        f"El harvester está en estado '{harvester.status}' "
+                        f"y no puede re-dispararse en este momento."
+                    ),
+                    "harvester_status": harvester.status,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            from geonode.harvesting.tasks import harvesting_dispatcher
+
+            harvesting_dispatcher.apply_async(args=[harvester.pk])
+            logger.info(
+                f"[SIGIC] Cosecha re-disparada para harvester {harvester.pk} "
+                f"(servicio {service.pk}) por usuario {request.user}"
+            )
+        except Exception as e:
+            logger.error(f"[SIGIC] Error al re-disparar harvester {harvester.pk}: {e}")
+            return Response(
+                {"error": f"Error al disparar la cosecha: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "message": "Cosecha iniciada correctamente",
+                "harvester_id": harvester.pk,
+                "harvester_status": harvester.status,
+                "previous_status": previous_status,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 @extend_schema_view(
