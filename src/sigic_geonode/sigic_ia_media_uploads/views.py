@@ -55,3 +55,40 @@ def upload_image_preview(request):
             "message": "File uploaded successfully",
             "url": url
         })
+
+@api_view(["POST"])
+def delete_file_preview(request):
+    
+    if request.method == 'POST':
+        filename = request.data.get("filename")
+        
+        if not filename:
+            return JsonResponse({"error": "No file"}, status=400)
+
+
+        filename = os.path.basename(filename)
+        filename = filename.replace(" ", "_")
+        ext = os.path.splitext(filename)[1].lower()
+        
+        if ext not in settings.ALLOWED_EXTENSIONS:
+            return Response({"error": f"Invalid file type: {ext}"}, status=400)
+        
+        if ext in settings.ALLOWED_DOCUMENT_FILE_EXTENSIONS:
+            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "documents")
+        else:
+            upload_dir = os.path.join(settings.MEDIA_ROOT, "ia", "uploads", "contexts")
+        
+        file_path = os.path.join(upload_dir, filename)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return JsonResponse({
+                "message": "File deleted successfully",
+                "filename": filename
+            })
+            
+        return JsonResponse({
+            "error": "File not found",
+            "filename": filename
+        }, status=404)
+
