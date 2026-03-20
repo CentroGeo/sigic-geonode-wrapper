@@ -54,6 +54,7 @@ urlpatterns += [
     path("", include("sigic_geonode.sigic_remote_services.urls")),
     path("", include("sigic_geonode.sigic_account.urls")),
     path("", include("sigic_geonode.sigic_scenarios.urls")),
+    path("", include("sigic_geonode.sigic_mapas.urls")),
 ] + geonode_urlpatterns
 
 urlpatterns += i18n_patterns(

@@ -180,6 +180,7 @@ INSTALLED_APPS += (
     "sigic_geonode.sigic_account",
     "sigic_geonode.sigic_remote_services",
     "sigic_geonode.sigic_scenarios",
+    "sigic_geonode.sigic_mapas",
 )
 
 MIDDLEWARE = [
