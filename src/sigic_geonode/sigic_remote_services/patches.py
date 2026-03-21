@@ -17,7 +17,8 @@ Monkey patching para extender funcionalidades de GeoNode.
 Agrega las siguientes funcionalidades:
 - HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
 - IsAdminOrListOnly: Permite que owners accedan a sus propios harvesters
-- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
+- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba,
+  desactiva delete_orphan_resources_automatically
 - BaseHarvesterWorker: Fuerza permisos owner-only tras cada cosecha
 - ArcgisHarvesterWorker/OgcWmsHarvester: Sufija name/store/alternate con _h{harvester_id}
   para que cada usuario sea propietario de su propia copia del recurso cosechado
