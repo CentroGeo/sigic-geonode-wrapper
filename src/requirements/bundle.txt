@@ -2,7 +2,7 @@
 # SIGIC_PATCH=3
 
 https://github.com/CentroGeo/sigic-geonode-mapstore-client/releases/download/v4.4.0.post2/django_geonode_mapstore_client-4.4.0.post2-py2.py3-none-any.whl
-https://github.com/CentroGeo/sigic-geonode-importer/releases/download/v1.1.0.post5/sigic_geonode_importer-1.1.0.post5-py3-none-any.whl
+-e git+https://github.com/CentroGeo/sigic-geonode-importer.git@1.1.x.sigic#egg=geonode-importer
 https://github.com/CentroGeo/sigic-geonode/releases/download/v4.4.4.sigic.3/geonode-4.4.0.dev0-py2.py3-none-any.whl
 
 setuptools<81

@@ -205,7 +205,7 @@ SOCIALACCOUNT_PROVIDER_NAME = os.getenv("SOCIALACCOUNT_PROVIDER_NAME", "SIGICAut
 SOCIALACCOUNT_PROVIDERS = {
     SOCIALACCOUNT_OIDC_PROVIDER: {
         "NAME": SOCIALACCOUNT_OIDC_PROVIDER,
-        "SCOPE": ["openid", "email", "profile"],
+        "SCOPE": ["openid", "profile", "email"],
         "AUTH_PARAMS": {},
         "COMMON_FIELDS": {
             "email": "email",
@@ -339,4 +339,26 @@ if env_allowed_types:
 else:
     ALLOWED_DOCUMENT_TYPES = list(DEFAULT_ALLOWED_DOCUMENT_TYPES)
 
+DEFAULT_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf", ".pptx",'.json','.geojson','.docx','.doc','.csv'}
+env_allowed_extensions = os.getenv("ALLOWED_EXTENSIONS")
+if env_allowed_extensions:
+    ALLOWED_EXTENSIONS = {
+        ext.strip().lower()
+        for ext in env_allowed_extensions.split(",")
+        if ext.strip()
+    }
+else:
+    ALLOWED_EXTENSIONS = DEFAULT_ALLOWED_EXTENSIONS
+
+DEFAULT_ALLOWED_DOCUMENT_FILE_EXTENSIONS = {'.pdf', '.pptx', '.docx', '.doc', '.json', '.geojson', '.csv'}
+env_allowed_document_file_extensions = os.getenv("ALLOWED_DOCUMENT_FILE_EXTENSIONS")
+if env_allowed_document_file_extensions:
+    ALLOWED_DOCUMENT_FILE_EXTENSIONS = {
+        ext.strip().lower()
+        for ext in env_allowed_document_file_extensions.split(",")
+        if ext.strip()
+    }
+else:
+    ALLOWED_DOCUMENT_FILE_EXTENSIONS = DEFAULT_ALLOWED_DOCUMENT_FILE_EXTENSIONS
+    
 DEFAULT_HOME_PATH = os.getenv("DEFAULT_HOME_PATH", "")
