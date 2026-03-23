@@ -17,7 +17,11 @@ Monkey patching para extender funcionalidades de GeoNode.
 Agrega las siguientes funcionalidades:
 - HarvesterViewSet: Filtro por default_owner, campo service_id en respuestas
 - IsAdminOrListOnly: Permite que owners accedan a sus propios harvesters
-- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba
+- WmsServiceHandler/ArcMapServiceHandler: Corrige bug donde harvester_id no se guardaba,
+  desactiva delete_orphan_resources_automatically
+- BaseHarvesterWorker: Fuerza permisos owner-only tras cada cosecha
+- ArcgisHarvesterWorker/OgcWmsHarvester: Sufija name/store/alternate con _h{harvester_id}
+  para que cada usuario sea propietario de su propia copia del recurso cosechado
 """
 
 import logging
@@ -26,12 +30,20 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from geonode.harvesting.api.views import HarvesterViewSet, IsAdminOrListOnly
+from geonode.harvesting.harvesters.arcgis import ArcgisHarvesterWorker
+from geonode.harvesting.harvesters.base import BaseHarvesterWorker
+from geonode.harvesting.harvesters.wms import OgcWmsHarvester
 from geonode.harvesting.models import Harvester
+from geonode.resource.manager import resource_manager
 from geonode.services.models import Service
 from geonode.services.serviceprocessors.wms import WmsServiceHandler
 from geonode.services.serviceprocessors.arcgis import ArcMapServiceHandler
 
 logger = logging.getLogger(__name__)
+
+# Permisos owner-only: ningún grupo ni usuario extra tiene acceso.
+# El owner obtiene sus permisos implícitamente a través de resource_manager.
+_OWNER_ONLY_PERMISSIONS = {"users": {}, "groups": {}}
 
 
 # =============================================================================
@@ -170,6 +182,9 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
     def patched_wms_create_geonode_service(self, owner, parent=None):
         """
         Corrige bug donde el harvester se asignaba pero no se persistía.
+        También desactiva delete_orphan_resources_automatically para evitar
+        que la re-cosecha de un usuario elimine recursos de otros usuarios
+        que compartan la misma URL de servicio.
         """
         instance = _orig_wms_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -178,6 +193,15 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio {instance.id}"
             )
+            if instance.harvester.delete_orphan_resources_automatically:
+                instance.harvester.delete_orphan_resources_automatically = False
+                instance.harvester.save(
+                    update_fields=["delete_orphan_resources_automatically"]
+                )
+                logger.debug(
+                    f"[SIGIC Patch] delete_orphan_resources_automatically "
+                    f"desactivado para harvester {instance.harvester.id}"
+                )
         return instance
 
     WmsServiceHandler.create_geonode_service = patched_wms_create_geonode_service
@@ -190,6 +214,9 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
     def patched_arc_create_geonode_service(self, owner, parent=None):
         """
         Corrige bug donde el harvester se asignaba pero no se persistía.
+        También desactiva delete_orphan_resources_automatically para evitar
+        que la re-cosecha de un usuario elimine recursos de otros usuarios
+        que compartan la misma URL de servicio.
         """
         instance = _orig_arc_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -198,7 +225,119 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio ArcGIS {instance.id}"
             )
+            if instance.harvester.delete_orphan_resources_automatically:
+                instance.harvester.delete_orphan_resources_automatically = False
+                instance.harvester.save(
+                    update_fields=["delete_orphan_resources_automatically"]
+                )
+                logger.debug(
+                    f"[SIGIC Patch] delete_orphan_resources_automatically "
+                    f"desactivado para harvester ArcGIS {instance.harvester.id}"
+                )
         return instance
 
     ArcMapServiceHandler.create_geonode_service = patched_arc_create_geonode_service
     ArcMapServiceHandler._patched_by_sigic = True
+
+
+# =============================================================================
+# Patch para BaseHarvesterWorker
+# Fuerza permisos owner-only en Guardian tras cada cosecha, independientemente
+# del estado de GeoFence. Garantiza que los recursos cosechados sean visibles
+# únicamente para el owner y superusuarios.
+# =============================================================================
+
+if not getattr(BaseHarvesterWorker, "_patched_by_sigic_permissions", False):
+    _orig_finalize_resource_update = BaseHarvesterWorker.finalize_resource_update
+
+    def patched_finalize_resource_update(
+        self, geonode_resource, harvested_info, harvestable_resource
+    ):
+        """
+        Llama a la finalización estándar y luego fuerza permisos owner-only
+        en Django (Guardian), sin importar si GeoFence tuvo errores.
+        """
+        try:
+            _orig_finalize_resource_update(
+                self, geonode_resource, harvested_info, harvestable_resource
+            )
+        except Exception as e:
+            logger.warning(
+                f"[SIGIC Patch] finalize_resource_update original falló "
+                f"(posiblemente GeoFence): {e}"
+            )
+
+        if geonode_resource is None:
+            return
+
+        try:
+            owner = harvestable_resource.harvester.default_owner
+            resource_manager.set_permissions(
+                geonode_resource.uuid,
+                instance=geonode_resource,
+                permissions=_OWNER_ONLY_PERMISSIONS,
+                created=False,
+            )
+            logger.debug(
+                f"[SIGIC Patch] Permisos owner-only aplicados al recurso "
+                f"{geonode_resource.id} (owner: {owner})"
+            )
+        except Exception as e:
+            logger.warning(
+                f"[SIGIC Patch] No se pudieron forzar permisos owner-only "
+                f"en recurso {geonode_resource.id}: {e}"
+            )
+
+    BaseHarvesterWorker.finalize_resource_update = patched_finalize_resource_update
+    BaseHarvesterWorker._patched_by_sigic_permissions = True
+    logger.info("[SIGIC Patch] BaseHarvesterWorker permisos owner-only activados")
+
+
+# =============================================================================
+# Patch para ArcgisHarvesterWorker y OgcWmsHarvester
+# Sufija name, store y alternate con _h{harvester_id} para que cada usuario
+# tenga su propia fila en layers_dataset como propietario, evitando el
+# IntegrityError del unique constraint (store, workspace, name) cuando múltiples
+# usuarios cosechan el mismo servicio remoto.
+# =============================================================================
+
+def _patch_harvester_resource_defaults(worker_class, label):
+    """
+    Aplica el patch de unicidad por harvester a get_geonode_resource_defaults.
+
+    Modifica name, store y alternate para incluir el sufijo _h{harvester_id},
+    garantizando que cada harvester genere filas únicas en layers_dataset.
+    El campo ows_url no se modifica: sigue apuntando al servicio externo real.
+    """
+    if getattr(worker_class, "_patched_by_sigic_unique_name", False):
+        return
+
+    _orig_get_defaults = worker_class.get_geonode_resource_defaults
+
+    def patched_get_geonode_resource_defaults(self, harvested_info, harvestable_resource):
+        defaults = _orig_get_defaults(self, harvested_info, harvestable_resource)
+        suffix = f"_h{self.harvester_id}"
+
+        if "name" in defaults:
+            defaults["name"] = f"{defaults['name']}{suffix}"
+
+        if "store" in defaults:
+            defaults["store"] = f"{defaults['store']}{suffix}"
+
+        if "alternate" in defaults:
+            # alternate tiene formato "workspace:name" — actualizar solo la parte del name
+            parts = defaults["alternate"].split(":", 1)
+            if len(parts) == 2:
+                defaults["alternate"] = f"{parts[0]}:{parts[1]}{suffix}"
+            else:
+                defaults["alternate"] = f"{defaults['alternate']}{suffix}"
+
+        return defaults
+
+    worker_class.get_geonode_resource_defaults = patched_get_geonode_resource_defaults
+    worker_class._patched_by_sigic_unique_name = True
+    logger.info(f"[SIGIC Patch] {label} get_geonode_resource_defaults con unicidad por harvester")
+
+
+_patch_harvester_resource_defaults(ArcgisHarvesterWorker, "ArcgisHarvesterWorker")
+_patch_harvester_resource_defaults(OgcWmsHarvester, "OgcWmsHarvester")

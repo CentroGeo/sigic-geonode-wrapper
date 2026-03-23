@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 import typing
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
@@ -9,7 +10,6 @@ from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
 from urllib.parse import urlparse
-from uuid import uuid4
 
 import requests
 from django.conf import settings
@@ -61,7 +61,11 @@ class FileHarvester(BaseHarvesterWorker):
         self.name: str = url_parse_file(remote_url)
         self.title: str = self.name
         self.url: str = remote_url
-        self.uuid: str = str(uuid4())
+        # UUID determinístico derivado del harvester_id + URL para que sea
+        # estable entre ejecuciones del mismo harvester.
+        self.uuid: str = str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"harvester-{harvester_id}-{remote_url}")
+        )
         self.http_session = requests.Session()
         self.ext: str = self.name.split(".")[-1]
 
@@ -197,10 +201,12 @@ class FileHarvester(BaseHarvesterWorker):
     def _create_new_geonode_resource(self, geonode_resource_type, defaults):
         with download_to_geonode(self.url, target_name=self.name, ext=self.ext) as file:
             create_from_importer(defaults, file)
+        # Filtrar por owner además del título para no capturar datasets de
+        # otros usuarios que hayan cosechado el mismo archivo.
         geonode_resource = resource_manager.search(
             {"title": defaults["title"], "state": "PROCESSED"},
             resource_type=geonode_resource_type,
-        ).first()
+        ).filter(owner=defaults["owner"]).first()
 
         return geonode_resource
 
@@ -247,7 +253,9 @@ def create_from_importer(defaults, file):
     request.data = {
         "base_file": file,
         "action": "upload",
-        "override_existing_layer": True,
+        # No sobreescribir capas existentes de otros usuarios que hayan
+        # cosechado el mismo archivo. Cada usuario tiene su propia copia.
+        "override_existing_layer": False,
     }
     request.headers = {
         "accept": "application/json, text/plain, */*",
