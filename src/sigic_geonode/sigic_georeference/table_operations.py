@@ -15,6 +15,38 @@ from sigic_geonode.utils.geodata_conn import connection
 from .utils import get_dataset, get_name_from_ds
 
 
+_SAFE_PG_TYPES = {
+    "integer": "INTEGER",
+    "bigint": "BIGINT",
+    "smallint": "SMALLINT",
+    "double precision": "DOUBLE PRECISION",
+    "real": "REAL",
+    "numeric": "NUMERIC",
+    "decimal": "NUMERIC",
+    "boolean": "BOOLEAN",
+    "date": "DATE",
+    "timestamp without time zone": "TIMESTAMP",
+    "timestamp with time zone": "TIMESTAMPTZ",
+}
+
+
+def _get_source_col_types(cur, source_name: str, col_names: list) -> dict:
+    """Return {col_name: pg_type_sql} for the given columns in source_name."""
+    cur.execute(
+        """
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = %s AND table_schema = 'public'
+          AND column_name = ANY(%s)
+        """,
+        [source_name, col_names],
+    )
+    result = {}
+    for col_name, data_type in cur.fetchall():
+        result[col_name] = _SAFE_PG_TYPES.get(data_type.lower(), "TEXT")
+    return result
+
+
 def _run_join_sql(cur, target_name, source_name, target_pivot, source_pivot, columns, reverse):
     """
     Execute ALTER TABLE + UPDATE SQL for a join operation.
@@ -24,24 +56,31 @@ def _run_join_sql(cur, target_name, source_name, target_pivot, source_pivot, col
     """
     non_geom_cols = [c for c in columns if c != "geometry"]
     if non_geom_cols:
-        cur.execute(
-            SQL("ALTER TABLE {target} ADD {col_defs};").format(
-                target=Identifier(target_name),
-                col_defs=SQL(" VARCHAR, ADD ").join(
-                    [Identifier(col) for col in non_geom_cols]
-                ),
+        # Read source column types so they are preserved in the target table
+        col_types = _get_source_col_types(cur, source_name, non_geom_cols)
+        for col in non_geom_cols:
+            pg_type = col_types.get(col, "TEXT")
+            cur.execute(
+                SQL("ALTER TABLE {target} ADD COLUMN {col} " + pg_type + ";").format(
+                    target=Identifier(target_name),
+                    col=Identifier(col),
+                )
             )
-        )
 
+    # When reverse=True and geometry is requested, read the real geom column name
+    source_geom_col = None
     if reverse and "geometry" in columns:
         cur.execute(
-            SQL("SELECT srid FROM geometry_columns WHERE f_table_name=%s"),
+            SQL(
+                "SELECT srid, f_geometry_column FROM geometry_columns"
+                " WHERE f_table_name=%s"
+            ),
             [source_name],
         )
         row = cur.fetchone()
         if row is None:
             raise Exception(f"No geometry_columns entry found for {source_name}")
-        srid = row[0]
+        srid, source_geom_col = row[0], row[1]
         cur.execute(
             SQL(
                 'ALTER TABLE {target} ADD COLUMN "geometry" geometry(Geometry,%s);'
@@ -49,42 +88,33 @@ def _run_join_sql(cur, target_name, source_name, target_pivot, source_pivot, col
             [srid],
         )
 
-    all_cols = columns  # includes "geometry" when reverse=True
+    # Build UPDATE: for "geometry" entries use the actual source geom column name
+    def _col_assignment(col):
+        if col == "geometry" and source_geom_col:
+            # target."geometry" = source.<real_geom_col>
+            return SQL("{target_col} = {source}.{src_col}").format(
+                target_col=Identifier("geometry"),
+                source=Identifier(source_name),
+                src_col=Identifier(source_geom_col),
+            )
+        return SQL("{col} = {source}.{col}").format(
+            col=Identifier(col),
+            source=Identifier(source_name),
+        )
+
     cur.execute(
         SQL(
             """
             UPDATE {target} SET {set_command}
-            FROM (
-                SELECT
-                    {target}.ogc_fid,
-                    {source}.{source_pivot},
-                    {select_columns}
-                FROM {target}
-                JOIN {source}
-                ON {target}.{target_pivot} = {source}.{source_pivot}
-            ) AS subquery
-            WHERE {target}.ogc_fid = subquery.ogc_fid;
+            FROM {source}
+            WHERE {target}.{target_pivot} = {source}.{source_pivot};
             """
         ).format(
             target=Identifier(target_name),
             source=Identifier(source_name),
-            select_columns=SQL(", ").join(
-                [
-                    SQL("{source}.{col}").format(
-                        source=Identifier(source_name),
-                        col=Identifier(col),
-                    )
-                    for col in all_cols
-                ]
-            ),
             target_pivot=Identifier(target_pivot),
             source_pivot=Identifier(source_pivot),
-            set_command=SQL(", ").join(
-                [
-                    SQL("{col} = subquery.{col}").format(col=Identifier(col))
-                    for col in all_cols
-                ]
-            ),
+            set_command=SQL(", ").join([_col_assignment(col) for col in columns]),
         )
     )
 
@@ -197,14 +227,23 @@ class JoinDataframes(APIView):
             Creates Attribute records on target_ds (the geographic layer).
             Does NOT touch style/SRID/bbox — the geo layer already has them.
         """
+        # Find the source geometry attribute by type (column name varies per dataset)
+        source_geom_attr = (
+            source_ds.attributes.filter(
+                attribute_type__icontains="gml"
+            ).first()
+            if reverse
+            else None
+        )
+
         for col in columns:
             if col == "geometry":
                 if not reverse:
                     # Geometry already exists on the geo layer
                     continue
-                attribute_type = source_ds.attributes.get(
-                    attribute="geometry"
-                ).attribute_type
+                attribute_type = (
+                    source_geom_attr.attribute_type if source_geom_attr else "gml:GeometryPropertyType"
+                )
             else:
                 attribute_type = "xsd:string"
 
@@ -218,9 +257,10 @@ class JoinDataframes(APIView):
             )
 
         if reverse:
-            sty = Style.objects.get(id=source_ds.default_style_id)
-            sty.dataset_styles.set([*sty.dataset_styles.all(), target_ds])
-            target_ds.default_style_id = source_ds.default_style_id
+            if source_ds.default_style_id:
+                sty = Style.objects.get(id=source_ds.default_style_id)
+                sty.dataset_styles.set([*sty.dataset_styles.all(), target_ds])
+                target_ds.default_style_id = source_ds.default_style_id
             target_ds.srid = source_ds.srid
             target_ds.ll_bbox_polygon = source_ds.ll_bbox_polygon
             target_ds.bbox_polygon = source_ds.bbox_polygon
