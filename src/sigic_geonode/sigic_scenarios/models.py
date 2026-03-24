@@ -113,7 +113,7 @@ class Scene(models.Model):
     )
     map_center_lat = models.FloatField(null=True, blank=True)
     map_center_long = models.FloatField(null=True, blank=True)
-    zoom = models.IntegerField(null=True, blank=True)
+    zoom = models.FloatField(null=True, blank=True)
     text_position = models.CharField(
         max_length=5,
         choices=SceneTextPosition.choices,
