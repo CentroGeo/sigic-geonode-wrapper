@@ -372,6 +372,37 @@ def build_numeric_sld(
 # ---------------------------------------------------------------------------
 
 
+def set_default_style_in_geoserver(style_name: str, layer_alternate: str) -> None:
+    """Set the default style for a layer in GeoServer via PUT /rest/layers/{alternate}."""
+    from django.conf import settings
+
+    gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+    auth = (
+        settings.OGC_SERVER["default"]["USER"],
+        settings.OGC_SERVER["default"]["PASSWORD"],
+    )
+    workspace = layer_alternate.split(":")[0]
+    r = requests.put(
+        f"{gs_url}/rest/layers/{layer_alternate}",
+        json={
+            "layer": {
+                "defaultStyle": {
+                    "name": style_name,
+                    "workspace": workspace,
+                }
+            }
+        },
+        auth=auth,
+        headers={"Content-Type": "application/json"},
+        timeout=15,
+    )
+    if r.status_code not in (200, 201):
+        raise Exception(
+            f"GeoServer rejected default style update for {layer_alternate}: "
+            f"{r.status_code} {r.text}"
+        )
+
+
 def push_style_to_geoserver(style_name: str, sld_body: str, layer_alternate: str) -> None:
     """
     Create/update a style in GeoServer and associate it with the layer.
@@ -498,6 +529,7 @@ def generate_and_register_styles(ds, data_columns: list) -> None:
     from sigic_geonode.utils.geodata_conn import connection
 
     layer_name = get_name_from_ds(ds)
+    first_style = None
 
     with connection.cursor() as cur:
         geom_type = get_geometry_type(layer_name, cur)
@@ -540,8 +572,20 @@ def generate_and_register_styles(ds, data_columns: list) -> None:
 
             try:
                 push_style_to_geoserver(style_name, sld_body, ds.alternate)
-                register_style_in_geonode(ds, style_name, sld_body)
+                sty = register_style_in_geonode(ds, style_name, sld_body)
                 logger.info(f"Style {style_name} created for dataset {ds.id}")
+                if first_style is None:
+                    first_style = sty
             except Exception as e:
                 logger.error(f"Style registration failed for {style_name}: {e}")
                 continue
+
+    # Set the first generated style as the dataset's default style
+    if first_style is not None:
+        ds.default_style = first_style
+        ds.save(update_fields=["default_style"])
+        logger.info(f"Default style set to {first_style.name} for dataset {ds.id}")
+        try:
+            set_default_style_in_geoserver(first_style.name, ds.alternate)
+        except Exception as e:
+            logger.warning(f"Could not update default style in GeoServer for {ds.id}: {e}")
