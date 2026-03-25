@@ -194,6 +194,16 @@ class JoinDataframes(APIView):
             )
 
         data_columns = [c for c in columns if c != "geometry"]
+        # For reverse joins (geo→tabular) only geometry is transferred, so
+        # generate styles for all pre-existing numeric/string attributes of
+        # the target dataset that are not ID-like columns.
+        if reverse and not data_columns:
+            data_columns = list(
+                target_ds.attributes
+                .exclude(attribute_type__icontains="gml")
+                .exclude(attribute__iregex=r"(^id$|_id$|^ogc_fid$|^fid$|^pk$|^entidad$|^mun$|^cve)")
+                .values_list("attribute", flat=True)
+            )
         try:
             celery_chain(
                 sync_geoserver.s(target_ds.id),
