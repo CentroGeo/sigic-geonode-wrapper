@@ -5,6 +5,7 @@ from geonode.base import enumerations
 from geonode.layers.models import Attribute, Dataset, Style
 from psycopg2.sql import SQL, Identifier
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -120,6 +121,8 @@ def _run_join_sql(cur, target_name, source_name, target_pivot, source_pivot, col
 
 
 class JoinDataframes(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request: Request):
         request_data: dict = request.data
         ds = get_dataset(request_data.get("layer", -1))
@@ -268,12 +271,16 @@ class JoinDataframes(APIView):
 
 
 class Status(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, _request, layer: int):
         ds = get_dataset(layer)
         return Response({"status": str(ds.state)})
 
 
 class Reset(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
             request_data: dict = request.data

@@ -410,7 +410,12 @@ def push_style_to_geoserver(style_name: str, sld_body: str, layer_alternate: str
             f"{r.status_code} {r.text}"
         )
 
-    # 2. Upload SLD content
+    # 2. Upload SLD content (apply fix for QGIS/SLD 1.1.0 compatibility)
+    from sigic_geonode.utils.sld_utils import fix_sld, needs_fix
+
+    if needs_fix(sld_body):
+        sld_body = fix_sld(sld_body)
+
     r = requests.put(
         f"{gs_url}/rest/workspaces/{workspace}/styles/{style_name}",
         data=sld_body.encode("utf-8"),
