@@ -57,7 +57,6 @@ def fix_sld(xml) -> str:
         'http://schemas.opengis.net/sld/1.0.0/StyledLayerDescriptor.xsd"',
         xml,
     )
-    xml = re.sub(r'\s+xmlns:ogc="http://www\.opengis\.net/ogc"', "", xml)
     xml = re.sub(r'\s+xmlns:se="[^"]+"', "", xml)
     xml = re.sub(r"<sld:ElseFilter[^>]*/>", "<sld:ElseFilter/>", xml)
     xml = re.sub(r"<sld:Name>\s*</sld:Name>", "", xml)
