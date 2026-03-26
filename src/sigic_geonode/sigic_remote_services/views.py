@@ -582,21 +582,19 @@ class ServiceViewSet(ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Si el harvester está atascado, resetear a ready
-        STUCK_STATUSES = {
-            "updating-harvestable-resources",
-            "performing-harvesting",
-        }
+        from sigic_geonode.sigic_remote_services.tasks import reset_and_retry_harvester
+
         previous_status = harvester.status
-        if harvester.status in STUCK_STATUSES:
-            Harvester.objects.filter(pk=harvester.pk).update(status="ready")
-            harvester.refresh_from_db()
-            logger.info(
-                f"[SIGIC] Harvester {harvester.pk} reseteado de '{previous_status}' "
-                f"a 'ready' por usuario {request.user}"
+        result = reset_and_retry_harvester(harvester.pk)
+
+        if result["error"] == "not_found":
+            return Response(
+                {"error": "Harvester no encontrado"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        if harvester.status != "ready":
+        if result["error"] == "wrong_status":
+            harvester.refresh_from_db()
             return Response(
                 {
                     "error": (
@@ -608,21 +606,18 @@ class ServiceViewSet(ViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        try:
-            from geonode.harvesting.tasks import harvesting_dispatcher
-
-            harvesting_dispatcher.apply_async(args=[harvester.pk])
-            logger.info(
-                f"[SIGIC] Cosecha re-disparada para harvester {harvester.pk} "
-                f"(servicio {service.pk}) por usuario {request.user}"
-            )
-        except Exception as e:
-            logger.error(f"[SIGIC] Error al re-disparar harvester {harvester.pk}: {e}")
+        if not result["dispatched"]:
             return Response(
-                {"error": f"Error al disparar la cosecha: {str(e)}"},
+                {"error": f"Error al disparar la cosecha: {result['error']}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        logger.info(
+            f"[SIGIC] Cosecha re-disparada para harvester {harvester.pk} "
+            f"(servicio {service.pk}) por usuario {request.user}"
+        )
+
+        harvester.refresh_from_db()
         return Response(
             {
                 "message": "Cosecha iniciada correctamente",

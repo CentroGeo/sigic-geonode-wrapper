@@ -269,6 +269,15 @@ CELERY_TASK_QUEUES += (
         routing_key="sigic_geonode.sync_geoserver",
     ),
 )
+
+# Retry automático de harvesters atascados
+HARVESTER_STUCK_TIMEOUT_SECONDS = int(
+    os.getenv("HARVESTER_STUCK_TIMEOUT_SECONDS", "3600")  # 1 hora por defecto
+)
+CELERY_BEAT_SCHEDULE["check_stuck_harvesters"] = {
+    "task": "sigic_geonode.sigic_remote_services.check_stuck_harvesters",
+    "schedule": float(os.getenv("HARVESTER_STUCK_CHECK_INTERVAL_SECONDS", "600")),  # 10 min
+}
 # Valor predeterminado si no existe la variable de entorno
 DEFAULT_ALLOWED_DOCUMENT_TYPES = (
     "txt",
