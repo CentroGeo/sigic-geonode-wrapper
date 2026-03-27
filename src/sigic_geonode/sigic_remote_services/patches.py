@@ -185,7 +185,6 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
         También desactiva delete_orphan_resources_automatically para evitar
         que la re-cosecha de un usuario elimine recursos de otros usuarios
         que compartan la misma URL de servicio.
-        Establece default_access_permissions a owner-only.
         """
         instance = _orig_wms_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -201,13 +200,6 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester {instance.harvester.id}"
-                )
-            if instance.harvester.default_access_permissions != _OWNER_ONLY_PERMISSIONS:
-                instance.harvester.default_access_permissions = _OWNER_ONLY_PERMISSIONS
-                update_fields.append("default_access_permissions")
-                logger.debug(
-                    f"[SIGIC Patch] default_access_permissions owner-only "
-                    f"establecido para harvester {instance.harvester.id}"
                 )
             if update_fields:
                 instance.harvester.save(update_fields=update_fields)
@@ -226,7 +218,6 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
         También desactiva delete_orphan_resources_automatically para evitar
         que la re-cosecha de un usuario elimine recursos de otros usuarios
         que compartan la misma URL de servicio.
-        Establece default_access_permissions a owner-only.
         """
         instance = _orig_arc_create_geonode_service(self, owner, parent)
         if instance and instance.harvester and instance.pk:
@@ -242,13 +233,6 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester ArcGIS {instance.harvester.id}"
-                )
-            if instance.harvester.default_access_permissions != _OWNER_ONLY_PERMISSIONS:
-                instance.harvester.default_access_permissions = _OWNER_ONLY_PERMISSIONS
-                update_fields.append("default_access_permissions")
-                logger.debug(
-                    f"[SIGIC Patch] default_access_permissions owner-only "
-                    f"establecido para harvester ArcGIS {instance.harvester.id}"
                 )
             if update_fields:
                 instance.harvester.save(update_fields=update_fields)
