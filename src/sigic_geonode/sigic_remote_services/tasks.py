@@ -28,7 +28,7 @@ from sigic_geonode.celeryapp import app
 
 logger = logging.getLogger(__name__)
 
-STUCK_STATUSES = {"updating-harvestable-resources", "performing-harvesting"}
+STUCK_STATUSES = {"updating-harvestable-resources", "performing-harvesting", "harvesting-resources"}
 STUCK_CACHE_KEY_PREFIX = "sigic_harvester_first_seen_stuck_"
 
 
