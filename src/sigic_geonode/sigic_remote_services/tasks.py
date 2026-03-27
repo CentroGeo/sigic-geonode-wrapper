@@ -48,7 +48,6 @@ def reset_and_retry_harvester(harvester_pk: int) -> dict:
             str(excepción) — error al llamar apply_async
     """
     from geonode.harvesting.models import Harvester
-    from geonode.harvesting.tasks import harvesting_dispatcher
 
     try:
         harvester = Harvester.objects.get(pk=harvester_pk)
@@ -72,11 +71,15 @@ def reset_and_retry_harvester(harvester_pk: int) -> dict:
         return {"reset": False, "dispatched": False, "error": "wrong_status"}
 
     try:
-        harvesting_dispatcher.apply_async(args=[harvester_pk])
-        logger.info(f"[SIGIC] Cosecha redisparada para harvester {harvester_pk}")
+        harvester.initiate_update_harvestable_resources()
+        logger.info(
+            f"[SIGIC] Actualización de recursos harvestables iniciada para harvester {harvester_pk}"
+        )
         return {"reset": True, "dispatched": True, "error": None}
     except Exception as e:
-        logger.error(f"[SIGIC] Error al redisparar harvester {harvester_pk}: {e}")
+        logger.error(
+            f"[SIGIC] Error al iniciar actualización de recursos para harvester {harvester_pk}: {e}"
+        )
         return {"reset": True, "dispatched": False, "error": str(e)}
 
 
