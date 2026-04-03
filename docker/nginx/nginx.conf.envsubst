@@ -47,6 +47,11 @@ http {
       ''      close;
     }
 
+    map $http_x_forwarded_proto $forwarded_proto {
+      default $http_x_forwarded_proto;
+      ""      $scheme;
+    }
+
     client_header_buffer_size 16k;
     large_client_header_buffers 4 64k;
 

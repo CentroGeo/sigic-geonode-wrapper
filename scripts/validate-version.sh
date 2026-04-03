@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REQ_FILE="requirements/bundle.txt"
+REQ_FILE="src/requirements/bundle.txt"
 
 echo "🔎 Validando versionado SIGIC…"
 
@@ -57,5 +57,13 @@ else
   TAG="${WRAPPER_VERSION}+gn${GEONODE_VERSION}.sigic.${SIGIC_PATCH}"
 fi
 
-echo "🏷 Tag canónico: $TAG"
+SEMVER_TAG="$TAG"
+DOCKER_TAG="${TAG/+/-}"
+
+echo "🏷 SemVer tag   : $SEMVER_TAG"
+echo "🐳 Docker tag  : $DOCKER_TAG"
+
+echo "$SEMVER_TAG" > .version-semver
+echo "$DOCKER_TAG" > .version-docker
+
 echo "✅ Validación OK"
