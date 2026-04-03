@@ -767,22 +767,20 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         else:
             sld_body = sld_body.encode("utf-8")
 
+        from sigic_geonode.utils.sld_utils import fix_sld, needs_fix
+
+        sld_str = sld_body if isinstance(sld_body, str) else sld_body.decode("utf-8")
+        if needs_fix(sld_str):
+            sld_str = fix_sld(sld_str)
+        sld_body = sld_str.encode("utf-8")
+
         try:
             validate_sld_before_post(sld_body)
-        except (InvalidSLDError, SLDNeedsNormalization):
-            # Intentar corrección automática para SLD mezclado o SLD 1.1.0
-            sld_body = normalize_mixed_sld(sld_body)
-
-            try:
-                validate_sld_before_post(sld_body)
-            except InvalidSLDError as e:
-                return Response(
-                    {"error": str(e)},
-                    status=drf_status.HTTP_400_BAD_REQUEST,
-                )
-            except SLDNeedsNormalization:
-                # Después de normalizar no debería lanzar esta excepción
-                pass
+        except (InvalidSLDError, SLDNeedsNormalization) as e:
+            return Response(
+                {"error": str(e)},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
 
         url_upload = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}"
 
@@ -942,21 +940,20 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         # ---------------------------------------------
         # Validar y normalizar SLD si es necesario
         # ---------------------------------------------
+        from sigic_geonode.utils.sld_utils import fix_sld, needs_fix
+
+        sld_str = sld_body if isinstance(sld_body, str) else sld_body.decode("utf-8")
+        if needs_fix(sld_str):
+            sld_str = fix_sld(sld_str)
+        sld_body = sld_str.encode("utf-8")
+
         try:
             validate_sld_before_post(sld_body)
-        except (InvalidSLDError, SLDNeedsNormalization):
-            # Normalizar SLD mezclado o SLD 1.1.0
-            sld_body = normalize_mixed_sld(sld_body)
-
-            try:
-                validate_sld_before_post(sld_body)
-            except InvalidSLDError as e:
-                return Response(
-                    {"error": str(e)},
-                    status=drf_status.HTTP_400_BAD_REQUEST,
-                )
-            except SLDNeedsNormalization:
-                pass
+        except (InvalidSLDError, SLDNeedsNormalization) as e:
+            return Response(
+                {"error": str(e)},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
 
         gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
         auth = (

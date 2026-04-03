@@ -110,3 +110,35 @@ def sync_geoserver(self, layer_id: int):
     ds.state = enumerations.STATE_PROCESSED
     ds.save()
     return {"status": "success"}
+
+
+@app.task(
+    bind=True,
+    name="sigic_geonode.generate_column_styles",
+    queue="sigic_geonode.sync_geoserver",
+    max_retries=3,
+)
+def generate_column_styles(self, layer_id: int, data_columns: list):
+    """
+    Generate smart SLD styles for each data column added via a join operation.
+    Runs as the second step in a Celery chain after sync_geoserver.
+    Style generation failure is non-fatal for the dataset state.
+    """
+    from sigic_geonode.sigic_georeference.style_generator import (
+        generate_and_register_styles,
+    )
+
+    ds = get_dataset(layer_id)
+    if ds.state != enumerations.STATE_PROCESSED:
+        logger.warning(
+            f"generate_column_styles: dataset {layer_id} not STATE_PROCESSED, skipping"
+        )
+        return {"status": "skipped", "reason": "dataset not in STATE_PROCESSED"}
+
+    try:
+        generate_and_register_styles(ds, data_columns)
+    except Exception as e:
+        logger.error(f"generate_column_styles failed for dataset {layer_id}: {e}")
+        raise self.retry(exc=e, countdown=30)
+
+    return {"status": "success", "layer_id": layer_id, "columns": data_columns}
