@@ -193,15 +193,16 @@ if not getattr(WmsServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio {instance.id}"
             )
+            update_fields = []
             if instance.harvester.delete_orphan_resources_automatically:
                 instance.harvester.delete_orphan_resources_automatically = False
-                instance.harvester.save(
-                    update_fields=["delete_orphan_resources_automatically"]
-                )
+                update_fields.append("delete_orphan_resources_automatically")
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester {instance.harvester.id}"
                 )
+            if update_fields:
+                instance.harvester.save(update_fields=update_fields)
         return instance
 
     WmsServiceHandler.create_geonode_service = patched_wms_create_geonode_service
@@ -225,15 +226,16 @@ if not getattr(ArcMapServiceHandler, "_patched_by_sigic", False):
                 f"[SIGIC Patch] Harvester {instance.harvester.id} guardado "
                 f"para servicio ArcGIS {instance.id}"
             )
+            update_fields = []
             if instance.harvester.delete_orphan_resources_automatically:
                 instance.harvester.delete_orphan_resources_automatically = False
-                instance.harvester.save(
-                    update_fields=["delete_orphan_resources_automatically"]
-                )
+                update_fields.append("delete_orphan_resources_automatically")
                 logger.debug(
                     f"[SIGIC Patch] delete_orphan_resources_automatically "
                     f"desactivado para harvester ArcGIS {instance.harvester.id}"
                 )
+            if update_fields:
+                instance.harvester.save(update_fields=update_fields)
         return instance
 
     ArcMapServiceHandler.create_geonode_service = patched_arc_create_geonode_service
