@@ -97,6 +97,10 @@ class Site(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse("dashboard-site-preview", kwargs={"site_id": self.pk})
+
     class Meta:
         db_table = "sigic_dashboard_site"
         ordering = ["name"]

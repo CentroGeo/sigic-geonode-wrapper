@@ -6,6 +6,8 @@
 #  SPDX-License-Identifier: LicenseRef-SIGIC-CentroGeo
 # =============================================================================
 
+from django.urls import path, re_path
+
 from sigic_geonode.router import router
 
 from .views import (
@@ -14,6 +16,7 @@ from .views import (
     IndicatorViewSet,
     SiteConfigurationViewSet,
     SiteLogosViewSet,
+    SitePreviewView,
     SiteViewSet,
     SubGroupViewSet,
 )
@@ -42,4 +45,18 @@ router.register(
     basename="dashboard-site-configs",
 )
 
-urlpatterns = []
+urlpatterns = [
+    # Preview por ID: /dashboard/preview/<site_id>/
+    path(
+        "dashboard/preview/<int:site_id>/",
+        SitePreviewView.as_view(),
+        name="dashboard-site-preview",
+    ),
+    # Preview por URL slug: /dashboard/<url_path>/
+    # Coincide con el campo Site.url (ej. /dashboard/posgrados)
+    re_path(
+        r"^dashboard/(?P<url_path>[^/]+(?:/[^/]+)*)/?$",
+        SitePreviewView.as_view(),
+        name="dashboard-site-preview-slug",
+    ),
+]

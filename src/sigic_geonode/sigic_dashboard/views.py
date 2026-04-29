@@ -13,9 +13,11 @@ Expone una API REST completa para Sites, Logos, Grupos, Subgrupos,
 Indicadores, InfoBoxes y Configuracion de sitio.
 """
 
+import json
 import logging
 
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
+from django.views import View
 from rest_framework import permissions, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import action
@@ -108,6 +110,13 @@ class SiteViewSet(ModelViewSet):
     authentication_classes = AUTHENTICATION_CLASSES
     pagination_class = DashboardPagination
     queryset = Site.objects.all().order_by("name")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        url = self.request.query_params.get("url")
+        if url:
+            qs = qs.filter(url=url)
+        return qs
 
     def get_permissions(self):
         if self.action in ("list", "retrieve", "logos"):
@@ -841,3 +850,221 @@ class SiteConfigurationViewSet(ModelViewSet):
         site = get_object_or_404(Site, id=site_id)
         config, _ = SiteConfiguration.objects.get_or_create(site=site)
         return config
+
+
+# ---------------------------------------------------------------------------
+# Vista de preview del tablero (HTML)
+# ---------------------------------------------------------------------------
+
+def _get_table_columns(layer_name):
+    """Devuelve el conjunto de columnas (en minusculas) de una tabla."""
+    from django.db import connections
+    try:
+        with connections["datastore"].cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = %s",
+                [layer_name],
+            )
+            return {row[0].lower() for row in cur.fetchall()}
+    except Exception:
+        return set()
+
+
+def _fmt(val, field, is_pct=False):
+    """Formatea un valor numerico para mostrarlo en un KPI."""
+    if val is None:
+        return "N/D"
+    f = field.lower()
+    if is_pct:
+        return f"{float(val):,.1f} %"
+    if f.startswith(("tasa_", "pct_", "rate_", "ratio_")):
+        return f"{float(val):,.2f} %"
+    if isinstance(val, float):
+        return f"{val:,.2f}"
+    return f"{int(val):,}"
+
+
+def _fetch_kpi_values(layer_name, boxes):
+    """
+    Consulta la base de datos geoespacial y calcula el valor KPI
+    para cada infobox.
+
+    Reglas:
+    - is_percentage=True          → (SUM(field) / SUM(total_field)) * 100
+    - campo empieza con 'tasa_/pct_/rate_' → AVG()
+    - campo 'total_outgoing'       → SUM de todas las columnas numericas
+                                     cuyo nombre empieza con el prefijo de la tabla
+    - resto                        → SUM()
+
+    Los nombres de campo se comparan en minusculas (PostgreSQL los almacena en
+    minusculas aunque se hayan definido en mayusculas).
+
+    Devuelve un dict  {field_name_original: valor_formateado}.
+    """
+    from django.db import connections
+
+    if not layer_name or not boxes:
+        return {}
+
+    existing_cols = _get_table_columns(layer_name)
+
+    # Prefijo de columnas numericas segun la tabla (para total_outgoing)
+    prefix_map = {
+        "od_pu_total": "pu_",
+        "od_pu_licenciatura": "pu_l_",
+        "od_pu_maestria": "pu_m_",
+        "od_pu_doctorado": "pu_d_",
+    }
+    numeric_prefix = prefix_map.get(layer_name, "")
+    numeric_cols = sorted(
+        c for c in existing_cols
+        if numeric_prefix and c.startswith(numeric_prefix)
+    )
+
+    # Construir lista de campos a consultar (mapeando nombre original -> expresion SQL)
+    select_parts = {}  # alias_lower -> SQL expression
+    original_map = {}  # alias_lower -> field_name_original
+
+    for box in boxes:
+        field_orig = box["field"]
+        field_lc = field_orig.lower()
+
+        if field_lc == "total_outgoing" and numeric_cols:
+            expr = " + ".join(f'"{c}"' for c in numeric_cols)
+            alias = "total_outgoing"
+            select_parts[alias] = f"SUM({expr})"
+            original_map[field_orig] = alias
+            continue
+
+        if field_lc in existing_cols:
+            col = field_lc
+        elif field_orig in existing_cols:
+            col = field_orig
+        else:
+            original_map[field_orig] = None
+            continue
+
+        if field_lc.startswith(("tasa_", "pct_", "rate_", "ratio_")):
+            agg = f'AVG("{col}")'
+        else:
+            agg = f'SUM("{col}")'
+        select_parts[field_lc] = agg
+        original_map[field_orig] = field_lc
+
+        # Campo total para porcentaje
+        if box.get("is_percentage") and box.get("field_percentage_total"):
+            tot_orig = box["field_percentage_total"]
+            tot_lc = tot_orig.lower()
+            if tot_lc in existing_cols and tot_lc not in select_parts:
+                select_parts[tot_lc] = f'SUM("{tot_lc}")'
+                original_map[tot_orig] = tot_lc
+
+    if not select_parts:
+        return {}
+
+    sql_select = ", ".join(
+        f"{expr} AS \"{alias}\"" for alias, expr in select_parts.items()
+    )
+    sql = f'SELECT {sql_select} FROM "{layer_name}"'
+
+    try:
+        with connections["datastore"].cursor() as cur:
+            cur.execute(sql)
+            row = cur.fetchone()
+            col_names = [desc[0] for desc in cur.description]
+            raw = dict(zip(col_names, row))
+    except Exception as e:
+        logger.warning("KPI query error for %s: %s", layer_name, e)
+        return {}
+
+    result = {}
+    for box in boxes:
+        field_orig = box["field"]
+        alias = original_map.get(field_orig)
+        if alias is None:
+            result[field_orig] = "N/D"
+            continue
+
+        val = raw.get(alias)
+
+        if box.get("is_percentage") and box.get("field_percentage_total"):
+            tot_orig = box["field_percentage_total"]
+            tot_alias = original_map.get(tot_orig, tot_orig.lower())
+            tot_val = raw.get(tot_alias)
+            if tot_val and float(tot_val) != 0:
+                val = (float(val or 0) / float(tot_val)) * 100
+            result[field_orig] = _fmt(val, field_orig, is_pct=True)
+        else:
+            result[field_orig] = _fmt(val, field_orig)
+
+    return result
+
+
+class SitePreviewView(View):
+    """
+    Sirve una pagina HTML de preview del tablero en la URL configurada en Site.url.
+    Accesible en /dashboard/preview/<site_id>/ o en la URL del sitio directamente.
+    """
+
+    def get(self, request, site_id=None, url_path=None):
+        if site_id:
+            site = get_object_or_404(Site, id=site_id)
+        else:
+            full_path = f"/dashboard/{url_path}" if url_path else request.path
+            site = get_object_or_404(Site, url=full_path)
+
+        config, _ = SiteConfiguration.objects.get_or_create(site=site)
+        logos = site.logos.order_by("stack_order")
+
+        groups_data = []
+        for group in site.groups.order_by("stack_order"):
+            subgroups_list = []
+            for sg in group.subgroups.order_by("stack_order"):
+                indicators_list = []
+                for ind in sg.indicators.select_related("layer").order_by("stack_order"):
+                    boxes_qs = list(
+                        ind.infoboxes.order_by("stack_order").values(
+                            "field", "name", "icon", "color", "text_color",
+                            "edge_color", "edge_style", "size",
+                            "is_percentage", "field_percentage_total",
+                        )
+                    )
+
+                    layer_name = ind.layer.name if ind.layer else None
+                    kpi_values = _fetch_kpi_values(layer_name, boxes_qs)
+
+                    # Inyectar el valor calculado en cada box
+                    for box in boxes_qs:
+                        box["value"] = kpi_values.get(box["field"], "—")
+
+                    indicators_list.append({
+                        "id": ind.id,
+                        "name": ind.name,
+                        "plot_type": ind.plot_type,
+                        "info_text": ind.info_text,
+                        "layer": ind.layer,
+                        "plot_values": ind.plot_values,
+                        "plot_values_json": json.dumps(ind.plot_values or []),
+                        "infoboxes_list": boxes_qs,
+                    })
+                subgroups_list.append({
+                    "id": sg.id,
+                    "name": sg.name,
+                    "icon": sg.icon,
+                    "info_text": sg.info_text,
+                    "indicators_list": indicators_list,
+                })
+            groups_data.append({
+                "id": group.id,
+                "name": group.name,
+                "description": group.description,
+                "subgroups_list": subgroups_list,
+            })
+
+        return render(request, "sigic_dashboard/site_preview.html", {
+            "site": site,
+            "config": config,
+            "logos": logos,
+            "groups": groups_data,
+        })
