@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ site.title }}</title>
+
+  <!-- Fuente del sitio -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family={{ config.site_font_style|default:'Roboto'|urlencode }}:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome para iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Chart.js para gráficas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --font-family: '{{ config.site_font_style|default:"Roboto" }}', sans-serif;
+      --font-size:   {{ config.site_font_size|default:15 }}px;
+      --header-bg:   {{ config.header_background_color|default:"#1565C0" }};
+      --header-color:{{ config.header_text_color|default:"#ffffff" }};
+      --header-font: {{ config.header_font_size|default:24 }}px;
+      --site-bg:     {{ config.site_background_color|default:"#E3F2FD" }};
+      --iface-bg:    {{ config.site_interface_background_color|default:"#ffffff" }};
+      --text-color:  {{ config.site_text_color|default:"#212121" }};
+      --iface-text:  {{ config.site_interface_text_color|default:"#212121" }};
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-family);
+      font-size:   var(--font-size);
+      background:  var(--site-bg);
+      color:       var(--text-color);
+      min-height:  100vh;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      background: var(--header-bg);
+      color:      var(--header-color);
+      padding:    18px 32px;
+      display:    flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.20);
+    }
+    .site-header h1 { font-size: var(--header-font); font-weight: 700; }
+    .site-header p  { font-size: calc(var(--header-font) * .55); opacity: .85; margin-top: 4px; }
+    .header-logos   { display: flex; gap: 12px; margin-left: auto; align-items: center; }
+    .header-logos img { height: 44px; object-fit: contain; }
+
+    /* ── Contenido ── */
+    .site-content { max-width: 1300px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── Info site ── */
+    .site-info {
+      background: var(--iface-bg);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      color: var(--iface-text);
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+
+    /* ── Grupo ── */
+    .group-card {
+      background: var(--iface-bg);
+      border-radius: 12px;
+      margin-bottom: 28px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      overflow: hidden;
+    }
+    .group-header {
+      background: var(--header-bg);
+      color:      var(--header-color);
+      padding:    14px 22px;
+      font-size:  1.1em;
+      font-weight: 600;
+    }
+    .group-body { padding: 20px; }
+    .group-description { color: var(--iface-text); opacity: .75; margin-bottom: 16px; font-size: .9em; }
+
+    /* ── SubGrupo ── */
+    .subgroup-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1em;
+      font-weight: 600;
+      color: var(--iface-text);
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--header-bg);
+    }
+    .subgroup-title i { color: var(--header-bg); }
+
+    /* ── Grid de indicadores ── */
+    .indicators-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Indicador ── */
+    .indicator-card {
+      background: #f9f9fb;
+      border-radius: 10px;
+      padding: 18px;
+      border: 1px solid rgba(0,0,0,.07);
+    }
+    .indicator-name {
+      font-weight: 600;
+      color: var(--iface-text);
+      margin-bottom: 6px;
+      font-size: .95em;
+    }
+    .indicator-info { font-size: .8em; color: #666; margin-bottom: 14px; }
+    .layer-badge {
+      display: inline-block;
+      background: var(--header-bg);
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: .75em;
+      margin-bottom: 12px;
+    }
+
+    /* ── InfoBoxes ── */
+    .infoboxes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .infobox {
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 140px;
+      font-size: .82em;
+    }
+    .infobox.size-2 { min-width: 200px; }
+    .infobox i { font-size: 1.5em; flex-shrink: 0; }
+    .infobox-label { font-size: .75em; opacity: .85; display: block; margin-bottom: 2px; }
+    .infobox-value { font-size: 1.25em; font-weight: 700; display: block; line-height: 1.1; }
+    .infobox-field-name { font-size: .68em; opacity: .65; display: block; margin-top: 1px; }
+
+    /* ── Gráfica ── */
+    .chart-wrapper { position: relative; height: 220px; width: 100%; margin-top: 8px; }
+
+    /* ── Footer ── */
+    .site-footer {
+      text-align: center;
+      padding: 20px;
+      font-size: .8em;
+      color: #888;
+      margin-top: 20px;
+      border-top: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+
+{% if config.show_header %}
+<header class="site-header">
+  <div>
+    <h1>{{ site.title }}</h1>
+    <p>{{ site.subtitle }}</p>
+  </div>
+  {% if logos %}
+  <div class="header-logos">
+    {% for logo in logos %}
+      {% if logo.icon %}<img src="{{ logo.icon.url }}" alt="logo" />{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</header>
+{% endif %}
+
+<main class="site-content">
+
+  {% if site.info_text %}
+  <div class="site-info">
+    <p>{{ site.info_text }}</p>
+  </div>
+  {% endif %}
+
+  {% for group in groups %}
+  <section class="group-card">
+    <div class="group-header">{{ group.name }}</div>
+    <div class="group-body">
+      {% if group.description %}
+      <p class="group-description">{{ group.description }}</p>
+      {% endif %}
+
+      {% for sg in group.subgroups_list %}
+      <div style="margin-bottom:24px;">
+        <div class="subgroup-title">
+          {% if sg.icon %}<i class="{{ sg.icon }}"></i>{% endif %}
+          {{ sg.name }}
+        </div>
+
+        <div class="indicators-grid">
+        {% for ind in sg.indicators_list %}
+        <div class="indicator-card">
+          <div class="indicator-name">{{ ind.name }}</div>
+          {% if ind.layer %}
+          <span class="layer-badge"><i class="fas fa-layer-group"></i> {{ ind.layer.name }}</span>
+          {% endif %}
+          {% if ind.info_text %}
+          <div class="indicator-info">{{ ind.info_text }}</div>
+          {% endif %}
+
+          <!-- InfoBoxes / KPIs -->
+          {% if ind.infoboxes_list %}
+          <div class="infoboxes">
+            {% for box in ind.infoboxes_list %}
+            <div class="infobox size-{{ box.size|default:'1' }}"
+                 style="background:{{ box.color }}; color:{{ box.text_color }};
+                        {% if box.edge_style != '8' %}border: 2px solid {{ box.edge_color }};{% endif %}">
+              {% if box.icon %}<i class="{{ box.icon }}"></i>{% endif %}
+              <div>
+                <span class="infobox-label">{{ box.name }}</span>
+                <span class="infobox-value">{{ box.value }}</span>
+                <span class="infobox-field-name">{{ box.field }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Gráfica -->
+          {% if ind.plot_values %}
+          <div class="chart-wrapper">
+            <canvas id="chart-{{ ind.id }}"></canvas>
+          </div>
+          <script>
+          (function(){
+            var ctx = document.getElementById('chart-{{ ind.id }}').getContext('2d');
+            var plotData = {{ ind.plot_values_json }};
+            var labels = plotData.map(function(d){ return d.label; });
+            var values = plotData.map(function(d){ return d.value; });
+            var colors = plotData.map(function(d){ return d.color; });
+            new Chart(ctx, {
+              type: '{{ ind.plot_type|default:"bar" }}',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: '{{ ind.name|escapejs }}',
+                  data: values,
+                  backgroundColor: colors,
+                  borderColor: colors,
+                  borderWidth: 1,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: {% if ind.plot_type == 'pie' %}true{% else %}false{% endif %} },
+                },
+                scales: {% if ind.plot_type == 'pie' %}{}{% else %}{
+                  y: { beginAtZero: true },
+                  x: { ticks: { maxRotation: 45, font: { size: 10 } } }
+                }{% endif %}
+              }
+            });
+          })();
+          </script>
+          {% endif %}
+        </div>
+        {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </section>
+  {% endfor %}
+
+</main>
+
+{% if config.show_footer %}
+<footer class="site-footer">
+  {{ site.title }} &mdash; {{ site.subtitle }}
+</footer>
+{% endif %}
+
+</body>
+</html>
