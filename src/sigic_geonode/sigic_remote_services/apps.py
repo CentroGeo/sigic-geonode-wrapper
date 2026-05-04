@@ -14,5 +14,5 @@ class SigicRemoteServicesConfig(AppConfig):
     verbose_name = "SIGIC Remote Services"
 
     def ready(self):
-        # Importar patches para aplicarlos al cargar la app
         from . import patches  # noqa: F401
+        from . import signals  # noqa: F401
