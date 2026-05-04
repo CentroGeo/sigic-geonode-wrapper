@@ -65,12 +65,14 @@ class SigicFilters(BaseFilterBackend):
                         .exclude(Q(date_type__isnull=True) | Q(date_type=""))
                     )
                 elif complete_metadata.lower() == "false":
-                    # Recursos con metadatos incompletos (con que falte al menos uno, ya se considera
-                    # como recurso con metadatos incompletos)
+                    # Recursos con metadatos incompletos: falta al menos un campo obligatorio,
+                    # o la categoría es "externalCatalog" (placeholder de servicios remotos
+                    # que aún requieren que el usuario asigne la categoría definitiva).
                     queryset = queryset.filter(
                         Q(attribution__isnull=True)
                         | Q(attribution="No especificado")
                         | Q(category__isnull=True)
+                        | Q(category__identifier="externalCatalog")
                         | Q(keywords__isnull=True)
                         | Q(date_type__isnull=True)
                         | Q(date_type="")
