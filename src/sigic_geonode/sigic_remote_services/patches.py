@@ -41,9 +41,12 @@ from geonode.services.serviceprocessors.arcgis import ArcMapServiceHandler
 
 logger = logging.getLogger(__name__)
 
-# Permisos owner-only: ningún grupo ni usuario extra tiene acceso.
-# El owner obtiene sus permisos implícitamente a través de resource_manager.
-_OWNER_ONLY_PERMISSIONS = {"users": {}, "groups": {}}
+# Permisos owner-only: revoca acceso de AnonymousUser y grupo anonymous.
+# El owner mantiene sus permisos existentes (los establece resource_manager al crear).
+_OWNER_ONLY_PERMISSIONS = {
+    "users": {"AnonymousUser": []},
+    "groups": {"anonymous": []},
+}
 
 
 # =============================================================================
@@ -343,3 +346,34 @@ def _patch_harvester_resource_defaults(worker_class, label):
 
 _patch_harvester_resource_defaults(ArcgisHarvesterWorker, "ArcgisHarvesterWorker")
 _patch_harvester_resource_defaults(OgcWmsHarvester, "OgcWmsHarvester")
+
+
+# =============================================================================
+# Patch para DatasetSerializer
+# Expone remote_typename en la respuesta del API para que el frontend pueda
+# usar el typename real del servidor externo (sin el sufijo _h{harvester_id}).
+# =============================================================================
+
+try:
+    from geonode.base.api.serializers import ResourceBaseSerializer
+
+    if not getattr(ResourceBaseSerializer, "_patched_by_sigic_typename", False):
+        _orig_resource_base_to_representation = ResourceBaseSerializer.to_representation
+
+        def _patched_resource_base_to_representation(self, instance):
+            ret = _orig_resource_base_to_representation(self, instance)
+            try:
+                from sigic_geonode.sigic_remote_services.models import RemoteLayerTypename
+                ret["remote_typename"] = RemoteLayerTypename.objects.filter(
+                    dataset_id=instance.pk
+                ).values_list("typename", flat=True).first()
+            except Exception:
+                ret["remote_typename"] = None
+            return ret
+
+        ResourceBaseSerializer.to_representation = _patched_resource_base_to_representation
+        ResourceBaseSerializer._patched_by_sigic_typename = True
+        logger.info("[SIGIC Patch] ResourceBaseSerializer.to_representation con remote_typename")
+
+except ImportError as e:
+    logger.warning("[SIGIC Patch] No se pudo parchear ResourceBaseSerializer: %s", e)
