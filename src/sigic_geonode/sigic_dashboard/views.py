@@ -520,6 +520,9 @@ class IndicatorViewSet(ModelViewSet):
             data["show_general_values"] = indicator.show_general_values
             data["filters"] = indicator.filters or {}
 
+        data["general_values"] = indicator.general_values or {}
+        data["layer_name"] = indicator.layer.alternate if indicator.layer else None
+
         boxes = []
         for box in indicator.infoboxes.order_by("stack_order"):
             boxes.append(

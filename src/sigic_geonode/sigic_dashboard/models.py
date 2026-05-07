@@ -378,6 +378,12 @@ class Indicator(models.Model):
         default=False,
     )
 
+    general_values = models.JSONField(
+        verbose_name="Valores generales agregados para cuadros KPI",
+        blank=True,
+        null=True,
+    )
+
     use_filter = models.BooleanField(
         verbose_name="Activar filtro",
         default=False,
