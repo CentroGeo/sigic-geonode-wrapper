@@ -30,7 +30,7 @@ from .models import (
 class SiteListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = ["id", "name", "title", "subtitle", "url"]
+        fields = ["id", "name", "title", "subtitle", "url", "is_public", "created"]
         read_only_fields = ["id"]
 
 
@@ -54,20 +54,21 @@ class SiteDetailSerializer(SiteListSerializer):
 class SiteCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = ["id", "name", "title", "subtitle", "url", "info_text"]
+        fields = ["id", "name", "title", "subtitle", "url", "info_text", "is_public"]
         read_only_fields = ["id"]
 
 
 class SiteUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = ["name", "title", "subtitle", "url", "info_text"]
+        fields = ["name", "title", "subtitle", "url", "info_text", "is_public"]
         extra_kwargs = {
             "name": {"required": False},
             "title": {"required": False},
             "subtitle": {"required": False},
             "url": {"required": False},
             "info_text": {"required": False},
+            "is_public": {"required": False},
         }
 
 

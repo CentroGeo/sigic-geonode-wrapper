@@ -116,6 +116,8 @@ class SiteViewSet(ModelViewSet):
         url = self.request.query_params.get("url")
         if url:
             qs = qs.filter(url=url)
+        if not self.request.user.is_authenticated:
+            qs = qs.filter(is_public=True)
         return qs
 
     def get_permissions(self):
@@ -124,6 +126,16 @@ class SiteViewSet(ModelViewSet):
         if self.action == "config" and self.request.method == "GET":
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), IsDashboardAdmin()]
+
+    @action(detail=True, methods=["post"], url_path="toggle-public")
+    def toggle_public(self, request, pk=None):
+        """Alterna la visibilidad pública del tablero."""
+        if not request.user.is_authenticated:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        site = self.get_object()
+        site.is_public = not site.is_public
+        site.save(update_fields=["is_public"])
+        return Response({"is_public": site.is_public})
 
     def get_serializer_class(self):
         if self.action == "create":

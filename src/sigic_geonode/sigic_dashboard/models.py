@@ -94,6 +94,19 @@ class Site(models.Model):
         max_length=500,
     )
 
+    is_public = models.BooleanField(
+        verbose_name="Público",
+        default=True,
+        help_text="Si es verdadero el tablero es visible para todos los usuarios",
+    )
+
+    created = models.DateTimeField(
+        verbose_name="Fecha de creacion",
+        auto_now_add=True,
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return self.name
 
