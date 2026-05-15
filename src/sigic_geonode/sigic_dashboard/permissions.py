@@ -26,10 +26,13 @@ class IsSiteOwner(BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_staff:
+        user = request.user
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
             return True
         # obj puede ser Site directamente o un objeto con FK a site
         site = obj if hasattr(obj, "owner_id") else getattr(obj, "site", None)
         if site is None:
             return True  # sin site asociado, permitir (control en has_permission)
-        return site.owner_id == request.user.pk
+        if site.owner_id is None:
+            return True  # tablero legado sin propietario asignado
+        return site.owner_id == user.pk
