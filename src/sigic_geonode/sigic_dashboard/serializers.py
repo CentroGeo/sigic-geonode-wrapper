@@ -10,6 +10,8 @@
 Serializers DRF para los modelos del dashboard de indicadores.
 """
 
+import re
+
 from rest_framework import serializers
 
 from .models import (
@@ -28,10 +30,24 @@ from .models import (
 # ---------------------------------------------------------------------------
 
 class SiteListSerializer(serializers.ModelSerializer):
+    is_owner = serializers.SerializerMethodField()
+
     class Meta:
         model = Site
-        fields = ["id", "name", "title", "subtitle", "url", "is_public", "created"]
-        read_only_fields = ["id"]
+        fields = ["id", "name", "title", "subtitle", "url", "is_public", "created", "is_owner"]
+        read_only_fields = ["id", "is_owner"]
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        user = request.user
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+            return True
+        # Tableros sin propietario asignado (datos previos a la migración 0005)
+        if obj.owner_id is None:
+            return True
+        return obj.owner_id == user.pk
 
 
 class SiteDetailSerializer(SiteListSerializer):
@@ -51,11 +67,28 @@ class SiteDetailSerializer(SiteListSerializer):
             return None
 
 
+def _validate_site_url(value):
+    """Valida el slug de URL de un tablero: caracteres permitidos y sin slashes al borde."""
+    if not value:
+        return value
+    value = value.strip("/")
+    while "//" in value:
+        value = value.replace("//", "/")
+    if not re.match(r"^[a-z0-9_\-/]+$", value):
+        raise serializers.ValidationError(
+            "La URL solo puede contener letras minúsculas, números, guiones, guiones bajos y '/'."
+        )
+    return value
+
+
 class SiteCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
         fields = ["id", "name", "title", "subtitle", "url", "info_text", "is_public"]
         read_only_fields = ["id"]
+
+    def validate_url(self, value):
+        return _validate_site_url(value)
 
 
 class SiteUpdateSerializer(serializers.ModelSerializer):
@@ -70,6 +103,9 @@ class SiteUpdateSerializer(serializers.ModelSerializer):
             "info_text": {"required": False},
             "is_public": {"required": False},
         }
+
+    def validate_url(self, value):
+        return _validate_site_url(value)
 
 
 # ---------------------------------------------------------------------------

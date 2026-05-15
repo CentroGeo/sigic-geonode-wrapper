@@ -14,6 +14,7 @@ Jerarquía: Site → IndicatorGroup → SubGroup → Indicator → IndicatorFiel
            Site → SiteLogos (FK)
 """
 
+from django.conf import settings
 from django.db import models
 
 
@@ -98,6 +99,15 @@ class Site(models.Model):
         verbose_name="Público",
         default=True,
         help_text="Si es verdadero el tablero es visible para todos los usuarios",
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_sites",
+        verbose_name="Propietario",
     )
 
     created = models.DateTimeField(

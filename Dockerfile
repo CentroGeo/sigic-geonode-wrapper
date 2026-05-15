@@ -34,6 +34,10 @@ RUN chmod +x /usr/bin/celery-cmd
 RUN yes w | pip install --src /usr/src -r requirements/${REQUIREMENTS_VARIANT}.txt && \
     yes w | pip install -e .
 
+# GeoNode pins Shapely==1.8.5.post1 but our geo stack requires 2.x.
+# This step upgrades after GeoNode so pip resolves without that constraint.
+RUN pip install --upgrade "shapely>=2.0" "geopandas>=1.0" pyogrio
+
 # Cleanup apt update lists
 RUN apt-get autoremove --purge && \
     apt-get clean && \

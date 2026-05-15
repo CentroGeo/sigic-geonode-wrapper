@@ -11,4 +11,7 @@ python-jose
 xlsxwriter
 xlrd
 pandas
+geopandas
+pyogrio
+geoalchemy2
 jenkspy
