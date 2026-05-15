@@ -67,6 +67,9 @@ echo "-----------------------------------------------------"
 echo "FINISHED DJANGO ENTRYPOINT --------------------------"
 echo "-----------------------------------------------------"
 
+# Asegurar dependencias geoespaciales (no incluidas en la imagen base)
+python -c "import geopandas" 2>/dev/null || pip install geopandas geoalchemy2 -q --no-warn-script-location
+
 # Run the CMD
 echo "got command $cmd"
 exec $cmd

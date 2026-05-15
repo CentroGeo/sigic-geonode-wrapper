@@ -14,6 +14,7 @@ Jerarquía: Site → IndicatorGroup → SubGroup → Indicator → IndicatorFiel
            Site → SiteLogos (FK)
 """
 
+from django.conf import settings
 from django.db import models
 
 
@@ -92,6 +93,28 @@ class Site(models.Model):
     url = models.CharField(
         verbose_name="URL del sitio",
         max_length=500,
+    )
+
+    is_public = models.BooleanField(
+        verbose_name="Público",
+        default=True,
+        help_text="Si es verdadero el tablero es visible para todos los usuarios",
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_sites",
+        verbose_name="Propietario",
+    )
+
+    created = models.DateTimeField(
+        verbose_name="Fecha de creacion",
+        auto_now_add=True,
+        null=True,
+        blank=True,
     )
 
     def __str__(self):
@@ -376,6 +399,12 @@ class Indicator(models.Model):
     show_general_values = models.BooleanField(
         verbose_name="Mostrar valores generales",
         default=False,
+    )
+
+    general_values = models.JSONField(
+        verbose_name="Valores generales agregados para cuadros KPI",
+        blank=True,
+        null=True,
     )
 
     use_filter = models.BooleanField(

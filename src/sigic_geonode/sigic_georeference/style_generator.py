@@ -13,30 +13,67 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 QUALITATIVE_PALETTE = [
-    "#8DD3C7",
-    "#FFFFB3",
-    "#BEBADA",
-    "#FB8072",
-    "#80B1D3",
-    "#FDB462",
-    "#B3DE69",
-    "#FCCDE5",
-    "#D9D9D9",
-    "#BC80BD",
-    "#CCEBC5",
-    "#FFED6F",
-    "#A6CEE3",
-    "#1F78B4",
-    "#B2DF8A",
+    "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3",
+    "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD",
+    "#CCEBC5", "#FFED6F", "#A6CEE3", "#1F78B4", "#B2DF8A",
 ]
 
 SEQUENTIAL_PALETTE_5 = [
-    "#FFFFB2",  # class 1 — lowest
-    "#FECC5C",  # class 2
-    "#FD8D3C",  # class 3
-    "#F03B20",  # class 4
-    "#BD0026",  # class 5 — highest
+    "#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026",
 ]
+
+# ---------------------------------------------------------------------------
+# ColorBrewer ramp catalog (9 colors each — sliced/sampled per n_classes)
+# ---------------------------------------------------------------------------
+
+COLOR_RAMPS: dict[str, list[str]] = {
+    # Sequential
+    "YlOrRd": ["#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C", "#FC4E2A", "#E31A1C", "#BD0026", "#800026"],
+    "YlGnBu": ["#FFFFD9", "#EDF8B1", "#C7E9B4", "#7FCDBB", "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58"],
+    "Blues":  ["#F7FBFF", "#DEEBF7", "#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#08519C", "#08306B"],
+    "Greens": ["#F7FCF5", "#E5F5E0", "#C7E9C0", "#A1D99B", "#74C476", "#41AB5D", "#238B45", "#006D2C", "#00441B"],
+    "Reds":   ["#FFF5F0", "#FEE0D2", "#FCBBA1", "#FC9272", "#FB6A4A", "#EF3B2C", "#CB181D", "#A50F15", "#67000D"],
+    "OrRd":   ["#FFF7EC", "#FEE8C8", "#FDD49E", "#FDBB84", "#FC8D59", "#EF6548", "#D7301F", "#B30000", "#7F0000"],
+    "BuPu":   ["#F7FCFD", "#E0ECF4", "#BFD3E6", "#9EBCDA", "#8C96C6", "#8C6BB1", "#88419D", "#810F7C", "#4D004B"],
+    "PuRd":   ["#F7F4F9", "#E7E1EF", "#D4B9DA", "#C994C7", "#DF65B0", "#E7298A", "#CE1256", "#980043", "#67001F"],
+    # Diverging
+    "RdYlGn": ["#D73027", "#F46D43", "#FDAE61", "#FEE08B", "#FFFFBF", "#D9EF8B", "#A6D96A", "#66BD63", "#1A9850"],
+    "RdBu":   ["#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#F7F7F7", "#D1E5F0", "#92C5DE", "#4393C3", "#2166AC"],
+    "PuOr":   ["#B35806", "#E08214", "#FDB863", "#FEE0B6", "#F7F7F7", "#D8DAEB", "#B2ABD2", "#8073AC", "#542788"],
+    "BrBG":   ["#8C510A", "#BF812D", "#DFC27D", "#F6E8C3", "#F5F5F5", "#C7EAE5", "#80CDC1", "#35978F", "#01665E"],
+    # Qualitative
+    "Set1":   ["#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999"],
+    "Set2":   ["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3"],
+    "Set3":   ["#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+               "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F"],
+    "Paired": ["#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00",
+               "#CAB2D6", "#6A3D9A", "#FFFF99", "#B15928"],
+    "Pastel1": ["#FBB4AE", "#B3CDE3", "#CCEBC5", "#DECBE4", "#FED9A6", "#FFFFCC", "#E5D8BD", "#FDDAEC", "#F2F2F2"],
+}
+
+SEQUENTIAL_RAMPS = ["YlOrRd", "YlGnBu", "Blues", "Greens", "Reds", "OrRd", "BuPu", "PuRd"]
+DIVERGING_RAMPS = ["RdYlGn", "RdBu", "PuOr", "BrBG"]
+QUALITATIVE_RAMPS = ["Set1", "Set2", "Set3", "Paired", "Pastel1"]
+
+
+def _get_palette_colors(palette_name: str, n: int) -> list:
+    """Return exactly n colors from the named ColorBrewer palette."""
+    colors = COLOR_RAMPS.get(palette_name, [])
+    if not colors:
+        return []
+    if n >= len(colors):
+        # Cycle for qualitative; repeat last for sequential
+        result = []
+        while len(result) < n:
+            result.extend(colors)
+        return result[:n]
+    if palette_name in QUALITATIVE_RAMPS:
+        return colors[:n]
+    # Sequential/diverging: evenly distribute n stops across the full ramp
+    if n == 1:
+        return [colors[0]]
+    indices = [round(i * (len(colors) - 1) / (n - 1)) for i in range(n)]
+    return [colors[i] for i in indices]
 
 # ---------------------------------------------------------------------------
 # Column classification constants
@@ -219,19 +256,36 @@ def get_categorical_values(layer_name: str, col_name: str, cur) -> list:
     return [str(row[0]) for row in cur.fetchall()]
 
 
+def get_equal_interval_breaks(layer_name: str, col_name: str, cur, n: int = 5) -> list:
+    """Return n+1 boundary values for n equal-interval classes."""
+    # col_name is pre-validated against _SAFE_COL so f-string interpolation is safe.
+    query = (
+        f"SELECT MIN({col_name}::numeric), MAX({col_name}::numeric) "
+        f"FROM {layer_name} WHERE {col_name} IS NOT NULL"
+    )
+    cur.execute(query)
+    row = cur.fetchone()
+    if row is None or row[0] is None or row[0] == row[1]:
+        return []
+    min_val, max_val = float(row[0]), float(row[1])
+    step = (max_val - min_val) / n
+    return [min_val + i * step for i in range(n + 1)]
+
+
 def get_quantile_breaks(layer_name: str, col_name: str, cur, n: int = 5) -> list:
     """
     Return n+1 boundary values for n quantile classes using percentile_cont.
     Example for n=5: [min, p20, p40, p60, p80, max].
 
-    col_name must match ^[A-Za-z0-9_]+$ (validated in generate_and_register_styles).
+    col_name must match ^[A-Za-z0-9_]+$ (validated before calling this function).
+    The ::numeric cast handles columns stored as text that contain numeric data.
     """
     fractions = [i / n for i in range(1, n)]
     percentile_parts = ", ".join(
-        f"percentile_cont({f}) WITHIN GROUP (ORDER BY {col_name})" for f in fractions
+        f"percentile_cont({f}) WITHIN GROUP (ORDER BY {col_name}::numeric)" for f in fractions
     )
     query = (
-        f"SELECT MIN({col_name}), {percentile_parts}, MAX({col_name}) "
+        f"SELECT MIN({col_name}::numeric), {percentile_parts}, MAX({col_name}::numeric) "
         f"FROM {layer_name} WHERE {col_name} IS NOT NULL"
     )
     cur.execute(query)
@@ -261,11 +315,17 @@ def build_categorical_sld(
     values: list,
     geom_type: str,
     style_name: str,
+    palette_name: str = None,
+    label: str = None,
 ) -> str:
     """Build a complete SLD 1.0.0 for categorical classification."""
+    if palette_name:
+        palette = _get_palette_colors(palette_name, len(values)) or QUALITATIVE_PALETTE
+    else:
+        palette = QUALITATIVE_PALETTE
     rules = []
     for i, val in enumerate(values):
-        color = QUALITATIVE_PALETTE[i % len(QUALITATIVE_PALETTE)]
+        color = palette[i % len(palette)]
         symbolizer = _SYMBOLIZER[geom_type].format(color=color)
         escaped = _xml_escape(val)
         rules.append(
@@ -290,13 +350,14 @@ def build_categorical_sld(
         f"      {null_sym}\n"
         f"    </Rule>"
     )
+    title = label or col_name
     rules_str = "\n".join(rules)
     return (
         f"{_SLD_HEADER}\n"
         f"  <NamedLayer>\n"
         f"    <Name>{layer_name}</Name>\n"
         f"    <UserStyle>\n"
-        f"      <Title>{col_name} - Categórico</Title>\n"
+        f"      <Title>{_xml_escape(title)}</Title>\n"
         f"      <FeatureTypeStyle>\n"
         f"{rules_str}\n"
         f"      </FeatureTypeStyle>\n"
@@ -312,10 +373,15 @@ def build_numeric_sld(
     breaks: list,
     geom_type: str,
     style_name: str,
+    palette_name: str = None,
+    label: str = None,
 ) -> str:
-    """Build a complete SLD 1.0.0 for numeric quantile classification (5 classes)."""
+    """Build a complete SLD 1.0.0 for numeric classification."""
     n = len(breaks) - 1
-    palette = SEQUENTIAL_PALETTE_5[:n]
+    if palette_name:
+        palette = _get_palette_colors(palette_name, n) or SEQUENTIAL_PALETTE_5[:n]
+    else:
+        palette = SEQUENTIAL_PALETTE_5[:n]
     rules = []
     for i in range(n):
         color = palette[i]
@@ -351,13 +417,120 @@ def build_numeric_sld(
         f"      {null_sym}\n"
         f"    </Rule>"
     )
+    title = label or col_name
     rules_str = "\n".join(rules)
     return (
         f"{_SLD_HEADER}\n"
         f"  <NamedLayer>\n"
         f"    <Name>{layer_name}</Name>\n"
         f"    <UserStyle>\n"
-        f"      <Title>{col_name} - Numérico (cuantiles)</Title>\n"
+        f"      <Title>{_xml_escape(title)}</Title>\n"
+        f"      <FeatureTypeStyle>\n"
+        f"{rules_str}\n"
+        f"      </FeatureTypeStyle>\n"
+        f"    </UserStyle>\n"
+        f"  </NamedLayer>\n"
+        f"</StyledLayerDescriptor>"
+    )
+
+
+def build_graduated_size_sld(
+    layer_name: str,
+    col_name: str,
+    breaks: list,
+    style_name: str,
+    palette_name: str = None,
+    size_min: int = 6,
+    size_max: int = 24,
+    label: str = None,
+) -> str:
+    """
+    SLD 1.0.0 para puntos con tamaño Y color graduados por clase.
+    Cada clase recibe un color de la rampa y un tamaño interpolado entre size_min y size_max.
+    """
+    n = len(breaks) - 1
+    if n < 1:
+        return ""
+
+    if palette_name:
+        palette = _get_palette_colors(palette_name, n) or SEQUENTIAL_PALETTE_5[:n]
+    else:
+        palette = SEQUENTIAL_PALETTE_5[:n]
+
+    sizes = (
+        [size_min + (size_max - size_min) * i / (n - 1) for i in range(n)]
+        if n > 1
+        else [size_min]
+    )
+
+    rules = []
+    for i in range(n):
+        color = palette[i]
+        size = round(sizes[i], 1)
+        low, high = breaks[i], breaks[i + 1]
+        lbl = f"{low:.4g} – {high:.4g}"
+        rules.append(
+            f"    <Rule>\n"
+            f"      <Name>{lbl}</Name>\n"
+            f"      <Title>{lbl}</Title>\n"
+            f"      <ogc:Filter>\n"
+            f"        <ogc:And>\n"
+            f"          <ogc:PropertyIsGreaterThanOrEqualTo>\n"
+            f"            <ogc:PropertyName>{col_name}</ogc:PropertyName>\n"
+            f"            <ogc:Literal>{low}</ogc:Literal>\n"
+            f"          </ogc:PropertyIsGreaterThanOrEqualTo>\n"
+            f"          <ogc:PropertyIsLessThanOrEqualTo>\n"
+            f"            <ogc:PropertyName>{col_name}</ogc:PropertyName>\n"
+            f"            <ogc:Literal>{high}</ogc:Literal>\n"
+            f"          </ogc:PropertyIsLessThanOrEqualTo>\n"
+            f"        </ogc:And>\n"
+            f"      </ogc:Filter>\n"
+            f"      <PointSymbolizer>\n"
+            f"        <Graphic>\n"
+            f"          <Mark>\n"
+            f"            <WellKnownName>circle</WellKnownName>\n"
+            f"            <Fill>"
+            f'<CssParameter name="fill">{color}</CssParameter>'
+            f"</Fill>\n"
+            f"            <Stroke>\n"
+            f'              <CssParameter name="stroke">#ffffff</CssParameter>\n'
+            f'              <CssParameter name="stroke-width">0.5</CssParameter>\n'
+            f"            </Stroke>\n"
+            f"          </Mark>\n"
+            f"          <Size>{size}</Size>\n"
+            f"        </Graphic>\n"
+            f"      </PointSymbolizer>\n"
+            f"    </Rule>"
+        )
+
+    null_size = max(3, size_min - 1)
+    rules.append(
+        f"    <Rule>\n"
+        f"      <Name>Sin datos</Name>\n"
+        f"      <Title>Sin datos</Title>\n"
+        f"      <ElseFilter/>\n"
+        f"      <PointSymbolizer>\n"
+        f"        <Graphic>\n"
+        f"          <Mark>\n"
+        f"            <WellKnownName>circle</WellKnownName>\n"
+        f"            <Fill>"
+        f'<CssParameter name="fill">#CCCCCC</CssParameter>'
+        f"</Fill>\n"
+        f"          </Mark>\n"
+        f"          <Size>{null_size}</Size>\n"
+        f"        </Graphic>\n"
+        f"      </PointSymbolizer>\n"
+        f"    </Rule>"
+    )
+
+    title = label or col_name
+    rules_str = "\n".join(rules)
+    return (
+        f"{_SLD_HEADER}\n"
+        f"  <NamedLayer>\n"
+        f"    <Name>{layer_name}</Name>\n"
+        f"    <UserStyle>\n"
+        f"      <Title>{_xml_escape(title)}</Title>\n"
         f"      <FeatureTypeStyle>\n"
         f"{rules_str}\n"
         f"      </FeatureTypeStyle>\n"
@@ -475,7 +648,7 @@ def push_style_to_geoserver(style_name: str, sld_body: str, layer_alternate: str
         )
 
 
-def register_style_in_geonode(ds, style_name: str, sld_body: str):
+def register_style_in_geonode(ds, style_name: str, sld_body: str, sld_title: str = None):
     """
     Create (or update) a GeoNode Style record and associate it with the dataset.
     The generated style is NOT set as the dataset's default_style.
@@ -486,20 +659,27 @@ def register_style_in_geonode(ds, style_name: str, sld_body: str):
 
     gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
     sld_url = f"{gs_url}/rest/workspaces/geonode/styles/{style_name}.sld"
+    title = sld_title or style_name
 
     sty, _ = Style.objects.get_or_create(
         name=style_name,
         defaults={
-            "sld_title": style_name,
+            "sld_title": title,
             "workspace": "geonode",
             "sld_body": sld_body,
             "sld_version": "1.0.0",
             "sld_url": sld_url,
         },
     )
+    changed = False
     if sty.sld_body != sld_body:
         sty.sld_body = sld_body
         sty.sld_url = sld_url
+        changed = True
+    if sty.sld_title != title:
+        sty.sld_title = title
+        changed = True
+    if changed:
         sty.save()
 
     sty.dataset_styles.add(ds)
@@ -568,6 +748,10 @@ def generate_and_register_styles(ds, data_columns: list) -> None:
                     )
             except Exception as e:
                 logger.error(f"SLD generation failed for column {col_name}: {e}")
+                try:
+                    connection.rollback()
+                except Exception:
+                    pass
                 continue
 
             try:
@@ -589,3 +773,100 @@ def generate_and_register_styles(ds, data_columns: list) -> None:
             set_default_style_in_geoserver(first_style.name, ds.alternate)
         except Exception as e:
             logger.warning(f"Could not update default style in GeoServer for {ds.id}: {e}")
+
+
+def generate_and_register_styles_with_specs(ds, style_specs: list, default_col: str = None) -> None:
+    """
+    Genera estilos para las columnas definidas en style_specs.
+
+    Cada spec: {col, type: categorical|graduated, palette, n_classes, classification: quantile|equal_interval}
+    default_col: nombre de la columna cuyo estilo se usará como estilo por defecto del dataset.
+                 Si es None o no se encuentra, se usa el primer estilo generado.
+    """
+    from sigic_geonode.utils.geodata_conn import connection
+
+    layer_name = get_name_from_ds(ds)
+    first_style = None
+    default_style = None
+
+    with connection.cursor() as cur:
+        geom_type = get_geometry_type(layer_name, cur)
+
+        for spec in style_specs:
+            col_name = spec.get("col", "")
+            style_type = spec.get("type", "categorical")
+            palette_name = spec.get("palette") or None
+            n_classes = int(spec.get("n_classes", 5))
+            classification = spec.get("classification", "quantile")
+            label = spec.get("label") or col_name
+
+            if not _SAFE_COL.match(col_name):
+                logger.warning(f"Skipping unsafe column name: {col_name!r}")
+                continue
+
+            style_name = f"{layer_name}__{col_name}"
+            sld_body = None
+
+            try:
+                if style_type == "categorical":
+                    values = get_categorical_values(layer_name, col_name, cur)
+                    if not values:
+                        continue
+                    sld_body = build_categorical_sld(
+                        layer_name, col_name, values, geom_type, style_name,
+                        palette_name=palette_name,
+                        label=label,
+                    )
+                elif style_type in ("graduated", "graduated_size"):
+                    if classification == "equal_interval":
+                        breaks = get_equal_interval_breaks(layer_name, col_name, cur, n=n_classes)
+                    else:
+                        breaks = get_quantile_breaks(layer_name, col_name, cur, n=n_classes)
+                    if not breaks or len(breaks) < 2:
+                        logger.info(f"No valid breaks for {col_name}, skipping")
+                        continue
+                    if style_type == "graduated_size":
+                        sld_body = build_graduated_size_sld(
+                            layer_name, col_name, breaks, style_name,
+                            palette_name=palette_name,
+                            size_min=int(spec.get("size_min", 6)),
+                            size_max=int(spec.get("size_max", 24)),
+                            label=label,
+                        )
+                    else:
+                        sld_body = build_numeric_sld(
+                            layer_name, col_name, breaks, geom_type, style_name,
+                            palette_name=palette_name,
+                            label=label,
+                        )
+            except Exception as e:
+                logger.error(f"SLD generation failed for column {col_name}: {e}")
+                # Rollback aborted transaction so subsequent columns can still run.
+                try:
+                    connection.rollback()
+                except Exception:
+                    pass
+                continue
+
+            if sld_body is None:
+                continue
+
+            try:
+                push_style_to_geoserver(style_name, sld_body, ds.alternate)
+                sty = register_style_in_geonode(ds, style_name, sld_body, sld_title=label)
+                logger.info(f"Style {style_name} created for dataset {ds.id}")
+                if first_style is None:
+                    first_style = sty
+                if default_col and col_name == default_col:
+                    default_style = sty
+            except Exception as e:
+                logger.error(f"Style registration failed for {style_name}: {e}")
+
+    chosen = default_style or first_style
+    if chosen is not None:
+        ds.default_style = chosen
+        ds.save(update_fields=["default_style"])
+        try:
+            set_default_style_in_geoserver(chosen.name, ds.alternate)
+        except Exception as e:
+            logger.warning(f"Could not update default style in GeoServer: {e}")

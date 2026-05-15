@@ -8,3 +8,5 @@ python-jose
 xlsxwriter
 xlrd
 pandas
+geopandas
+geoalchemy2

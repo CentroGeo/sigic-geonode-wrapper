@@ -293,6 +293,24 @@ if not getattr(BaseHarvesterWorker, "_patched_by_sigic_permissions", False):
                 f"en recurso {geonode_resource.id}: {e}"
             )
 
+        # Sincronizar atributos WFS para capas remotas que aún no los tengan
+        if getattr(geonode_resource, "sourcetype", None) == "REMOTE":
+            try:
+                from sigic_geonode.sigic_remote_services.wfs_attributes import (
+                    sync_attributes_from_wfs,
+                )
+                synced = sync_attributes_from_wfs(geonode_resource)
+                if synced:
+                    logger.info(
+                        f"[SIGIC Patch] {synced} atributos WFS sincronizados "
+                        f"para recurso {geonode_resource.id}"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"[SIGIC Patch] No se pudieron sincronizar atributos WFS "
+                    f"para recurso {geonode_resource.id}: {e}"
+                )
+
     BaseHarvesterWorker.finalize_resource_update = patched_finalize_resource_update
     BaseHarvesterWorker._patched_by_sigic_permissions = True
     logger.info("[SIGIC Patch] BaseHarvesterWorker permisos owner-only activados")

@@ -16,6 +16,7 @@ Indicadores, InfoBoxes y Configuracion de sitio.
 import json
 import logging
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 from rest_framework import permissions, status
@@ -38,7 +39,7 @@ from .models import (
     SiteLogos,
     SubGroup,
 )
-from .permissions import IsDashboardAdmin
+from .permissions import IsDashboardAdmin, IsSiteOwner
 from .serializers import (
     BulkIdSerializer,
     IndicatorBuildDataSerializer,
@@ -116,6 +117,15 @@ class SiteViewSet(ModelViewSet):
         url = self.request.query_params.get("url")
         if url:
             qs = qs.filter(url=url)
+
+        user = self.request.user
+        if not user.is_authenticated:
+            qs = qs.filter(is_public=True)
+        elif not (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)):
+            # Usuarios autenticados sin rol admin: público + propio + legado (sin propietario)
+            qs = qs.filter(
+                Q(is_public=True) | Q(owner=user) | Q(owner__isnull=True)
+            )
         return qs
 
     def get_permissions(self):
@@ -123,7 +133,23 @@ class SiteViewSet(ModelViewSet):
             return [permissions.AllowAny()]
         if self.action == "config" and self.request.method == "GET":
             return [permissions.AllowAny()]
+        if self.action in ("update", "partial_update", "destroy", "toggle_public", "config"):
+            return [permissions.IsAuthenticated(), IsDashboardAdmin(), IsSiteOwner()]
         return [permissions.IsAuthenticated(), IsDashboardAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="toggle-public")
+    def toggle_public(self, request, pk=None):
+        """Alterna la visibilidad pública del tablero."""
+        if not request.user.is_authenticated:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        site = self.get_object()
+        self.check_object_permissions(request, site)
+        site.is_public = not site.is_public
+        site.save(update_fields=["is_public"])
+        return Response({"is_public": site.is_public})
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -322,6 +348,7 @@ class SubGroupViewSet(ModelViewSet):
     """ViewSet para gestionar subgrupos de indicadores."""
 
     authentication_classes = AUTHENTICATION_CLASSES
+    pagination_class = DashboardPagination
     queryset = SubGroup.objects.select_related("group", "group__site").order_by(
         "stack_order"
     )
@@ -348,6 +375,12 @@ class SubGroupViewSet(ModelViewSet):
         if self.action in ("update", "partial_update"):
             return SubGroupUpdateSerializer
         return SubGroupSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = SubGroupCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(SubGroupSerializer(instance).data, status=201)
 
     @action(detail=False, methods=["post"], url_path="bulk-reorder")
     def bulk_reorder(self, request):
@@ -387,7 +420,14 @@ class IndicatorViewSet(ModelViewSet):
         group_id = self.request.query_params.get("group")
         subgroup_id = self.request.query_params.get("subgroup")
         if site_id:
-            qs = qs.filter(site_id=site_id)
+            # Incluye indicadores asignados directamente al site Y los que
+            # pertenecen al site a través de su grupo o subgrupo (site_id puede
+            # quedar null cuando se mueven via drag-drop).
+            qs = qs.filter(
+                Q(site_id=site_id)
+                | Q(group__site_id=site_id)
+                | Q(subgroup__group__site_id=site_id)
+            ).distinct()
         if group_id:
             qs = qs.filter(group_id=group_id)
         if subgroup_id:
@@ -492,6 +532,68 @@ class IndicatorViewSet(ModelViewSet):
         indicator.save()
         return Response({"indicator": indicator.id})
 
+    @action(detail=True, methods=["post"], url_path="recompute")
+    def recompute(self, request, pk=None):
+        """Recalcula plot_values y map_values usando la configuración actual del indicador."""
+        indicator = self.get_object()
+
+        if not indicator.layer:
+            return Response(
+                {"error": "El indicador no tiene un dataset vinculado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not indicator.field_one:
+            return Response(
+                {"error": "El indicador no tiene un campo configurado (field_one)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            layer_name = indicator.layer.name
+        except Exception:
+            return Response(
+                {"error": "No se pudo obtener el nombre de la capa."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        field_id = indicator.layer_id_field or "fid"
+        attributes = indicator.field_one
+        method = indicator.category_method or "quantil"
+        n_classes = indicator.field_category or 5
+        palette = indicator.colors or "azules_3"
+
+        data = get_data_from_db(attributes, field_id, layer_name)
+        if not data:
+            return Response(
+                {"error": "No se encontraron datos en la tabla del dataset."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        processed = process_data(data, attributes, field_id, method, n_classes, indicator, [])
+        if "error" in processed:
+            return Response(
+                {"error": processed["error"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        colored = assign_color(processed, palette)
+        plot_data = colored.get("plot_data", [])
+        indicator.plot_values = plot_data
+        indicator.map_values = colored.get("theming_data", {})
+        indicator.plot_config = {
+            "chart_type": indicator.plot_type,
+            "title": indicator.name,
+            "ranges": [
+                {"alias": r["label"], "count": r["value"], "color": r.get("color", "#000000")}
+                for r in plot_data
+            ],
+        }
+        indicator.show_general_values = True
+        indicator.use_single_field = True
+        indicator.save()
+
+        return Response({"status": "ok", "rangos": len(plot_data)})
+
     @action(detail=True, methods=["get"], url_path="view-data")
     def view_data(self, request, pk=None):
         """Retorna los datos guardados del indicador con sus infoboxes."""
@@ -540,6 +642,21 @@ class IndicatorViewSet(ModelViewSet):
                 }
             )
         data["info_boxes"] = boxes
+
+        # WFS typename para el mapa (workspace:name format de GeoServer)
+        try:
+            data["layer_name"] = indicator.layer.alternate
+        except Exception:
+            data["layer_name"] = None
+
+        # Valores KPI para los cuadros de datos
+        if indicator.show_general_values and indicator.layer:
+            try:
+                data["general_values"] = _fetch_kpi_values(indicator.layer.name, boxes)
+            except Exception:
+                data["general_values"] = {}
+        else:
+            data["general_values"] = {}
 
         return Response({"data": data})
 
@@ -863,11 +980,15 @@ def _get_table_columns(layer_name):
         with connections["datastore"].cursor() as cur:
             cur.execute(
                 "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = %s",
+                "WHERE table_name = %s AND table_schema = 'public'",
                 [layer_name],
             )
-            return {row[0].lower() for row in cur.fetchall()}
+            cols = {row[0].lower() for row in cur.fetchall()}
+            if not cols:
+                logger.warning("_get_table_columns: no columns found for table '%s'", layer_name)
+            return cols
     except Exception:
+        logger.exception("_get_table_columns failed for table '%s'", layer_name)
         return set()
 
 
@@ -930,6 +1051,11 @@ def _fetch_kpi_values(layer_name, boxes):
         field_orig = box["field"]
         field_lc = field_orig.lower()
 
+        if field_lc == "__count__":
+            select_parts["__count__"] = "COUNT(*)"
+            original_map[field_orig] = "__count__"
+            continue
+
         if field_lc == "total_outgoing" and numeric_cols:
             expr = " + ".join(f'"{c}"' for c in numeric_cols)
             alias = "total_outgoing"
@@ -945,10 +1071,11 @@ def _fetch_kpi_values(layer_name, boxes):
             original_map[field_orig] = None
             continue
 
+        # Columnas CSV importadas quedan como character varying; el cast permite SUM/AVG
         if field_lc.startswith(("tasa_", "pct_", "rate_", "ratio_")):
-            agg = f'AVG("{col}")'
+            agg = f'AVG("{col}"::numeric)'
         else:
-            agg = f'SUM("{col}")'
+            agg = f'SUM("{col}"::numeric)'
         select_parts[field_lc] = agg
         original_map[field_orig] = field_lc
 
@@ -957,16 +1084,22 @@ def _fetch_kpi_values(layer_name, boxes):
             tot_orig = box["field_percentage_total"]
             tot_lc = tot_orig.lower()
             if tot_lc in existing_cols and tot_lc not in select_parts:
-                select_parts[tot_lc] = f'SUM("{tot_lc}")'
+                select_parts[tot_lc] = f'SUM("{tot_lc}"::numeric)'
                 original_map[tot_orig] = tot_lc
 
     if not select_parts:
+        logger.warning(
+            "_fetch_kpi_values: no valid fields resolved for layer='%s', boxes=%s",
+            layer_name,
+            [b["field"] for b in boxes],
+        )
         return {}
 
     sql_select = ", ".join(
         f"{expr} AS \"{alias}\"" for alias, expr in select_parts.items()
     )
     sql = f'SELECT {sql_select} FROM "{layer_name}"'
+    logger.debug("KPI SQL for %s: %s", layer_name, sql)
 
     try:
         with connections["datastore"].cursor() as cur:
@@ -975,7 +1108,7 @@ def _fetch_kpi_values(layer_name, boxes):
             col_names = [desc[0] for desc in cur.description]
             raw = dict(zip(col_names, row))
     except Exception as e:
-        logger.warning("KPI query error for %s: %s", layer_name, e)
+        logger.exception("KPI query error for layer='%s', sql=%s", layer_name, sql)
         return {}
 
     result = {}

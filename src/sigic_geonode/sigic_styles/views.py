@@ -467,11 +467,18 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         if default_style and ":" in default_style:
             default_style = default_style.split(":")[-1]
 
+        # Enriquecer con sld_title desde GeoNode (para mostrar nombres legibles en el frontend)
+        from geonode.layers.models import Style as GNStyle
+        all_names = [s for s in associated_styles + [default_style] if s]
+        gn_styles = GNStyle.objects.filter(name__in=all_names).values("name", "sld_title")
+        style_titles = {s["name"]: s["sld_title"] or s["name"] for s in gn_styles}
+
         return Response(
             {
                 "layer": layer_name,
                 "default_style": default_style,
                 "styles": associated_styles,
+                "style_titles": style_titles,
             }
         )
 

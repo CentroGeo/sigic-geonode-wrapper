@@ -678,6 +678,108 @@ class RemoteDatasetViewSet(DatasetViewSet):
         DatasetViewSet.filter_backends
     )
 
+    @extend_schema(
+        summary="Sincroniza atributos WFS de un dataset remoto",
+        description=(
+            "Llama a WFS DescribeFeatureType en el servidor de origen y persiste los atributos "
+            "en GeoNode. Útil cuando attribute_set está vacío porque el dataset es de tipo REMOTE. "
+            "Devuelve la lista de atributos sincronizados para uso inmediato en el frontend."
+        ),
+        tags=["Servicios Remotos"],
+    )
+    @action(detail=True, methods=["post"], url_path="sync-attributes")
+    def sync_attributes(self, request, pk=None):
+        """Sincroniza atributos WFS para un dataset remoto bajo demanda."""
+        from geonode.layers.models import Dataset
+        from sigic_geonode.sigic_remote_services.wfs_attributes import (
+            sync_attributes_from_wfs,
+            fetch_wfs_attributes,
+            _wfs_url,
+        )
+
+        try:
+            dataset = Dataset.objects.get(pk=pk)
+        except Dataset.DoesNotExist:
+            return Response(
+                {"error": "Dataset no encontrado"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if dataset.sourcetype != "REMOTE":
+            return Response(
+                {"error": "Este dataset no es de tipo remoto"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verificar disponibilidad del servicio WFS antes de intentar sync
+        ows_url = getattr(dataset, "ows_url", None)
+        typename = None
+        try:
+            from sigic_geonode.sigic_remote_services.models import RemoteLayerTypename
+            rlt = RemoteLayerTypename.objects.filter(dataset=dataset).first()
+            if rlt:
+                typename = rlt.typename
+        except Exception:
+            pass
+        if not typename:
+            typename = getattr(dataset, "alternate", None)
+
+        if not ows_url or not typename:
+            return Response(
+                {
+                    "error": "sin_configuracion",
+                    "detail": (
+                        "Este dataset no tiene URL de servicio o typename configurado. "
+                        "No es posible sincronizar sus atributos automáticamente."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        attrs = fetch_wfs_attributes(ows_url, typename)
+
+        if not attrs:
+            # El servicio no respondió o devolvió una respuesta sin atributos
+            wfs_endpoint = _wfs_url(ows_url)
+            return Response(
+                {
+                    "error": "wfs_no_disponible",
+                    "detail": (
+                        f"El servicio WFS remoto no respondió o no devolvió atributos "
+                        f"para la capa '{typename}'. "
+                        f"Verifique que el servicio esté disponible en {wfs_endpoint}."
+                    ),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # Persistir en la BD
+        from geonode.layers.models import Attribute
+        synced = 0
+        for order, attr_data in enumerate(attrs, start=1):
+            Attribute.objects.update_or_create(
+                dataset=dataset,
+                attribute=attr_data["attribute"],
+                defaults={
+                    "attribute_type": attr_data["attribute_type"],
+                    "display_order": order,
+                    "visible": True,
+                },
+            )
+            synced += 1
+
+        logger.info(
+            "[SIGIC] sync_attributes: dataset %s (%s) — %d atributos sincronizados por usuario %s",
+            dataset.pk, typename, synced, request.user,
+        )
+
+        return Response(
+            {
+                "synced": synced,
+                "attributes": attrs,
+            },
+            status=status.HTTP_200_OK,
+        )
+
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
 
