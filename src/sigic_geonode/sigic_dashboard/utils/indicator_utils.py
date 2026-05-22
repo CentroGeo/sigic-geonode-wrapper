@@ -290,7 +290,13 @@ def get_color_palette(palette_name):
         "verdes_6": ["#204d49", "#266e68", "#4b9b94", "#6eb5af", "#a3d9d4", "#edf8b1", "#ffffe5"],
     }
 
-    return colors_palette[palette_name]
+    if palette_name in colors_palette:
+        return colors_palette[palette_name]
+    if palette_name.endswith("_r"):
+        base = palette_name[:-2]
+        if base in colors_palette:
+            return list(reversed(colors_palette[base]))
+    return colors_palette.get("azules_3", [])
 
 
 def assign_color(data, color_selection, custom_colors=None):

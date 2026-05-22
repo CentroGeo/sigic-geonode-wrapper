@@ -56,24 +56,26 @@ DIVERGING_RAMPS = ["RdYlGn", "RdBu", "PuOr", "BrBG"]
 QUALITATIVE_RAMPS = ["Set1", "Set2", "Set3", "Paired", "Pastel1"]
 
 
-def _get_palette_colors(palette_name: str, n: int) -> list:
+def _get_palette_colors(palette_name: str, n: int, reverse: bool = False) -> list:
     """Return exactly n colors from the named ColorBrewer palette."""
     colors = COLOR_RAMPS.get(palette_name, [])
     if not colors:
         return []
     if n >= len(colors):
-        # Cycle for qualitative; repeat last for sequential
         result = []
         while len(result) < n:
             result.extend(colors)
-        return result[:n]
-    if palette_name in QUALITATIVE_RAMPS:
-        return colors[:n]
-    # Sequential/diverging: evenly distribute n stops across the full ramp
-    if n == 1:
-        return [colors[0]]
-    indices = [round(i * (len(colors) - 1) / (n - 1)) for i in range(n)]
-    return [colors[i] for i in indices]
+        result = result[:n]
+    elif palette_name in QUALITATIVE_RAMPS:
+        result = colors[:n]
+    else:
+        # Sequential/diverging: evenly distribute n stops across the full ramp
+        if n == 1:
+            result = [colors[0]]
+        else:
+            indices = [round(i * (len(colors) - 1) / (n - 1)) for i in range(n)]
+            result = [colors[i] for i in indices]
+    return list(reversed(result)) if reverse else result
 
 # ---------------------------------------------------------------------------
 # Column classification constants
@@ -317,10 +319,11 @@ def build_categorical_sld(
     style_name: str,
     palette_name: str = None,
     label: str = None,
+    reverse: bool = False,
 ) -> str:
     """Build a complete SLD 1.0.0 for categorical classification."""
     if palette_name:
-        palette = _get_palette_colors(palette_name, len(values)) or QUALITATIVE_PALETTE
+        palette = _get_palette_colors(palette_name, len(values), reverse=reverse) or QUALITATIVE_PALETTE
     else:
         palette = QUALITATIVE_PALETTE
     rules = []
@@ -375,11 +378,12 @@ def build_numeric_sld(
     style_name: str,
     palette_name: str = None,
     label: str = None,
+    reverse: bool = False,
 ) -> str:
     """Build a complete SLD 1.0.0 for numeric classification."""
     n = len(breaks) - 1
     if palette_name:
-        palette = _get_palette_colors(palette_name, n) or SEQUENTIAL_PALETTE_5[:n]
+        palette = _get_palette_colors(palette_name, n, reverse=reverse) or SEQUENTIAL_PALETTE_5[:n]
     else:
         palette = SEQUENTIAL_PALETTE_5[:n]
     rules = []
@@ -443,6 +447,7 @@ def build_graduated_size_sld(
     size_min: int = 6,
     size_max: int = 24,
     label: str = None,
+    reverse: bool = False,
 ) -> str:
     """
     SLD 1.0.0 para puntos con tamaño Y color graduados por clase.
@@ -453,7 +458,7 @@ def build_graduated_size_sld(
         return ""
 
     if palette_name:
-        palette = _get_palette_colors(palette_name, n) or SEQUENTIAL_PALETTE_5[:n]
+        palette = _get_palette_colors(palette_name, n, reverse=reverse) or SEQUENTIAL_PALETTE_5[:n]
     else:
         palette = SEQUENTIAL_PALETTE_5[:n]
 
@@ -799,6 +804,7 @@ def generate_and_register_styles_with_specs(ds, style_specs: list, default_col: 
             n_classes = int(spec.get("n_classes", 5))
             classification = spec.get("classification", "quantile")
             label = spec.get("label") or col_name
+            reverse = bool(spec.get("reverse", False))
 
             if not _SAFE_COL.match(col_name):
                 logger.warning(f"Skipping unsafe column name: {col_name!r}")
@@ -816,6 +822,7 @@ def generate_and_register_styles_with_specs(ds, style_specs: list, default_col: 
                         layer_name, col_name, values, geom_type, style_name,
                         palette_name=palette_name,
                         label=label,
+                        reverse=reverse,
                     )
                 elif style_type in ("graduated", "graduated_size"):
                     if classification == "equal_interval":
@@ -832,12 +839,14 @@ def generate_and_register_styles_with_specs(ds, style_specs: list, default_col: 
                             size_min=int(spec.get("size_min", 6)),
                             size_max=int(spec.get("size_max", 24)),
                             label=label,
+                            reverse=reverse,
                         )
                     else:
                         sld_body = build_numeric_sld(
                             layer_name, col_name, breaks, geom_type, style_name,
                             palette_name=palette_name,
                             label=label,
+                            reverse=reverse,
                         )
             except Exception as e:
                 logger.error(f"SLD generation failed for column {col_name}: {e}")
