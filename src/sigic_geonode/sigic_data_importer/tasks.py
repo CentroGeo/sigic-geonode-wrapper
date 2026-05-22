@@ -144,6 +144,69 @@ def import_tabular_to_geonode(self, job_id: int, authorization: str):
             os.unlink(gpkg_path)
 
 
+@shared_task(
+    bind=True,
+    name="sigic_data_importer.build_tablero_task",
+    queue="default",
+    max_retries=0,
+    time_limit=600,
+    soft_time_limit=540,
+)
+def build_tablero_task(self, job_id: int, default_style_col: str = None):
+    """
+    Aplica metadatos al dataset, genera estilos en GeoServer y construye
+    el tablero de datos. Todo en segundo plano para evitar timeouts HTTP.
+    """
+    from .models import DataImportJob
+    from .tablero_builder import build_tablero_from_job
+    from .views import _apply_metadata_to_dataset
+
+    try:
+        job = DataImportJob.objects.get(pk=job_id)
+
+        # 1. Aplicar metadatos al dataset de GeoNode
+        if job.geonode_dataset_id:
+            _apply_metadata_to_dataset(
+                job,
+                job.original_filename,
+                job.layer_abstract,
+            )
+
+        # 2. Generar estilos en GeoServer
+        if job.geonode_dataset_id and job.style_specs and job.geo_strategy != "none":
+            try:
+                from geonode.layers.models import Dataset
+                from sigic_geonode.sigic_georeference.style_generator import (
+                    generate_and_register_styles_with_specs,
+                )
+                ds = Dataset.objects.filter(id=job.geonode_dataset_id).first()
+                if ds:
+                    generate_and_register_styles_with_specs(
+                        ds,
+                        job.style_specs,
+                        default_col=default_style_col or None,
+                    )
+            except Exception:
+                logger.exception("Style generation failed for job %s (non-fatal)", job_id)
+
+        # 3. Construir tablero
+        site_id = build_tablero_from_job(job)
+        job.dashboard_site_id = site_id
+        job.save(update_fields=["dashboard_site_id"])
+        logger.info("Tablero %s creado para job %s", site_id, job_id)
+
+    except DataImportJob.DoesNotExist:
+        logger.error("Job %s no encontrado en build_tablero_task", job_id)
+    except Exception as exc:
+        logger.error("Error creando tablero para job %s: %s", job_id, traceback.format_exc())
+        try:
+            job = DataImportJob.objects.get(pk=job_id)
+            job.error_message = f"Error creando tablero: {str(exc)[:400]}"
+            job.save(update_fields=["error_message"])
+        except Exception:
+            pass
+
+
 def _resolve_authorization(job, fallback: str) -> str:
     """
     Devuelve un header Authorization válido para las llamadas internas a GeoNode.

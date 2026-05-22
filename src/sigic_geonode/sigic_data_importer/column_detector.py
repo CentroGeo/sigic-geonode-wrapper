@@ -21,7 +21,7 @@ import pandas as pd
 _LAT_NAMES = {"lat", "latitude", "latitud", "y", "lat_dd", "latgd"}
 _LON_NAMES = {"lon", "lng", "longitude", "longitud", "x", "lon_dd", "longd", "lngd"}
 _STATE_KEY_NAMES = {"cve_ent", "cvgeo_ent", "estado_id", "clave_estado", "ent", "entidad_cve"}
-_MUN_KEY_NAMES = {"cve_mun", "cvegeo", "cve_geo", "municipio_id", "clave_municipio", "mun_id"}
+_MUN_KEY_NAMES = {"cve_mun", "cvegeo", "cve_geo", "cvegeomun", "municipio_id", "clave_municipio", "mun_id"}
 _STATE_NAME_NAMES = {"nombre_estado", "nom_ent", "entidad", "estado", "state_name", "state"}
 _MUN_NAME_NAMES = {"nombre_municipio", "nom_mun", "municipio", "municipality"}
 
@@ -185,7 +185,12 @@ def suggest_geo_strategy(schema: list) -> dict:
     """
     lat_col = next((c["name"] for c in schema if c.get("geo_role") == "lat"), None)
     lon_col = next((c["name"] for c in schema if c.get("geo_role") == "lon"), None)
-    mun_key = next((c["name"] for c in schema if c.get("geo_role") == "mun_key"), None)
+    # Prefer the 5-digit composite key (state+municipality) over the 3-digit municipal-only code
+    mun_key_cols = [c for c in schema if c.get("geo_role") == "mun_key"]
+    mun_key = next(
+        (c["name"] for c in mun_key_cols if any(len(str(v).strip()) == 5 for v in (c.get("sample_values") or []))),
+        next((c["name"] for c in mun_key_cols), None),
+    )
     state_key = next((c["name"] for c in schema if c.get("geo_role") == "state_key"), None)
     mun_name = next((c["name"] for c in schema if c.get("geo_role") == "mun_name"), None)
     state_name = next((c["name"] for c in schema if c.get("geo_role") == "state_name"), None)

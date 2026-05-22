@@ -95,6 +95,13 @@ class DataImporterViewSet(GenericViewSet):
         return Response(DataImportJobSerializer(job).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
+    # GET /api/v2/data-importer/jobs/
+    # ------------------------------------------------------------------
+    def list(self, request):
+        qs = self.get_queryset().order_by("-created_at")[:30]
+        return Response(DataImportJobSerializer(qs, many=True).data)
+
+    # ------------------------------------------------------------------
     # GET /api/v2/data-importer/jobs/{id}/
     # ------------------------------------------------------------------
     def retrieve(self, request, pk=None):
@@ -102,6 +109,21 @@ class DataImporterViewSet(GenericViewSet):
         if job is None:
             return Response({"detail": "No encontrado."}, status=404)
         return Response(DataImportJobSerializer(job).data)
+
+    # ------------------------------------------------------------------
+    # DELETE /api/v2/data-importer/jobs/{id}/
+    # ------------------------------------------------------------------
+    def destroy(self, request, pk=None):
+        job = self._get_job(pk)
+        if job is None:
+            return Response({"detail": "No encontrado."}, status=404)
+        try:
+            if job.file_path:
+                job.file_path.delete(save=False)
+        except Exception:
+            logger.warning("No se pudo eliminar el archivo del job %s", pk)
+        job.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------
     # PATCH /api/v2/data-importer/jobs/{id}/schema/
@@ -218,35 +240,20 @@ class DataImporterViewSet(GenericViewSet):
         if update_fields:
             job.save(update_fields=update_fields)
 
-        # Aplicar metadatos al dataset de GeoNode
-        if job.geonode_dataset_id:
-            _apply_metadata_to_dataset(job, d.get("name", ""), d.get("description", "") or d.get("layer_abstract", ""))
+        # Si el tablero ya fue construido, devolver el existente sin crear duplicado
+        if job.dashboard_site_id:
+            return Response({"site_id": job.dashboard_site_id, "job_id": job.id})
 
-        # Generar estilos con las preferencias del usuario
-        if job.geonode_dataset_id and job.style_specs and job.geo_strategy != "none":
-            try:
-                from geonode.layers.models import Dataset
-                from sigic_geonode.sigic_georeference.style_generator import (
-                    generate_and_register_styles_with_specs,
-                )
-                ds = Dataset.objects.filter(id=job.geonode_dataset_id).first()
-                if ds:
-                    generate_and_register_styles_with_specs(
-                        ds, job.style_specs,
-                        default_col=d.get("default_style_col") or None,
-                    )
-            except Exception:
-                logger.exception("Style generation failed for job %s (non-fatal)", pk)
+        # Limpiar error anterior de construcción de tablero si existe
+        if job.error_message.startswith("Error creando tablero:"):
+            job.error_message = ""
+            job.save(update_fields=["error_message"])
 
-        from .tablero_builder import build_tablero_from_job
-        try:
-            site_id = build_tablero_from_job(job)
-            job.dashboard_site_id = site_id
-            job.save(update_fields=["dashboard_site_id"])
-            return Response({"site_id": site_id})
-        except Exception as exc:
-            logger.exception("Error creando tablero para job %s", pk)
-            return Response({"detail": str(exc)}, status=500)
+        # Metadatos, estilos y construcción del tablero — todo en Celery
+        default_style_col = d.get("default_style_col") or None
+        from .tasks import build_tablero_task
+        build_tablero_task.delay(job.id, default_style_col)
+        return Response({"building": True, "job_id": job.id}, status=202)
 
     # ------------------------------------------------------------------
     # POST /api/v2/data-importer/jobs/{id}/finalize-layer/
