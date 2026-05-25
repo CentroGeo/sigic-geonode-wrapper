@@ -97,7 +97,7 @@ class Site(models.Model):
 
     is_public = models.BooleanField(
         verbose_name="Público",
-        default=True,
+        default=False,
         help_text="Si es verdadero el tablero es visible para todos los usuarios",
     )
 
