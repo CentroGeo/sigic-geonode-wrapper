@@ -72,8 +72,9 @@ class DataImportJob(models.Model):
         "analyzing",
         "ready",
         "importing",
+        "done",
     )
-
+    
     STATUS_CHOICES = [
         ("pending", "Pendiente"),
         ("analyzing", "Analizando"),

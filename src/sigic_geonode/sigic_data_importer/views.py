@@ -41,6 +41,7 @@ from .serializers import (
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from geonode.base.models import ResourceBase
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +69,21 @@ class DataImporterViewSet(GenericViewSet):
         return DataImportJob.objects.filter(owner=self.request.user)
         
     def _get_quota(self, user):
-        used = DataImportJob.objects.filter(
-            owner=user,
-            status__in=DataImportJob.DRAFT_STATUSES,
-        ).count()
+        approved_resource_ids = ResourceBase.objects.filter(
+            is_approved=True,
+        ).values_list("id", flat=True)
+
+        used = (
+            DataImportJob.objects.filter(
+                owner=user,
+                status__in=DataImportJob.DRAFT_STATUSES,
+            )
+            .exclude(
+                status="done",
+                geonode_dataset_id__in=approved_resource_ids,
+            )
+            .count()
+        )
 
         limit = DataImportJob.MAX_DRAFT_ITEMS
         remaining = max(limit - used, 0)
