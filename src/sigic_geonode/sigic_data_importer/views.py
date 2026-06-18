@@ -69,22 +69,28 @@ class DataImporterViewSet(GenericViewSet):
         return DataImportJob.objects.filter(owner=self.request.user)
         
     def _get_quota(self, user):
-        approved_resource_ids = ResourceBase.objects.filter(
-            is_approved=True,
+        user_resource_ids = ResourceBase.objects.filter(
+            owner=user,
         ).values_list("id", flat=True)
 
-        used = (
+        pending_jobs = (
             DataImportJob.objects.filter(
                 owner=user,
                 status__in=DataImportJob.DRAFT_STATUSES,
             )
             .exclude(
-                status="done",
-                geonode_dataset_id__in=approved_resource_ids,
+                geonode_dataset_id__in=user_resource_ids,
             )
             .count()
         )
 
+        pending_resources = ResourceBase.objects.filter(
+            owner=user,
+            resource_type__in=("dataset", "document"),
+            is_approved=False,
+        ).count()
+
+        used = pending_jobs + pending_resources
         limit = DataImportJob.MAX_DRAFT_ITEMS
         remaining = max(limit - used, 0)
 
