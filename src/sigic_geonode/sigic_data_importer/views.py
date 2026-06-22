@@ -39,6 +39,10 @@ from .serializers import (
     SchemaUpdateSerializer,
 )
 
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from geonode.base.models import ResourceBase
+
 logger = logging.getLogger(__name__)
 
 _ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls", "json"}
@@ -51,6 +55,8 @@ AUTHENTICATION_CLASSES = [
     KeycloakJWTAuthentication,
 ]
 
+User = get_user_model()
+
 
 class DataImporterViewSet(GenericViewSet):
     """Wizard de importacion de datos tabulares a tableros de datos."""
@@ -61,6 +67,43 @@ class DataImporterViewSet(GenericViewSet):
 
     def get_queryset(self):
         return DataImportJob.objects.filter(owner=self.request.user)
+        
+    def _get_quota(self, user):
+        user_resource_ids = ResourceBase.objects.filter(
+            owner=user,
+        ).values_list("id", flat=True)
+
+        pending_jobs = (
+            DataImportJob.objects.filter(
+                owner=user,
+                status__in=DataImportJob.DRAFT_STATUSES,
+            )
+            .exclude(
+                geonode_dataset_id__in=user_resource_ids,
+            )
+            .count()
+        )
+
+        pending_resources = ResourceBase.objects.filter(
+            owner=user,
+            resource_type__in=("dataset", "document"),
+            is_approved=False,
+        ).count()
+
+        used = pending_jobs + pending_resources
+        limit = DataImportJob.MAX_DRAFT_ITEMS
+        remaining = max(limit - used, 0)
+
+        return {
+            "limit": limit,
+            "used": used,
+            "remaining": remaining,
+            "can_upload": remaining > 0,
+        }
+    
+    @action(detail=False, methods=["get"], url_path="quota")
+    def quota(self, request):
+        return Response(self._get_quota(request.user))
 
     # ------------------------------------------------------------------
     # POST /api/v2/data-importer/upload/
@@ -81,18 +124,43 @@ class DataImporterViewSet(GenericViewSet):
         if file_obj.size > _MAX_FILE_SIZE:
             return Response({"detail": "Archivo demasiado grande (max 50 MB)."}, status=400)
 
-        job = DataImportJob.objects.create(
-            owner=request.user,
-            original_filename=file_obj.name,
-            file_path=file_obj,
-            file_format=ext,
-            status="pending",
+        with transaction.atomic():
+            # Bloquea temporalmente al usuario para evitar que dos cargas
+            # simultáneas superen el límite de 20.
+            User.objects.select_for_update().get(pk=request.user.pk)
+
+            quota = self._get_quota(request.user)
+
+            if not quota["can_upload"]:
+                return Response(
+                    {
+                        "detail": (
+                            "Alcanzaste el límite de 20 archivos o capas "
+                            "en borrador."
+                        ),
+                        **quota,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            job = DataImportJob.objects.create(
+                owner=request.user,
+                original_filename=file_obj.name,
+                file_path=file_obj,
+                file_format=ext,
+                status="pending",
+            )
+
+            from .tasks import analyze_uploaded_file
+
+            transaction.on_commit(
+                lambda job_id=job.id: analyze_uploaded_file.delay(job_id)
+            )
+
+        return Response(
+            DataImportJobSerializer(job).data,
+            status=status.HTTP_201_CREATED
         )
-
-        from .tasks import analyze_uploaded_file
-        analyze_uploaded_file.delay(job.id)
-
-        return Response(DataImportJobSerializer(job).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
     # GET /api/v2/data-importer/jobs/
