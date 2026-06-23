@@ -449,11 +449,49 @@ def _apply_metadata_to_dataset(job, title: str, abstract: str) -> None:
 
 
 
+_OGC_IDENTIFIERS = {
+    "geoscientificInformation",
+    "farming",
+    "elevation",
+    "utilitiesCommunication",
+    "oceans",
+    "boundaries",
+    "inlandWaters",
+    "intelligenceMilitary",
+    "environment",
+    "location",
+    "economy",
+    "planningCadastre",
+    "biota",
+    "health",
+    "imageryBaseMapsEarthCover",
+    "transportation",
+    "society",
+    "structure",
+    "climatologyMeteorologyAtmosphere",
+    "population",
+}
+
+_SIGIC_IDENTIFIERS = {
+    "medioAmbienteRecursosNaturales",
+    "infraestructuraServiciosUrbanosRegionales",
+    "territorioLimitesCatastro",
+    "sociedadDemografiaEconomia",
+    "sensoresRemotosMapasBase",
+}
+
+
 class CategoriesView(APIView):
     """
     GET /api/v2/data-importer/categories/
     Devuelve las categorias tematicas de GeoNode con gn_description traducida
     al idioma activo del servidor (es por defecto en SIGIC).
+
+    Cada objeto incluye el campo ``category_type``:
+      - ``"ogc"``   → categorías estándar ISO 19115 Topic Categories
+      - ``"sigic"`` → categorías temáticas propias de SIGIC/CentroGeo
+    Los identificadores que no pertenecen a ninguno de los dos conjuntos
+    (p. ej. ``externalCatalog``) se omiten de la respuesta.
     """
 
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -471,8 +509,12 @@ class CategoriesView(APIView):
                     "identifier": c.identifier,
                     "gn_description": gettext(c.gn_description),
                     "fa_class": c.fa_class,
+                    "category_type": (
+                        "ogc" if c.identifier in _OGC_IDENTIFIERS
+                        else "sigic"
+                    ),
                 }
                 for c in cats
-                if c.gn_description
+                if c.gn_description and c.identifier in (_OGC_IDENTIFIERS | _SIGIC_IDENTIFIERS)
             ]
         return Response(data)
