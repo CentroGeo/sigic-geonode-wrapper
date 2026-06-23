@@ -27,6 +27,70 @@ class RequestsViewSet(DynamicModelViewSet):
     def perform_create(self, serializer):
         # asignar el usuario que hace la solicitud como owner
         serializer.save(owner=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        resource_pk = request.data.get('resource_pk')
+        if resource_pk:
+            # Verificar si ya existe una solicitud para este recurso
+            existing_request = SigicRequests.objects.filter(resource_id=resource_pk).first()
+            if existing_request:
+                # Verificar que el usuario actual es el dueño o superusuario
+                if existing_request.owner != request.user and not request.user.is_superuser:
+                    from rest_framework.exceptions import PermissionDenied
+                    raise PermissionDenied("No autorizado para modificar esta solicitud.")
+                
+                # Actualizar la solicitud existente en lugar de crear una nueva
+                existing_request.status = 'pending'
+                existing_request.reviewer = None
+                existing_request.rejection_reason = None
+                existing_request.save()
+                
+                # También nos aseguramos de que el recurso no esté publicado ni aprobado hasta que se verifique
+                recurso = existing_request.resource
+                recurso.is_published = False
+                recurso.is_approved = False
+                recurso.save()
+                
+                # Devolver la respuesta serializada
+                serializer = self.get_serializer(existing_request)
+                return Response(serializer.data)
+                
+        return super().create(request, *args, **kwargs)
+
+    def revert_to_draft(self, request, *args, **kwargs):
+        resource_pk = request.data.get('resource_pk')
+        if not resource_pk:
+            return Response({"error": "resource_pk es requerido."}, status=400)
+        
+        # 1. Obtener la capa (ResourceBase)
+        from django.shortcuts import get_object_or_404
+        recurso = get_object_or_404(ResourceBase, pk=resource_pk)
+        
+        # 2. Verificar que el usuario actual es el dueño de la capa o superusuario
+        if recurso.owner != request.user and not request.user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No autorizado. Solo el propietario de la capa puede realizar esta acción.")
+        
+        # 3. Configurar el cambio de estatus de la capa en la base de datos (is_published y is_approved a False)
+        recurso.is_published = False
+        recurso.is_approved = False
+        recurso.save()
+        
+        # 4. Cambiar el estatus de la solicitud a 'editing' (Borrador / En edición)
+        requests_query = SigicRequests.objects.filter(resource=recurso)
+        
+        if requests_query.exists():
+            # Actualizamos el estatus de las solicitudes existentes a 'editing'
+            requests_query.update(status='editing', reviewer=None, rejection_reason=None)
+        else:
+            # Si por alguna razón no existía una solicitud, la creamos con estatus 'editing'
+            SigicRequests.objects.create(
+                resource=recurso,
+                owner=recurso.owner,
+                status='editing'
+            )
+            
+        return Response({"success": True, "message": "La capa ha sido regresada a edición / borrador."})
     
     def reopen(self, request):
 
