@@ -16,7 +16,7 @@ class Requests(models.Model):
     #     PENDING = 'pending', 'Pending'
     #     PUBLISHED = 'published', 'Published'
     #     REJECTED = 'rejected', 'Rejected'
-    resource = models.ForeignKey(ResourceBase, on_delete=models.PROTECT)
+    resource = models.ForeignKey(ResourceBase, on_delete=models.CASCADE)
 
     #owner
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
