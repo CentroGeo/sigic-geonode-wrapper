@@ -65,6 +65,16 @@ def _upload_path(instance, filename):
 class DataImportJob(models.Model):
     """Registro de un job de importacion de archivo tabular."""
 
+    MAX_DRAFT_ITEMS = 20
+
+    DRAFT_STATUSES = (
+        "pending",
+        "analyzing",
+        "ready",
+        "importing",
+        "done",
+    )
+    
     STATUS_CHOICES = [
         ("pending", "Pendiente"),
         ("analyzing", "Analizando"),

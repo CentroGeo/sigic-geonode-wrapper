@@ -39,6 +39,10 @@ from .serializers import (
     SchemaUpdateSerializer,
 )
 
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from geonode.base.models import ResourceBase
+
 logger = logging.getLogger(__name__)
 
 _ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls", "json"}
@@ -51,6 +55,8 @@ AUTHENTICATION_CLASSES = [
     KeycloakJWTAuthentication,
 ]
 
+User = get_user_model()
+
 
 class DataImporterViewSet(GenericViewSet):
     """Wizard de importacion de datos tabulares a tableros de datos."""
@@ -61,6 +67,43 @@ class DataImporterViewSet(GenericViewSet):
 
     def get_queryset(self):
         return DataImportJob.objects.filter(owner=self.request.user)
+        
+    def _get_quota(self, user):
+        user_resource_ids = ResourceBase.objects.filter(
+            owner=user,
+        ).values_list("id", flat=True)
+
+        pending_jobs = (
+            DataImportJob.objects.filter(
+                owner=user,
+                status__in=DataImportJob.DRAFT_STATUSES,
+            )
+            .exclude(
+                geonode_dataset_id__in=user_resource_ids,
+            )
+            .count()
+        )
+
+        pending_resources = ResourceBase.objects.filter(
+            owner=user,
+            resource_type__in=("dataset", "document"),
+            is_approved=False,
+        ).count()
+
+        used = pending_jobs + pending_resources
+        limit = DataImportJob.MAX_DRAFT_ITEMS
+        remaining = max(limit - used, 0)
+
+        return {
+            "limit": limit,
+            "used": used,
+            "remaining": remaining,
+            "can_upload": remaining > 0,
+        }
+    
+    @action(detail=False, methods=["get"], url_path="quota")
+    def quota(self, request):
+        return Response(self._get_quota(request.user))
 
     # ------------------------------------------------------------------
     # POST /api/v2/data-importer/upload/
@@ -81,18 +124,50 @@ class DataImporterViewSet(GenericViewSet):
         if file_obj.size > _MAX_FILE_SIZE:
             return Response({"detail": "Archivo demasiado grande (max 50 MB)."}, status=400)
 
-        job = DataImportJob.objects.create(
-            owner=request.user,
-            original_filename=file_obj.name,
-            file_path=file_obj,
-            file_format=ext,
-            status="pending",
+        with transaction.atomic():
+            # Bloquea temporalmente al usuario para evitar que dos cargas
+            # simultáneas superen el límite de 20.
+            User.objects.select_for_update().get(pk=request.user.pk)
+
+            quota = self._get_quota(request.user)
+
+            if not quota["can_upload"]:
+                return Response(
+                    {
+                        "detail": (
+                            "Alcanzaste el límite de 20 archivos o capas "
+                            "en borrador."
+                        ),
+                        **quota,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            job = DataImportJob.objects.create(
+                owner=request.user,
+                original_filename=file_obj.name,
+                file_path=file_obj,
+                file_format=ext,
+                status="pending",
+            )
+
+            from .tasks import analyze_uploaded_file
+
+            transaction.on_commit(
+                lambda job_id=job.id: analyze_uploaded_file.delay(job_id)
+            )
+
+        return Response(
+            DataImportJobSerializer(job).data,
+            status=status.HTTP_201_CREATED
         )
 
-        from .tasks import analyze_uploaded_file
-        analyze_uploaded_file.delay(job.id)
-
-        return Response(DataImportJobSerializer(job).data, status=status.HTTP_201_CREATED)
+    # ------------------------------------------------------------------
+    # GET /api/v2/data-importer/jobs/
+    # ------------------------------------------------------------------
+    def list(self, request):
+        qs = self.get_queryset().order_by("-created_at")[:30]
+        return Response(DataImportJobSerializer(qs, many=True).data)
 
     # ------------------------------------------------------------------
     # GET /api/v2/data-importer/jobs/{id}/
@@ -102,6 +177,21 @@ class DataImporterViewSet(GenericViewSet):
         if job is None:
             return Response({"detail": "No encontrado."}, status=404)
         return Response(DataImportJobSerializer(job).data)
+
+    # ------------------------------------------------------------------
+    # DELETE /api/v2/data-importer/jobs/{id}/
+    # ------------------------------------------------------------------
+    def destroy(self, request, pk=None):
+        job = self._get_job(pk)
+        if job is None:
+            return Response({"detail": "No encontrado."}, status=404)
+        try:
+            if job.file_path:
+                job.file_path.delete(save=False)
+        except Exception:
+            logger.warning("No se pudo eliminar el archivo del job %s", pk)
+        job.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------
     # PATCH /api/v2/data-importer/jobs/{id}/schema/
@@ -218,35 +308,20 @@ class DataImporterViewSet(GenericViewSet):
         if update_fields:
             job.save(update_fields=update_fields)
 
-        # Aplicar metadatos al dataset de GeoNode
-        if job.geonode_dataset_id:
-            _apply_metadata_to_dataset(job, d.get("name", ""), d.get("description", "") or d.get("layer_abstract", ""))
+        # Si el tablero ya fue construido, devolver el existente sin crear duplicado
+        if job.dashboard_site_id:
+            return Response({"site_id": job.dashboard_site_id, "job_id": job.id})
 
-        # Generar estilos con las preferencias del usuario
-        if job.geonode_dataset_id and job.style_specs and job.geo_strategy != "none":
-            try:
-                from geonode.layers.models import Dataset
-                from sigic_geonode.sigic_georeference.style_generator import (
-                    generate_and_register_styles_with_specs,
-                )
-                ds = Dataset.objects.filter(id=job.geonode_dataset_id).first()
-                if ds:
-                    generate_and_register_styles_with_specs(
-                        ds, job.style_specs,
-                        default_col=d.get("default_style_col") or None,
-                    )
-            except Exception:
-                logger.exception("Style generation failed for job %s (non-fatal)", pk)
+        # Limpiar error anterior de construcción de tablero si existe
+        if job.error_message.startswith("Error creando tablero:"):
+            job.error_message = ""
+            job.save(update_fields=["error_message"])
 
-        from .tablero_builder import build_tablero_from_job
-        try:
-            site_id = build_tablero_from_job(job)
-            job.dashboard_site_id = site_id
-            job.save(update_fields=["dashboard_site_id"])
-            return Response({"site_id": site_id})
-        except Exception as exc:
-            logger.exception("Error creando tablero para job %s", pk)
-            return Response({"detail": str(exc)}, status=500)
+        # Metadatos, estilos y construcción del tablero — todo en Celery
+        default_style_col = d.get("default_style_col") or None
+        from .tasks import build_tablero_task
+        build_tablero_task.delay(job.id, default_style_col)
+        return Response({"building": True, "job_id": job.id}, status=202)
 
     # ------------------------------------------------------------------
     # POST /api/v2/data-importer/jobs/{id}/finalize-layer/

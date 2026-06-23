@@ -16,6 +16,8 @@ pre-calculados, infoboxes KPI, e indicadores categoricos si aplica).
 import logging
 import re
 
+import psycopg2
+from django.conf import settings
 from geonode.layers.models import Dataset
 
 from sigic_geonode.sigic_dashboard.models import (
@@ -51,19 +53,29 @@ def _slugify(text: str, max_len: int = 200) -> str:
 
 def _get_indicator_data(field_one, field_id, table_name, cast_numeric=False):
     """
-    Obtiene datos crudos de la BD de geodatos usando la conexion de utils.geodata_conn.
-    cast_numeric=True hace ::numeric sobre field_one para que process_data lo trate
+    Obtiene datos crudos de la BD de geodatos creando una conexion fresca por llamada.
+    cast_numeric=True hace ::float8 sobre field_one para que process_data lo trate
     como numero (columnas varchar importadas desde CSV llegan como strings).
     Retorna lista de tuplas (field_one_val, field_id_val) o None si falla.
     """
-    from sigic_geonode.utils.geodata_conn import connection
+    db = settings.DATABASES["datastore"]
     try:
-        connection.rollback()
+        conn = psycopg2.connect(
+            dbname=db["NAME"],
+            user=db["USER"],
+            password=db["PASSWORD"],
+            port=db["PORT"],
+            host=db["HOST"],
+        )
     except Exception:
-        pass
+        logger.exception(
+            "_get_indicator_data: no se pudo conectar a geonode_data (table=%s col=%s)",
+            table_name, field_one,
+        )
+        return None
     try:
-        with connection.cursor() as cur:
-            # ::float8 retorna float nativo de Python (no Decimal) → pandas lo infiere como float64
+        with conn.cursor() as cur:
+            # ::float8 retorna float nativo de Python → pandas lo infiere como float64
             field_expr = f'"{field_one}"::float8' if cast_numeric else f'"{field_one}"'
             cur.execute(
                 f'SELECT {field_expr}, "{field_id}" FROM "{table_name}"'
@@ -72,11 +84,9 @@ def _get_indicator_data(field_one, field_id, table_name, cast_numeric=False):
             return cur.fetchall()
     except Exception:
         logger.exception("_get_indicator_data failed for table=%s col=%s", table_name, field_one)
-        try:
-            connection.rollback()
-        except Exception:
-            pass
         return None
+    finally:
+        conn.close()
 
 
 def _detect_nom_field(schema, geo_strategy):
@@ -205,7 +215,7 @@ def build_tablero_from_job(job) -> int:
         title=site_name,
         subtitle="Tablero generado automaticamente desde datos importados",
         url=_slugify(site_name),
-        is_public=True,
+        is_public=False,
     )
 
     SiteConfiguration.objects.create(
@@ -228,9 +238,9 @@ def build_tablero_from_job(job) -> int:
 
     # Campo ID geografico segun estrategia
     if job.geo_strategy in ("latlon", "none"):
-        geo_id_field = "fid"
+        geo_id_field = "ogc_fid"
     else:
-        geo_id_field = job.geo_field_join or "fid"
+        geo_id_field = job.geo_field_join or "ogc_fid"
 
     geo_nom_field = _detect_nom_field(schema, job.geo_strategy)
 
@@ -274,18 +284,26 @@ def build_tablero_from_job(job) -> int:
     )
 
     if style_specs:
-        # Usar las columnas configuradas por el usuario en el paso de estilos
-        for idx, spec in enumerate(style_specs[:10], start=1):
+        # Priorizar numéricos primero para que no queden enterrados si hay muchos categóricos
+        numeric_specs = [s for s in style_specs if s.get("type") in ("graduated", "graduated_size")]
+        categ_specs = [s for s in style_specs if s.get("type") == "categorical"]
+        ordered_specs = numeric_specs + categ_specs
+
+        for idx, spec in enumerate(ordered_specs[:20], start=1):
             col_name = spec["col"]
             raw_label = spec.get("label") or col_name
             col_label = raw_label.replace("_", " ").title()
             palette = _DEFAULT_PALETTES[(idx - 1) % len(_DEFAULT_PALETTES)]
+            if spec.get("reverse"):
+                palette = f"{palette}_r"
 
+            is_categorical = spec.get("type") == "categorical"
+            plot_type = "donut" if is_categorical else "bar"
             indicator = Indicator.objects.create(
                 site=site,
                 group=group,
                 name=col_label,
-                plot_type="bar",
+                plot_type=plot_type,
                 layer=dataset,
                 layer_id_field=geo_id_field,
                 layer_nom_field=geo_nom_field,
@@ -296,7 +314,10 @@ def build_tablero_from_job(job) -> int:
                 stack_order=idx,
             )
 
-            _create_infobox(indicator, col_name, f"Total: {col_label}")
+            if is_categorical:
+                _create_infobox(indicator, "__count__", f"Distribución: {col_label}")
+            else:
+                _create_infobox(indicator, col_name, f"Total: {col_label}")
 
             if layer_name:
                 _pre_compute_indicator(indicator, layer_name, palette)

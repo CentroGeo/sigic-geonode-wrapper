@@ -2,7 +2,9 @@ import logging
 from dynamic_rest.viewsets import DynamicModelViewSet
 from rest_framework import permissions
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from geonode.base.api.pagination import GeoNodeApiPagination
+from geonode.resource.manager import resource_manager
 from .models import Requests as SigicRequests
 from geonode.base.models import ResourceBase
 from .serializers import RequestsSerializer, RequestReviewerSerializer
@@ -89,6 +91,43 @@ class RequestsViewSet(DynamicModelViewSet):
             )
             
         return Response({"success": True, "message": "La capa ha sido regresada a edición / borrador."})
+    
+    def reopen(self, request):
+
+        resource_pk = request.data.get('resource_pk')
+
+        solicitud = SigicRequests.objects.filter(resource_id=resource_pk, status='published').first()
+
+        if not solicitud:
+            raise ValidationError("No existe una solicitud publicada para este recurso.")
+
+        # Corroborar identidad
+        if solicitud.owner != request.user and not request.user.is_superuser:
+            raise PermissionDenied("Solo el propietario puede volver a editar la capa.")
+
+        geonode_resource = solicitud.resource
+
+        # Sacar del catálogo
+        perm_spec = {
+            "users": {"AnonymousUser": []},
+            "groups": {"anonymous": [], "registered-members": []},
+        }
+        resource_manager.set_permissions(
+            geonode_resource.uuid,
+            instance=geonode_resource,
+            permissions=perm_spec,
+            created=False
+        )
+
+        # Cambiar estatus
+        geonode_resource.is_published = False
+        geonode_resource.is_approved = False
+        geonode_resource.save()
+
+        # Eliminar la solicitud publicada para que inicie "desde cero"
+        solicitud.delete()
+
+        return Response({"detail": "Capa reabierta para edición.", "resource_pk": geonode_resource.pk})
     
     def perform_update(self, serializer):
         # no hacer si el usuario no es admin (o reviewer tambien luego)

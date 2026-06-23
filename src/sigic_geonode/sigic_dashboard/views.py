@@ -649,6 +649,13 @@ class IndicatorViewSet(ModelViewSet):
         except Exception:
             data["layer_name"] = None
 
+        # Bounding box de la capa para centrar el mapa (minLon, minLat, maxLon, maxLat)
+        try:
+            geom = indicator.layer.ll_bbox_polygon or indicator.layer.bbox_polygon
+            data["bbox"] = list(geom.extent) if geom else None
+        except Exception:
+            data["bbox"] = None
+
         # Valores KPI para los cuadros de datos
         if indicator.show_general_values and indicator.layer:
             try:
