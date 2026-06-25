@@ -13,11 +13,15 @@
 # ==============================================================================
 
 
+from django.urls import path
+
 from sigic_geonode.router import router
 
-from .views import SigicDatasetSLDStyleViewSet
+from .views import SigicDatasetSLDStyleViewSet, SigicGlobalSLDStyleView
 
-urlpatterns = []
+urlpatterns = [
+    path("api/v2/styles/", SigicGlobalSLDStyleView.as_view(), name="global-styles"),
+]
 
 router.register(
     r"api/v2/datasets/(?P<dataset_pk>[^/.]+)/sldstyles",
