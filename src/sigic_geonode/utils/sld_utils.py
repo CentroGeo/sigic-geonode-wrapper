@@ -34,7 +34,7 @@ def _ensure_root_prefix(xml: str) -> str:
 
 def _ensure_namespace_in_root(xml: str, namespace_decl: str) -> str:
     root = _get_root_tag(xml)
-    if not root or namespace_decl in root:
+    if not root or namespace_decl in root or namespace_decl.replace('"', "'") in root:
         return xml
     new_root = root[:-1] + f" {namespace_decl}>"
     return xml.replace(root, new_root, 1)

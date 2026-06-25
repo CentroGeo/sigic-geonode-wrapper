@@ -33,6 +33,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSet
 
 ListStylesResponse = inline_serializer(
@@ -469,9 +471,27 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
 
         # Enriquecer con sld_title desde GeoNode (para mostrar nombres legibles en el frontend)
         from geonode.layers.models import Style as GNStyle
-        all_names = [s for s in associated_styles + [default_style] if s]
-        gn_styles = GNStyle.objects.filter(name__in=all_names).values("name", "sld_title")
-        style_titles = {s["name"]: s["sld_title"] or s["name"] for s in gn_styles}
+
+        # Construir variantes de nombres (con y sin prefijo workspace) para la consulta
+        local_names = []
+        for s in associated_styles + [default_style]:
+            if not s:
+                continue
+            local = s.split(":")[-1] if ":" in s else s
+            local_names.append(local)
+
+        workspace = layer_name.split(":")[0]
+        all_name_variants = list(
+            {n for local in local_names for n in [local, f"{workspace}:{local}"]}
+        )
+        gn_styles = GNStyle.objects.filter(name__in=all_name_variants).values(
+            "name", "sld_title"
+        )
+        # Normalizar claves al nombre local (sin workspace) para que coincidan con el frontend
+        style_titles = {}
+        for s in gn_styles:
+            local_key = s["name"].split(":")[-1] if ":" in s["name"] else s["name"]
+            style_titles[local_key] = s["sld_title"] or local_key
 
         return Response(
             {
@@ -756,15 +776,21 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             headers={"Content-Type": "text/xml"},
         )
 
+        style_already_existed = False
         if r_post.status_code not in (200, 201):
-            return Response(
-                {
-                    "error": "GeoServer rechazó la creación del estilo",
-                    "gs_status": r_post.status_code,
-                    "gs_response": r_post.text,
-                },
-                status=drf_status.HTTP_502_BAD_GATEWAY,
-            )
+            # GeoServer devuelve 500 cuando el estilo ya existe; en ese caso,
+            # omitir la creación y actualizar el cuerpo SLD directamente.
+            if "already exists" in r_post.text.lower():
+                style_already_existed = True
+            else:
+                return Response(
+                    {
+                        "error": "GeoServer rechazó la creación del estilo",
+                        "gs_status": r_post.status_code,
+                        "gs_response": r_post.text,
+                    },
+                    status=drf_status.HTTP_502_BAD_GATEWAY,
+                )
 
         # ---------------------------------------------
         # 2) Subir SLD (PUT)
@@ -823,14 +849,38 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
         )
 
         if r_post_layer.status_code not in (200, 201):
-            return Response(
-                {
-                    "error": "No se pudo asociar el estilo a la capa",
-                    "gs_status": r_post_layer.status_code,
-                    "gs_response": r_post_layer.text,
-                },
-                status=drf_status.HTTP_502_BAD_GATEWAY,
-            )
+            # Si el estilo ya estaba asociado a la capa, continuar sin error.
+            if not ("already exists" in r_post_layer.text.lower() or style_already_existed):
+                return Response(
+                    {
+                        "error": "No se pudo asociar el estilo a la capa",
+                        "gs_status": r_post_layer.status_code,
+                        "gs_response": r_post_layer.text,
+                    },
+                    status=drf_status.HTTP_502_BAD_GATEWAY,
+                )
+
+        # ---------------------------------------------
+        # 4) Registrar el estilo en la base de datos de GeoNode
+        # ---------------------------------------------
+        from geonode.layers.models import Style as GNStyle
+
+        url_sld = f"{gs_url}/rest/workspaces/{workspace}/styles/{name}.sld"
+        sld_body_str = sld_body.decode("utf-8") if isinstance(sld_body, bytes) else sld_body
+        gn_style, created = GNStyle.objects.get_or_create(
+            name=name,
+            defaults={
+                "sld_title": name,
+                "workspace": workspace,
+                "sld_body": sld_body_str,
+                "sld_version": "1.0.0",
+                "sld_url": url_sld,
+            },
+        )
+        if not created:
+            gn_style.sld_body = sld_body_str
+            gn_style.save(update_fields=["sld_body"])
+        dataset.styles.add(gn_style)
 
         # ---------------------------------------------
         # Final exitoso
@@ -1018,6 +1068,92 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
             },
             status=drf_status.HTTP_200_OK,
         )
+
+    # PATCH /api/v2/datasets/<id>/sldstyles/<style_name>/
+    def partial_update(self, request, dataset_pk=None, pk=None):
+        """
+        Actualiza el nombre visible (sld_title) de un estilo en GeoNode.
+
+        Solo modifica el campo sld_title del registro Style en la base de datos.
+        El nombre técnico del estilo en GeoServer no se modifica.
+
+        Parámetros
+        ----------
+        request : Request
+            Debe incluir:
+            {
+                "sld_title": "<nuevo nombre visible>"
+            }
+
+        Respuestas
+        ----------
+        HTTP 200
+            { "name": ..., "sld_title": ... }
+
+        HTTP 400
+            No se envió sld_title.
+
+        HTTP 404
+            El estilo no tiene registro en GeoNode (usar sync-from-geoserver/).
+        """
+        from geonode.layers.models import Style as GNStyle
+
+        style_name = pk
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_edit_perm(dataset, request.user)
+
+        new_title = request.data.get("sld_title", "").strip()
+        if not new_title:
+            return Response(
+                {"error": "Debe incluir 'sld_title' en el body."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        workspace = dataset.alternate.split(":")[0]
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        style = None
+        for candidate in [style_name, f"{workspace}:{style_name}"]:
+            try:
+                style = GNStyle.objects.get(name=candidate)
+                break
+            except GNStyle.DoesNotExist:
+                continue
+
+        if style is None:
+            # El estilo existe en GeoServer pero no tiene registro en GeoNode.
+            # Lo creamos automáticamente antes de aplicar el título.
+            url_sld = f"{gs_url}/rest/workspaces/{workspace}/styles/{style_name}.sld"
+            r_sld = requests.get(url_sld, auth=auth)
+            if r_sld.status_code != 200:
+                return Response(
+                    {
+                        "error": (
+                            f"El estilo '{style_name}' no existe en GeoServer "
+                            "y tampoco tiene registro en GeoNode."
+                        )
+                    },
+                    status=drf_status.HTTP_404_NOT_FOUND,
+                )
+            style = GNStyle(
+                name=style_name,
+                sld_title=style_name,
+                workspace=workspace,
+                sld_body=r_sld.text,
+                sld_version="1.0.0",
+                sld_url=url_sld,
+            )
+            style.save()
+            dataset.styles.add(style)
+
+        style.sld_title = new_title
+        style.save(update_fields=["sld_title"])
+
+        return Response({"name": style_name, "sld_title": new_title})
 
     # DELETE /api/v2/datasets/<id>/sldstyles/<style_name>/
     def destroy(self, request, dataset_pk=None, pk=None):
@@ -1386,4 +1522,217 @@ class SigicDatasetSLDStyleViewSet(ViewSet):
                 "message": "Estilo por defecto actualizado correctamente",
                 "default": style_name,
             }
+        )
+
+    # POST /api/v2/datasets/<id>/sldstyles/sync-from-geoserver/
+    @action(detail=False, methods=["post"], url_path="sync-from-geoserver")
+    def sync_from_geoserver(self, request, dataset_pk=None):
+        """
+        Sincroniza los estilos de GeoServer que no tienen registro en GeoNode.
+
+        Para cada estilo asociado al layer en GeoServer que no tenga un objeto
+        Style en la base de datos de GeoNode, descarga el SLD y crea el registro.
+        Útil para capas cuyos estilos fueron creados directamente en GeoServer
+        fuera del flujo SIGIC.
+
+        Respuestas
+        ----------
+        HTTP 200
+            {
+                "synced": N,          // estilos nuevos registrados
+                "already_registered": M  // estilos que ya existían
+                "errors": [...]       // opcional, nombres que fallaron
+            }
+        """
+        from geonode.layers.models import Style as GNStyle
+
+        dataset = self._get_dataset_or_404(dataset_pk)
+        self._check_edit_perm(dataset, request.user)
+
+        layer_name = dataset.alternate
+        workspace = layer_name.split(":")[0]
+
+        gs_url = settings.OGC_SERVER["default"]["LOCATION"].rstrip("/")
+        auth = (
+            settings.OGC_SERVER["default"]["USER"],
+            settings.OGC_SERVER["default"]["PASSWORD"],
+        )
+
+        # 1. Estilos asociados al layer
+        url_styles = f"{gs_url}/rest/layers/{layer_name}/styles.json"
+        r_styles = requests.get(url_styles, auth=auth)
+        r_styles.raise_for_status()
+
+        style_items = r_styles.json().get("styles", {}).get("style", [])
+        if isinstance(style_items, dict):
+            style_items = [style_items]
+        elif not isinstance(style_items, list):
+            style_items = []
+
+        # 2. Estilo por defecto
+        url_layer = f"{gs_url}/rest/layers/{layer_name}.json"
+        r_layer = requests.get(url_layer, auth=auth)
+        r_layer.raise_for_status()
+
+        default_raw = (
+            r_layer.json().get("layer", {}).get("defaultStyle", {}).get("name", "")
+        )
+        if ":" in default_raw:
+            default_raw = default_raw.split(":")[-1]
+
+        all_style_names = {s.get("name") for s in style_items if isinstance(s, dict)}
+        if default_raw:
+            all_style_names.add(default_raw)
+
+        if not all_style_names:
+            return Response({"synced": 0, "already_registered": 0})
+
+        # 3. Detectar cuáles ya tienen registro
+        existing_names = set(
+            GNStyle.objects.filter(name__in=all_style_names).values_list("name", flat=True)
+        )
+
+        synced = 0
+        already_registered = 0
+        errors = []
+
+        for style_name in all_style_names:
+            if style_name in existing_names:
+                already_registered += 1
+                # Garantizar asociación al dataset
+                style = GNStyle.objects.get(name=style_name)
+                dataset.styles.add(style)
+                continue
+
+            # Descargar SLD desde GeoServer
+            url_sld = f"{gs_url}/rest/workspaces/{workspace}/styles/{style_name}.sld"
+            r_sld = requests.get(url_sld, auth=auth)
+
+            if r_sld.status_code != 200:
+                errors.append(style_name)
+                continue
+
+            sld_url = url_sld
+            sld_body = r_sld.text
+
+            style = GNStyle(
+                name=style_name,
+                sld_title=style_name,
+                workspace=workspace,
+                sld_body=sld_body,
+                sld_version="1.0.0",
+                sld_url=sld_url,
+            )
+            style.save()
+            dataset.styles.add(style)
+            synced += 1
+
+        result = {"synced": synced, "already_registered": already_registered}
+        if errors:
+            result["errors"] = errors
+
+        return Response(result)
+
+
+class SigicGlobalSLDStyleView(APIView):
+    """
+    Crea un estilo SLD global en GeoServer sin asociarlo a ningún dataset.
+
+    POST /api/v2/styles/
+    Fields:
+        name      (str, opcional)  — nombre del estilo; si no se envía, se deriva del nombre del archivo
+        sld_file  (FileField, requerido)
+    Response:
+        { style_name, workspace, message }
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        sld_file = request.FILES.get("sld_file")
+        if not sld_file:
+            return Response(
+                {"error": "Se requiere el campo 'sld_file'."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            # Derivar nombre del archivo, quitar extensión .sld
+            filename = sld_file.name or "estilo"
+            name = filename.rsplit(".", 1)[0]
+
+        # Sanitizar nombre: solo letras, números, guiones y guiones bajos
+        name = re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
+        if not name:
+            name = "estilo_importado"
+
+        sld_body = sld_file.read()
+
+        from sigic_geonode.utils.sld_utils import fix_sld, needs_fix
+
+        sld_str = sld_body.decode("utf-8")
+        if needs_fix(sld_str):
+            sld_str = fix_sld(sld_str)
+        sld_body = sld_str.encode("utf-8")
+
+        try:
+            validate_sld_before_post(sld_body)
+        except SLDNeedsNormalization:
+            sld_body = normalize_mixed_sld(sld_body)
+        except InvalidSLDError as e:
+            return Response(
+                {"error": str(e)},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        gs = settings.OGC_SERVER["default"]
+        gs_url = gs["LOCATION"].rstrip("/")
+        auth = (gs["USER"], gs["PASSWORD"])
+        workspace = getattr(settings, "DEFAULT_WORKSPACE", "geonode")
+
+        # 1) Crear entrada del estilo en GeoServer
+        wrapper = f"<style><name>{name}</name><filename>{name}.sld</filename></style>"
+        r_post = requests.post(
+            f"{gs_url}/rest/workspaces/{workspace}/styles",
+            data=wrapper,
+            auth=auth,
+            headers={"Content-Type": "text/xml"},
+        )
+
+        if r_post.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer rechazó la creación del estilo",
+                    "gs_status": r_post.status_code,
+                    "gs_response": r_post.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # 2) Subir el SLD
+        r_put = requests.put(
+            f"{gs_url}/rest/workspaces/{workspace}/styles/{name}",
+            data=sld_body,
+            auth=auth,
+            headers={"Content-Type": "application/vnd.ogc.sld+xml"},
+        )
+
+        if r_put.status_code not in (200, 201):
+            return Response(
+                {
+                    "error": "GeoServer rechazó el contenido SLD",
+                    "gs_status": r_put.status_code,
+                    "gs_response": r_put.text,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(
+            {
+                "message": "Estilo creado correctamente",
+                "style_name": name,
+                "workspace": workspace,
+            },
+            status=drf_status.HTTP_201_CREATED,
         )
