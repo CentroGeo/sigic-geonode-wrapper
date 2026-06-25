@@ -82,6 +82,20 @@ class KeycloakJWTAuthentication(BaseAuthentication):
                 user.last_name = last_name
                 updated_fields.append("last_name")
 
+            # Sincronizar is_superuser/is_staff desde roles de Keycloak
+            realm_roles = payload.get("realm_access", {}).get("roles", [])
+            resource_roles = []
+            for client_roles in payload.get("resource_access", {}).values():
+                resource_roles.extend(client_roles.get("roles", []))
+            all_roles = set(realm_roles + resource_roles)
+            is_admin = bool(all_roles & {"admin", "realm-admin", "sigic-admin"})
+            if user.is_superuser != is_admin:
+                user.is_superuser = is_admin
+                updated_fields.append("is_superuser")
+            if user.is_staff != is_admin:
+                user.is_staff = is_admin
+                updated_fields.append("is_staff")
+
             if updated_fields:
                 user.save(update_fields=updated_fields)
 

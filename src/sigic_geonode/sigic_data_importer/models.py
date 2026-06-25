@@ -15,6 +15,7 @@ IneiBaseLayer registra las capas MGN precargadas para joins geograficos.
 
 import os
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 
@@ -65,7 +66,7 @@ def _upload_path(instance, filename):
 class DataImportJob(models.Model):
     """Registro de un job de importacion de archivo tabular."""
 
-    MAX_DRAFT_ITEMS = 20
+    MAX_DRAFT_ITEMS = 999 if settings.DEBUG else 20
 
     DRAFT_STATUSES = (
         "pending",
