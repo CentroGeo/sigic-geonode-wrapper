@@ -37,6 +37,8 @@ from .models import (
     Site,
     SiteConfiguration,
     SiteLogos,
+    SiteTopBar,
+    SiteTopBarLogo,
     SubGroup,
 )
 from .permissions import IsDashboardAdmin, IsSiteOwner
@@ -62,6 +64,9 @@ from .serializers import (
     SiteListSerializer,
     SiteLogosCreateSerializer,
     SiteLogosSerializer,
+    SiteTopBarLogoCreateSerializer,
+    SiteTopBarLogoSerializer,
+    SiteTopBarSerializer,
     SiteUpdateSerializer,
     SubGroupCreateSerializer,
     SubGroupSerializer,
@@ -165,7 +170,9 @@ class SiteViewSet(ModelViewSet):
         """Retorna los logos del sitio."""
         site = self.get_object()
         serializer = SiteLogosSerializer(
-            site.logos.order_by("stack_order"), many=True
+            site.logos.order_by("stack_order"),
+            many=True,
+            context={"request": request},
         )
         return Response(serializer.data)
 
@@ -656,14 +663,17 @@ class IndicatorViewSet(ModelViewSet):
         except Exception:
             data["bbox"] = None
 
-        # Valores KPI para los cuadros de datos
+        # Valores KPI para los cuadros de datos.
+        # Primero intenta calcular dinámicamente desde la capa WFS (SUM/AVG reales).
+        # Si la capa no tiene los campos (p.ej. capa base de estados sin datos joinados),
+        # cae al campo general_values pre-computado del indicador.
+        kpi_dinamico = {}
         if indicator.show_general_values and indicator.layer:
             try:
-                data["general_values"] = _fetch_kpi_values(indicator.layer.name, boxes)
+                kpi_dinamico = _fetch_kpi_values(indicator.layer.name, boxes) or {}
             except Exception:
-                data["general_values"] = {}
-        else:
-            data["general_values"] = {}
+                kpi_dinamico = {}
+        data["general_values"] = kpi_dinamico if kpi_dinamico else (indicator.general_values or {})
 
         return Response({"data": data})
 
@@ -939,6 +949,85 @@ class IndicatorFieldBoxInfoViewSet(ModelViewSet):
                 box.save(update_fields=["stack_order"])
                 updated_count += 1
             except IndicatorFieldBoxInfo.DoesNotExist:
+                continue
+
+        return Response({"success": True, "updated_count": updated_count})
+
+
+# ---------------------------------------------------------------------------
+# SiteTopBarViewSet
+# ---------------------------------------------------------------------------
+
+class SiteTopBarViewSet(ModelViewSet):
+    """Configuración de la banda institucional superior (get_or_create por site_id)."""
+
+    authentication_classes = AUTHENTICATION_CLASSES
+    queryset = SiteTopBar.objects.select_related("site").all()
+    serializer_class = SiteTopBarSerializer
+    lookup_field = "site_id"
+    http_method_names = ["get", "put", "patch", "head", "options"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        site_id = self.request.query_params.get("site")
+        if site_id:
+            qs = qs.filter(site_id=site_id)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsDashboardAdmin()]
+
+    def get_object(self):
+        site_id = self.kwargs.get("site_id")
+        site = get_object_or_404(Site, id=site_id)
+        top_bar, _ = SiteTopBar.objects.get_or_create(site=site)
+        return top_bar
+
+
+# ---------------------------------------------------------------------------
+# SiteTopBarLogoViewSet
+# ---------------------------------------------------------------------------
+
+class SiteTopBarLogoViewSet(ModelViewSet):
+    """ViewSet para gestionar logos de la banda institucional superior."""
+
+    authentication_classes = AUTHENTICATION_CLASSES
+    queryset = SiteTopBarLogo.objects.all().order_by("stack_order")
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        top_bar_id = self.request.query_params.get("top_bar")
+        if top_bar_id:
+            qs = qs.filter(top_bar_id=top_bar_id)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsDashboardAdmin()]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return SiteTopBarLogoCreateSerializer
+        return SiteTopBarLogoSerializer
+
+    @action(detail=False, methods=["post"], url_path="bulk-reorder")
+    def bulk_reorder(self, request):
+        """Reordena logos de la banda en bloque."""
+        serializer = ReorderSerializer(data=request.data, many=True)
+        serializer.is_valid(raise_exception=True)
+
+        updated_count = 0
+        for item in serializer.validated_data:
+            try:
+                logo = SiteTopBarLogo.objects.get(id=item["id"])
+                logo.stack_order = item["stack_order"]
+                logo.save(update_fields=["stack_order"])
+                updated_count += 1
+            except SiteTopBarLogo.DoesNotExist:
                 continue
 
         return Response({"success": True, "updated_count": updated_count})

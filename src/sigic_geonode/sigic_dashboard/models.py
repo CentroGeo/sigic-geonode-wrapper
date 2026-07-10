@@ -519,6 +519,91 @@ class IndicatorFieldBoxInfo(models.Model):
         ordering = ["stack_order"]
 
 
+class SiteTopBar(models.Model):
+    """Banda institucional superior configurable por tablero."""
+
+    site = models.OneToOneField(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="top_bar",
+    )
+
+    show = models.BooleanField(
+        verbose_name="Mostrar banda",
+        default=False,
+    )
+
+    title = models.CharField(
+        verbose_name="Título (lado izquierdo)",
+        max_length=255,
+        blank=True,
+        default="",
+    )
+
+    background_color = models.CharField(
+        verbose_name="Color de fondo",
+        max_length=40,
+        default="#ffffff",
+    )
+
+    text_color = models.CharField(
+        verbose_name="Color de texto",
+        max_length=40,
+        default="#333333",
+    )
+
+    height = models.IntegerField(
+        verbose_name="Alto (px)",
+        default=60,
+    )
+
+    class Meta:
+        db_table = "sigic_dashboard_site_top_bar"
+
+
+class SiteTopBarLogo(models.Model):
+    """Logo de la banda institucional superior."""
+
+    top_bar = models.ForeignKey(
+        SiteTopBar,
+        on_delete=models.CASCADE,
+        related_name="logos",
+    )
+
+    icon = models.ImageField(
+        verbose_name="Imagen subida",
+        upload_to="dashboard/top_bar_logos/",
+        blank=True,
+        null=True,
+        default=None,
+    )
+
+    icon_url = models.URLField(
+        verbose_name="URL externa de imagen",
+        blank=True,
+        default="",
+    )
+
+    icon_link = models.URLField(
+        verbose_name="Enlace al hacer clic",
+        blank=True,
+        default="",
+    )
+
+    alt_text = models.CharField(
+        verbose_name="Texto alternativo",
+        max_length=150,
+        blank=True,
+        default="",
+    )
+
+    stack_order = models.IntegerField(default=1)
+
+    class Meta:
+        db_table = "sigic_dashboard_site_top_bar_logo"
+        ordering = ["stack_order"]
+
+
 class SiteConfiguration(models.Model):
 
     site = models.OneToOneField(

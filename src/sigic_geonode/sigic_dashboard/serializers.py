@@ -21,6 +21,8 @@ from .models import (
     Site,
     SiteConfiguration,
     SiteLogos,
+    SiteTopBar,
+    SiteTopBarLogo,
     SubGroup,
 )
 
@@ -50,20 +52,53 @@ class SiteListSerializer(serializers.ModelSerializer):
         return obj.owner_id == user.pk
 
 
+class SiteTopBarLogoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteTopBarLogo
+        fields = ["id", "top_bar", "icon", "icon_url", "icon_link", "alt_text", "stack_order"]
+        read_only_fields = ["id"]
+
+
+class SiteTopBarLogoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteTopBarLogo
+        fields = ["top_bar", "icon", "icon_url", "icon_link", "alt_text", "stack_order"]
+
+
+class SiteTopBarSerializer(serializers.ModelSerializer):
+    logos = SiteTopBarLogoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SiteTopBar
+        fields = ["id", "site", "show", "title", "background_color", "text_color", "height", "logos"]
+        read_only_fields = ["id", "logos"]
+
+
 class SiteDetailSerializer(SiteListSerializer):
     logos = serializers.SerializerMethodField()
     configuration = serializers.SerializerMethodField()
+    top_bar = serializers.SerializerMethodField()
 
     class Meta(SiteListSerializer.Meta):
-        fields = SiteListSerializer.Meta.fields + ["info_text", "logos", "configuration"]
+        fields = SiteListSerializer.Meta.fields + ["info_text", "logos", "configuration", "top_bar"]
 
     def get_logos(self, obj):
-        return SiteLogosSerializer(obj.logos.order_by("stack_order"), many=True).data
+        return SiteLogosSerializer(
+            obj.logos.order_by("stack_order"),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_configuration(self, obj):
         try:
             return SiteConfigurationSerializer(obj.configuration).data
         except SiteConfiguration.DoesNotExist:
+            return None
+
+    def get_top_bar(self, obj):
+        try:
+            return SiteTopBarSerializer(obj.top_bar, context=self.context).data
+        except SiteTopBar.DoesNotExist:
             return None
 
 
