@@ -17,6 +17,8 @@ from .views import (
     SiteConfigurationViewSet,
     SiteLogosViewSet,
     SitePreviewView,
+    SiteTopBarLogoViewSet,
+    SiteTopBarViewSet,
     SiteViewSet,
     SubGroupViewSet,
 )
@@ -43,6 +45,16 @@ router.register(
     r"api/v2/dashboard/site-configs",
     SiteConfigurationViewSet,
     basename="dashboard-site-configs",
+)
+router.register(
+    r"api/v2/dashboard/top-bars",
+    SiteTopBarViewSet,
+    basename="dashboard-top-bars",
+)
+router.register(
+    r"api/v2/dashboard/top-bar-logos",
+    SiteTopBarLogoViewSet,
+    basename="dashboard-top-bar-logos",
 )
 
 urlpatterns = [
