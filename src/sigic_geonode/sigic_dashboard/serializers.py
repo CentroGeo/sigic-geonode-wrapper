@@ -62,7 +62,8 @@ class SiteTopBarLogoSerializer(serializers.ModelSerializer):
 class SiteTopBarLogoCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteTopBarLogo
-        fields = ["top_bar", "icon", "icon_url", "icon_link", "alt_text", "stack_order"]
+        fields = ["id", "top_bar", "icon", "icon_url", "icon_link", "alt_text", "stack_order"]
+        read_only_fields = ["id"]
 
 
 class SiteTopBarSerializer(serializers.ModelSerializer):
@@ -129,7 +130,8 @@ class SiteCreateSerializer(serializers.ModelSerializer):
 class SiteUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = ["name", "title", "subtitle", "url", "info_text", "is_public"]
+        fields = ["id", "name", "title", "subtitle", "url", "info_text", "is_public"]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "name": {"required": False},
             "title": {"required": False},
@@ -157,7 +159,8 @@ class SiteLogosSerializer(serializers.ModelSerializer):
 class SiteLogosCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteLogos
-        fields = ["site", "icon", "icon_link"]
+        fields = ["id", "site", "icon", "icon_link"]
+        read_only_fields = ["id"]
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +170,13 @@ class SiteLogosCreateSerializer(serializers.ModelSerializer):
 class IndicatorGroupListSerializer(serializers.ModelSerializer):
     class Meta:
         model = IndicatorGroup
-        fields = ["id", "site", "name", "description", "stack_order"]
+        fields = ["id", "site", "name", "description", "info_text", "stack_order"]
         read_only_fields = ["id"]
 
 
 class IndicatorGroupDetailSerializer(IndicatorGroupListSerializer):
     class Meta(IndicatorGroupListSerializer.Meta):
-        fields = IndicatorGroupListSerializer.Meta.fields + ["info_text"]
+        pass
 
 
 class IndicatorGroupCreateSerializer(serializers.ModelSerializer):
@@ -186,7 +189,8 @@ class IndicatorGroupCreateSerializer(serializers.ModelSerializer):
 class IndicatorGroupUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = IndicatorGroup
-        fields = ["name", "info_text", "description", "stack_order"]
+        fields = ["id", "name", "info_text", "description", "stack_order"]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "name": {"required": False},
             "info_text": {"required": False},
@@ -211,13 +215,15 @@ class SubGroupSerializer(serializers.ModelSerializer):
 class SubGroupCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubGroup
-        fields = ["group", "name", "info_text", "icon", "icon_custom"]
+        fields = ["id", "group", "name", "info_text", "icon", "icon_custom"]
+        read_only_fields = ["id"]
 
 
 class SubGroupUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubGroup
-        fields = ["name", "info_text", "icon", "icon_custom", "stack_order"]
+        fields = ["id", "name", "info_text", "icon", "icon_custom", "stack_order"]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "name": {"required": False},
             "info_text": {"required": False},
@@ -257,6 +263,7 @@ class IndicatorFieldBoxInfoCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = IndicatorFieldBoxInfo
         fields = [
+            "id",
             "indicator",
             "field",
             "is_percentage",
@@ -271,6 +278,7 @@ class IndicatorFieldBoxInfoCreateSerializer(serializers.ModelSerializer):
             "text_color",
             "stack_order",
         ]
+        read_only_fields = ["id"]
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +298,15 @@ class IndicatorListSerializer(serializers.ModelSerializer):
             "plot_type",
             "is_histogram",
             "stack_order",
+            # Campos que necesita el formulario de edición del panel de administración
+            # (RepositorioIndicadores le pasa el objeto de esta lista, no el de detalle).
+            "info_text",
+            "category_method",
+            "field_category",
+            "colors",
+            "use_single_field",
+            "show_general_values",
+            "high_values_percentage",
         ]
         read_only_fields = ["id"]
 
@@ -299,24 +316,17 @@ class IndicatorDetailSerializer(IndicatorListSerializer):
 
     class Meta(IndicatorListSerializer.Meta):
         fields = IndicatorListSerializer.Meta.fields + [
-            "info_text",
             "layer_id_field",
             "layer_nom_field",
-            "high_values_percentage",
-            "use_single_field",
             "histogram_fields",
             "field_one",
             "field_two",
             "field_popup",
-            "category_method",
-            "field_category",
-            "colors",
             "use_custom_colors",
             "custom_colors",
             "plot_config",
             "plot_values",
             "map_values",
-            "show_general_values",
             "use_filter",
             "filters",
             "infoboxes",
@@ -369,6 +379,7 @@ class IndicatorUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Indicator
         fields = [
+            "id",
             "site",
             "group",
             "subgroup",
@@ -398,7 +409,8 @@ class IndicatorUpdateSerializer(serializers.ModelSerializer):
             "filters",
             "stack_order",
         ]
-        extra_kwargs = {f: {"required": False} for f in fields}
+        read_only_fields = ["id"]
+        extra_kwargs = {f: {"required": False} for f in fields if f != "id"}
 
 
 class IndicatorBuildDataSerializer(serializers.Serializer):
