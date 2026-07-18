@@ -13,6 +13,7 @@ import jenkspy
 import numpy as np
 import pandas as pd
 import psycopg2
+from psycopg2 import sql
 
 from django.conf import settings
 
@@ -31,7 +32,7 @@ def get_data_from_db(attributes, field_id, table_name):
     Return:
         (list): Lista de tuplas con los atributos de la capa.
     """
-    db = settings.DATABASES["geonode_data"]
+    db = settings.DATABASES["datastore"]
     conn = psycopg2.connect(
         dbname=db["NAME"],
         user=db["USER"],
@@ -44,19 +45,15 @@ def get_data_from_db(attributes, field_id, table_name):
         cur = conn.cursor()
 
         if isinstance(attributes, list):
-            fields = (
-                '"'
-                + attributes[0]
-                + '","'
-                + attributes[1]
-                + '","'
-                + field_id
-                + '"'
-            )
+            columns = attributes + [field_id]
         else:
-            fields = '"' + attributes + '","' + field_id + '"'
+            columns = [attributes, field_id]
 
-        cur.execute("select %s from %s;" % (fields, table_name))
+        query = sql.SQL("SELECT {fields} FROM {table};").format(
+            fields=sql.SQL(", ").join(sql.Identifier(c) for c in columns),
+            table=sql.Identifier(table_name),
+        )
+        cur.execute(query)
         results = cur.fetchall()
         return results
     except Exception as e:
